@@ -1,0 +1,23 @@
+// Made-up sample handbook for the demo. Replace with Beztak's real handbook later.
+export const HANDBOOK = [
+  { id: 'pto', section: '4.1', title: 'Paid Time Off (PTO)', keywords: ['pto', 'vacation', 'time off', 'days off', 'leave balance', 'accrue', 'accrual', 'holiday'],
+    text: 'Full-time employees accrue 1.25 PTO days per month (15 days per year). After 3 years of service the rate rises to 1.67 days per month (20 days per year). PTO requests should be submitted in the HR portal at least 2 weeks in advance and are approved by your direct manager. Up to 5 unused days roll over each January 1.' },
+  { id: 'sick', section: '4.3', title: 'Sick Leave', keywords: ['sick', 'ill', 'illness', 'doctor', 'medical appointment', 'unwell'],
+    text: 'Employees receive 6 paid sick days per calendar year. Notify your manager as early as possible on the day of absence. A doctor\'s note is required for absences of 3 or more consecutive days.' },
+  { id: 'parental', section: '4.5', title: 'Parental Leave', keywords: ['parental', 'maternity', 'paternity', 'baby', 'newborn', 'adoption', 'pregnant', 'parent'],
+    text: 'Employees with at least 12 months of service are eligible for 12 weeks of parental leave, with 6 weeks at full pay and the remaining weeks unpaid. Leave may begin up to 2 weeks before the expected birth or placement date. Please notify HR at least 30 days in advance when possible.' },
+  { id: 'benefits', section: '5.1', title: 'Health Benefits Enrollment', keywords: ['health', 'insurance', 'dental', 'vision', 'benefits', 'enroll', 'enrollment', 'coverage', 'medical plan'],
+    text: 'New hires may enroll in medical, dental, and vision coverage within 30 days of their start date. Coverage begins on the first of the month after enrollment. Open enrollment for all employees runs November 1-15 each year. Qualifying life events (marriage, birth, loss of other coverage) allow changes within 30 days of the event.' },
+  { id: '401k', section: '5.4', title: '401(k) Retirement Plan', keywords: ['401k', '401(k)', 'retirement', 'match', 'matching', 'vesting'],
+    text: 'Employees are eligible to join the 401(k) plan after 60 days of employment. Beztak matches 100% of the first 3% of pay and 50% of the next 2%. Company match vests over 3 years.' },
+  { id: 'remote', section: '6.2', title: 'Remote and Hybrid Work', keywords: ['remote', 'work from home', 'wfh', 'hybrid', 'home office', 'telework'],
+    text: 'Corporate office roles may work remotely up to 2 days per week with manager approval. Property-site roles (leasing, maintenance, community management) are on-site. Employees working remotely must be reachable during core hours of 10am-3pm local time.' },
+  { id: 'expenses', section: '7.1', title: 'Expense Reimbursement', keywords: ['expense', 'reimburse', 'reimbursement', 'receipt', 'mileage', 'travel', 'per diem'],
+    text: 'Submit expense reports within 30 days with itemized receipts for any purchase over $25. Mileage for approved business travel is reimbursed at the current IRS rate. Reimbursements are paid with the next regular payroll after manager approval.' },
+  { id: 'payroll', section: '3.2', title: 'Pay Schedule', keywords: ['payroll', 'paycheck', 'pay day', 'payday', 'direct deposit', 'pay stub', 'paid', 'w-2', 'w2'],
+    text: 'Employees are paid bi-weekly on Fridays by direct deposit. Pay stubs and tax forms (W-2) are available in the HR portal. Direct deposit changes must be submitted by the Monday before pay day to take effect that cycle.' },
+  { id: 'harassment', section: '9.1', title: 'Harassment and Complaint Reporting', keywords: ['harass', 'harassment', 'discrimination', 'complaint', 'hostile', 'retaliation', 'bully', 'misconduct', 'unsafe'],
+    text: 'Beztak prohibits harassment, discrimination, and retaliation. Employees may report concerns to HR, to any manager, or anonymously through the ethics line. All reports are investigated promptly and confidentially to the extent possible.' },
+  { id: 'resign', section: '10.2', title: 'Resignation and Final Pay', keywords: ['resign', 'resignation', 'quit', 'notice', 'last day', 'final paycheck', 'termination', 'offboarding'],
+    text: 'We ask for 2 weeks written notice of resignation. Final pay is issued on the next regular pay day and includes accrued, unused PTO. Benefits end on the last day of the month of separation. Return all company property on or before your last day.' },
+]

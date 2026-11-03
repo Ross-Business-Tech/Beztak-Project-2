@@ -1,122 +1,105 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+import { useMemo, useState } from 'react'
+import { TICKETS } from './tickets.js'
+import { draftReply } from './draft.js'
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+const AUTO_THRESHOLD = 85
+
+export default function App() {
+  const drafts = useMemo(() => Object.fromEntries(TICKETS.map((t) => [t.id, draftReply(t)])), [])
+  const [selected, setSelected] = useState(null)
+  const [status, setStatus] = useState({}) // id -> 'sent' | 'auto'
+  const [edits, setEdits] = useState({})
+  const [auto, setAuto] = useState(false)
+  const [openCite, setOpenCite] = useState(null)
+
+  const statusOf = (t) => status[t.id] || (auto && drafts[t.id].confidence >= AUTO_THRESHOLD && !drafts[t.id].flag ? 'auto' : 'open')
+  const open = TICKETS.filter((t) => statusOf(t) === 'open').length
+  const ticket = TICKETS.find((t) => t.id === selected)
+  const draft = ticket && drafts[ticket.id]
+  const text = ticket ? (edits[ticket.id] ?? draft.text) : ''
+  const minutesSaved = TICKETS.filter((t) => statusOf(t) !== 'open').length * 12
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
+    <div className="app">
+      <header className="top">
         <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
+          <h1>Beztak HR Assistant</h1>
+          <p className="sub">{open} open · about {minutesSaved} min of HR time saved today</p>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+        <label className="toggle">
+          <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} />
+          <span>Auto-send high-confidence replies (≥{AUTO_THRESHOLD}%)</span>
+        </label>
+      </header>
 
-      <div className="ticks"></div>
+      <div className={'layout' + (ticket ? ' has-selection' : '')}>
+        <ul className="list" aria-label="HR tickets">
+          {TICKETS.map((t) => {
+            const st = statusOf(t)
+            const d = drafts[t.id]
+            return (
+              <li key={t.id}>
+                <button className={'row' + (t.id === selected ? ' active' : '')} onClick={() => { setSelected(t.id); setOpenCite(null) }}>
+                  <span className="row-top"><b>{t.from}</b><span className="time">{t.received}</span></span>
+                  <span className="row-subject">{t.subject}</span>
+                  <span className="row-meta">
+                    {st === 'open' ? <span className={'pill ' + (d.flag ? 'warn' : 'ok')}>{d.flag ? 'Needs review' : `Draft ready · ${d.confidence}%`}</span>
+                      : <span className="pill done">{st === 'auto' ? 'Auto-sent' : 'Sent'}</span>}
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        <main className="detail">
+          {!ticket ? (
+            <div className="empty">Select a ticket to see the AI-drafted reply and the handbook sections it cites.</div>
+          ) : (
+            <>
+              <button className="back" onClick={() => setSelected(null)}>← All tickets</button>
+              <div className="card">
+                <div className="meta">{ticket.id} · {ticket.from}, {ticket.role}</div>
+                <h2>{ticket.subject}</h2>
+                <p className="question">{ticket.body}</p>
+              </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+              <div className="card">
+                <div className="draft-head">
+                  <h3>AI-drafted reply</h3>
+                  <span className={'conf ' + (draft.confidence >= AUTO_THRESHOLD ? 'hi' : draft.confidence >= 50 ? 'mid' : 'lo')}>{draft.confidence}% confident</span>
+                </div>
+                {draft.flag && <div className="flag">⚠ {draft.flag}</div>}
+                <textarea
+                  value={text}
+                  disabled={statusOf(ticket) !== 'open'}
+                  onChange={(e) => setEdits({ ...edits, [ticket.id]: e.target.value })}
+                  rows={12}
+                />
+                {draft.citations.length > 0 && (
+                  <div className="cites">
+                    <div className="cites-title">Sources from the employee handbook</div>
+                    {draft.citations.map((c) => (
+                      <div key={c.id} className="cite">
+                        <button onClick={() => setOpenCite(openCite === c.id ? null : c.id)}>§{c.section} {c.title} {openCite === c.id ? '▾' : '▸'}</button>
+                        {openCite === c.id && <blockquote>{c.text}</blockquote>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {statusOf(ticket) === 'open' ? (
+                  <div className="actions">
+                    <button className="primary" onClick={() => setStatus({ ...status, [ticket.id]: 'sent' })}>Approve &amp; send</button>
+                    <button onClick={() => setEdits({ ...edits, [ticket.id]: undefined })}>Reset draft</button>
+                  </div>
+                ) : <div className="sent">✓ Reply {statusOf(ticket) === 'auto' ? 'sent automatically' : 'sent'} to {ticket.from}</div>}
+              </div>
+            </>
+          )}
+        </main>
+      </div>
+      <footer className="note">Demo with made-up employees and a sample handbook. Drafts are matched to handbook sections by keyword; the real version will use an AI model.</footer>
+    </div>
   )
 }
-
-export default App
