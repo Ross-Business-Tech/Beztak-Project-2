@@ -1,5 +1,5 @@
 import { CATEGORIES, SEVERITIES } from '../../data/defaults'
-import { BLOCKS, GROUPS, titleOf } from '../../workflow/blocks'
+import { BLOCKS, GROUPS, TICKET_STATUSES, titleOf } from '../../workflow/blocks'
 import { Icon, Toggle } from '../ui'
 import ConditionEditor from './ConditionEditor'
 
@@ -71,6 +71,21 @@ function Form({ kind, config, set }) {
         <div className="field"><label>Message</label><textarea rows={3} value={config.message} onChange={(e) => set({ message: e.target.value })} /></div>
       </>
     )
+    case 'ticket_status': return (
+      <div className="field"><label>Set the ticket to</label><p className="muted small">Pick a common status or type the exact status name used in Zoro.</p>
+        <select value={TICKET_STATUSES.includes(config.status) ? config.status : '__custom'} onChange={(e) => set({ status: e.target.value === '__custom' ? '' : e.target.value })}>
+          {TICKET_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}<option value="__custom">Something else...</option></select>
+        {!TICKET_STATUSES.includes(config.status) && <input type="text" style={{ marginTop: 8 }} value={config.status} placeholder="Exact Zoro status name" onChange={(e) => set({ status: e.target.value })} />}
+      </div>
+    )
+    case 'ticket_tag': return (
+      <>
+        <Row title="Tag with the risks found" hint="Adds the name of every risk that was flagged, such as Harassment."><Toggle label="Tag with the risks found" checked={config.fromRisks} onChange={(v) => set({ fromRisks: v })} /></Row>
+        <div className="field" style={{ marginTop: 12 }}><label>Other tags to always add</label><p className="muted small">One per line.</p>
+          <textarea rows={3} defaultValue={config.tags.join('\n')} onBlur={(e) => set({ tags: e.target.value.split(/[\n,]/).map((t) => t.trim()).filter(Boolean) })} /></div>
+      </>
+    )
+    case 'ticket_assign': return <div className="field"><label>Assign the ticket to</label><input type="text" value={config.assignee} onChange={(e) => set({ assignee: e.target.value })} /></div>
     case 'email_out': return <Row title="A person approves first" hint="On: the reply waits in the Review queue marked ready to send. Off: it is sent automatically."><Toggle label="Require approval" checked={config.requireApproval} onChange={(v) => set({ requireApproval: v })} /></Row>
     case 'review': return (
       <>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../store'
+import { TicketActions } from './Lab'
 import { Badge, Card, HelpPanel, Icon, ConfidenceMeter, Empty, PageHeader, Segmented, SeverityBadge, StatusBadge, Trace, catLabel, fmtDate, timeAgo } from '../components/ui'
 
 const FILTERS = [
@@ -96,6 +97,7 @@ function Detail({ email, onBack }) {
             <div className="email-box">{email.body}</div>
           </Card>
           <Card title="Why it's here"><ul style={{ margin: 0, paddingLeft: 18 }}>{r.reasons.map((x, i) => <li key={i}>{x}</li>)}</ul>
+            {r.ticketActions?.length > 0 && <TicketActions actions={r.ticketActions} />}
             {(r.owner || r.priority === 'urgent' || r.alerts?.length > 0) && (
               <p className="small" style={{ marginTop: 10 }}>{r.priority === 'urgent' && <Badge tone="red">Urgent</Badge>} {r.owner && <>Suggested owner: <strong>{r.owner}</strong>. </>}{r.alerts?.length > 0 && <>Alerted: {r.alerts.map((a) => a.role).join(', ')}.</>}</p>
             )}

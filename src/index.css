@@ -202,7 +202,7 @@ tr:last-child td { border-bottom: 0; }
 @media (max-width: 860px) { .safeguards { grid-template-columns: 1fr; } .help-body { padding-left: 16px; } }
 
 /* ---------- workflow editor ---------- */
-.wf-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr) auto; gap: 12px; align-items: stretch; }
+.wf-layout { display: grid; grid-template-columns: 236px minmax(0, 1fr) auto; gap: 12px; align-items: stretch; }
 .wf-canvas { height: clamp(520px, 72vh, 820px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; min-width: 0; }
 .wf-canvas .react-flow { --xy-background-color: var(--surface); --xy-edge-stroke-default: #7a8699; }
 .wf-panel { margin-bottom: 14px; }
@@ -245,7 +245,7 @@ tr:last-child td { border-bottom: 0; }
 .checks li { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; } .checks li > span:not(.badge) { flex: 1 1 260px; }
 #add-block-mobile { display: none; }
 
-@media (max-width: 1100px) { .wf-layout { grid-template-columns: 190px minmax(0, 1fr); } .inspector { position: fixed; z-index: 45; left: 12px; right: 12px; bottom: 12px; width: auto; max-height: 62vh; box-shadow: 0 -8px 30px rgba(0, 0, 0, .35); } }
+@media (max-width: 1100px) { .wf-layout { grid-template-columns: 220px minmax(0, 1fr); } .inspector { position: fixed; z-index: 45; left: 12px; right: 12px; bottom: 12px; width: auto; max-height: 62vh; box-shadow: 0 -8px 30px rgba(0, 0, 0, .35); } }
 @media (max-width: 860px) {
   .wf-layout { grid-template-columns: 1fr; } .wf-palette-col { display: none; } #add-block-mobile { display: inline-flex; }
   .wf-canvas { height: 62vh; } .react-flow__minimap { display: none; }
@@ -266,3 +266,63 @@ tr:last-child td { border-bottom: 0; }
 .preset-save h3 { margin-bottom: 10px; }
 .preset-save .field { margin-bottom: 10px; }
 @media (max-width: 700px) { .preset-grid, .preset-list { grid-template-columns: 1fr; } }
+
+.ticket-actions { background: var(--surface-2); border-radius: 6px; padding: 10px 12px; margin: 10px 0; } .ticket-actions ul { margin: 6px 0 0; padding-left: 18px; }
+
+/* ================= workflow editor: higher contrast, cleaner ================= */
+:root { --port-good: #14733f; --port-bad: #b3261e; --port-info: #1f5fc4; --port-neutral: #5b6677; }
+.wf-canvas { --wf-bg: #eef1f5; --wf-dot: #a9b3c1; --wf-edge: #2e3b4e; --node-border: #263447; --node-shadow: 0 2px 8px rgba(15, 23, 42, .28); }
+@media (prefers-color-scheme: dark) { :root { --port-good: #62d495; --port-bad: #ff8d83; --port-info: #86b4f7; --port-neutral: #a3afc0; } .wf-canvas { --wf-bg: #0b1016; --wf-dot: #4a586d; --wf-edge: #d3dbe6; --node-border: #94a1b5; --node-shadow: 0 2px 10px rgba(0, 0, 0, .6); } }
+.wf-canvas { border: 2px solid var(--border); background: var(--wf-bg); }
+.wf-canvas .react-flow { --xy-background-color: var(--wf-bg); --xy-background-pattern-dots-color-default: var(--wf-dot); --xy-edge-stroke-default: var(--wf-edge); --xy-controls-button-background-color: var(--surface); --xy-controls-button-color: var(--text); --xy-controls-button-border-color: var(--node-border); --xy-controls-button-background-color-hover: var(--surface-2); --xy-minimap-background-color: var(--surface); }
+.wf-canvas .react-flow__background { background: var(--wf-bg); }
+.react-flow__controls { box-shadow: var(--node-shadow); border-radius: 8px; overflow: hidden; border: 2px solid var(--node-border); }
+.react-flow__minimap { border: 2px solid var(--node-border); border-radius: 8px; overflow: hidden; box-shadow: var(--node-shadow); }
+
+.block { width: 236px; background: var(--surface); border: 2px solid var(--node-border); border-radius: 10px; box-shadow: var(--node-shadow); font-size: .9rem; color: var(--text); }
+.block.sel { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft), 0 0 0 6px var(--accent), var(--node-shadow); }
+.block.ran { border-color: var(--port-good); box-shadow: 0 0 0 4px var(--green-bg), 0 0 0 6px var(--port-good), var(--node-shadow); }
+.block-head { padding: 9px 12px; gap: 8px; font-size: .95rem; font-weight: 700; border-radius: 8px 8px 0 0; letter-spacing: .005em; }
+.block-body { padding: 10px 12px; color: var(--text); font-size: .86rem; line-height: 1.45; opacity: .9; }
+.block-ports { border-top: 2px solid var(--border); }
+.port-row { padding: 8px 16px 8px 12px; text-align: right; font-size: .86rem; font-weight: 650; color: var(--text); border-bottom: 1px solid var(--border); display: flex; justify-content: flex-end; }
+.port-label { display: inline-flex; align-items: center; gap: 7px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; border: 2px solid transparent; }
+.dot.good { background: var(--port-good); } .dot.bad { background: var(--port-bad); } .dot.info { background: var(--port-info); } .dot.neutral { background: var(--port-neutral); }
+.wf-hint .dot, .key .dot { width: 11px; height: 11px; }
+.key { display: inline-flex; align-items: center; gap: 6px; margin-left: 14px; color: var(--text); font-weight: 600; white-space: nowrap; vertical-align: middle; }
+
+.wf-canvas .react-flow__handle { width: 16px; height: 16px; min-width: 16px; min-height: 16px; background: var(--surface); border: 3px solid var(--node-border); border-radius: 50%; }
+.wf-canvas .react-flow__handle:hover, .wf-canvas .react-flow__handle.connectingfrom, .wf-canvas .react-flow__handle.connectingto { border-color: var(--accent); background: var(--accent); }
+.wf-canvas .react-flow__handle-left { left: -8px; } .wf-canvas .react-flow__handle-right { right: -8px; } .wf-canvas .port-row .react-flow__handle-right { right: -10px; }
+.wf-canvas .react-flow__handle.single-out { top: 50%; }
+.wf-canvas .react-flow__edge .react-flow__edge-path { stroke: var(--wf-edge); stroke-width: 2.75; }
+.wf-canvas .react-flow__edge:hover .react-flow__edge-path, .wf-canvas .react-flow__edge.selected .react-flow__edge-path, .wf-canvas .link.hover .react-flow__edge-path { stroke: var(--accent); stroke-width: 5; }
+.wf-canvas .react-flow__edge.edge-ran .react-flow__edge-path { stroke: var(--port-good); stroke-width: 4; }
+.wf-canvas .react-flow__connection-path { stroke: var(--accent); stroke-width: 3.5; }
+
+.wf-toolbar { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; background: var(--surface); border: 2px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+.wf-toolbar .grp { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.wf-toolbar .grp + .grp { padding-left: 18px; border-left: 2px solid var(--border); }
+.wf-toolbar .grp.end { margin-left: auto; }
+.wf-toolbar .btn { border: 2px solid var(--border); font-weight: 650; } .wf-toolbar .btn.primary { border-color: var(--accent); }
+.wf-toolbar .btn.danger { border-color: var(--red); }
+.wf-hint { color: var(--text); font-size: .9rem; margin: 0 0 12px; opacity: .85; }
+
+.palette { border: 2px solid var(--border); padding: 12px; }
+.nav-group-lite { color: var(--text); opacity: .75; font-size: .72rem; padding: 6px 2px 8px; border-bottom: 2px solid var(--border); margin-bottom: 8px; }
+.pal-item { background: var(--surface); border: 2px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; min-height: 44px; }
+.pal-item:hover { border-color: var(--accent); background: var(--accent-soft); } .pal-item strong { font-size: .9rem; font-weight: 650; color: var(--text); }
+.pal-ico { width: 28px; height: 28px; border-radius: 6px; }
+.inspector { border: 2px solid var(--node-border); }
+.insp-help { border-left: 4px solid var(--accent); border-radius: 4px; background: var(--accent-soft); color: var(--text); } .insp-help p { color: var(--text); opacity: .85; }
+.rule-card, .cond { border: 2px solid var(--border); }
+.wf-panel { border: 2px solid var(--border); }
+@media (max-width: 860px) { .wf-toolbar .grp + .grp { padding-left: 0; border-left: 0; } .wf-toolbar .grp.end { margin-left: 0; } #add-block-mobile { display: inline-flex; } }
+@media (min-width: 861px) { #add-block-mobile { display: none; } }
+@media (max-width: 860px) {
+  .wf-toolbar { gap: 8px; padding: 8px; }
+  .wf-toolbar .grp { display: contents; }
+  .wf-toolbar .btn { padding: 6px 12px; min-height: 40px; font-size: .88rem; flex: 1 1 auto; }
+  .wf-hint { font-size: .84rem; }
+}

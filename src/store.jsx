@@ -81,10 +81,16 @@ export function AppProvider({ children }) {
 
     /** Run a test email through the simulated AI and store the result. */
     setWorkflow(workflow) { setData((d) => ({ ...d, workflow })) },
-    resetWorkflow() { setData((d) => ({ ...d, workflowBackup: d.workflow, workflow: makeDefaultWorkflow() })); log('workflow', 'Workflow reset to the starter design') },
-    /** Replace the design (a preset or template). The old design is kept so it can be restored. */
-    loadWorkflow(workflow, label) { setData((d) => ({ ...d, workflowBackup: d.workflow, workflow })); log('workflow', `Workflow replaced by "${label}"`) },
-    restoreWorkflow() { setData((d) => (d.workflowBackup ? { ...d, workflow: d.workflowBackup, workflowBackup: d.workflow } : d)); log('workflow', 'Previous workflow design restored') },
+    resetWorkflow() { setData((d) => ({ ...d, designBackup: { workflow: d.workflow, settings: d.settings }, workflow: makeDefaultWorkflow() })); log('workflow', 'Workflow reset to the starter design') },
+    /** Replace the design (and, for a full preset, the Settings). The old one is kept so it can be restored. */
+    loadWorkflow(workflow, label, settings) {
+      setData((d) => ({ ...d, designBackup: { workflow: d.workflow, settings: d.settings }, workflow, settings: settings || d.settings }))
+      log('workflow', `Workflow${settings ? ' and settings' : ''} replaced by "${label}"`)
+    },
+    restoreWorkflow() {
+      setData((d) => (d.designBackup ? { ...d, workflow: d.designBackup.workflow, settings: d.designBackup.settings, designBackup: { workflow: d.workflow, settings: d.settings } } : d))
+      log('workflow', 'Previous design restored')
+    },
     async sendTestEmail(input) {
       const d = dataRef.current
       const email = { id: uid('e'), attachments: [], ...input, receivedAt: new Date().toISOString(), source: 'test' }

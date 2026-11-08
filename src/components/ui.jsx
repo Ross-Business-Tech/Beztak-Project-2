@@ -31,6 +31,8 @@ const PATHS = {
   user: 'M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0',
   split: 'M12 4v6M12 10L6 18M12 10l6 8',
   workflow: 'M4 5h6v5H4zM14 14h6v5h-6zM10 7.5h4a2 2 0 012 2V14',
+  ticket: 'M4 7h16v4a2 2 0 000 4v4H4v-4a2 2 0 000-4zM14 7v12',
+  tag: 'M3 12V4h8l10 10-8 8zM7.5 8.5h.01',
 }
 export function Icon({ name, size = 18 }) {
   return (

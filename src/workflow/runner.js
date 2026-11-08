@@ -161,6 +161,26 @@ const RUN = {
     return { port: 'out', detail: `Alert to ${c.role}: ${c.message}` }
   },
 
+  // Ticket blocks only RECORD what they would do in Zoro until the connection exists.
+  *ticket_status(node, ctx) {
+    const s = node.data.config.status
+    ctx.ticketActions.push({ type: 'status', value: s })
+    return { port: 'out', detail: `Ticket status would be set to "${s}" in Zoro (not connected yet, so only recorded).` }
+  },
+
+  *ticket_tag(node, ctx) {
+    const c = node.data.config
+    const tags = [...(c.fromRisks ? ctx.flags.map((f) => f.name) : []), ...c.tags]
+    const unique = [...new Set(tags)]
+    ctx.ticketActions.push({ type: 'tags', value: unique })
+    return { port: 'out', detail: unique.length ? `Ticket would be tagged: ${unique.join(', ')} (recorded only).` : 'No tags to add (nothing was flagged).' }
+  },
+
+  *ticket_assign(node, ctx) {
+    ctx.ticketActions.push({ type: 'assign', value: node.data.config.assignee })
+    return { port: 'out', detail: `Ticket would be assigned to ${node.data.config.assignee} (recorded only).` }
+  },
+
   *email_out(node, ctx) {
     if (!ctx.draft) return { end: 'review', status: 'warn', reason: 'An Email sent block was reached before any reply was written, so it was held for a person.' }
     if (node.data.config.requireApproval || ctx.careful) {
@@ -190,7 +210,7 @@ export function* execute({ email, workflow, settings, history = [] }) {
   const cls = classify(text)
   const ctx = {
     email, category: cls.id, catScore: cls.score, certainty: null, understood: null, flags: [], careful: false,
-    sources: [], draft: null, draftBody: null, confidence: null, tries: 0, loops: {}, alerts: [],
+    sources: [], draft: null, draftBody: null, confidence: null, tries: 0, loops: {}, alerts: [], ticketActions: [],
     usedAI: false, model: null, aiFallback: null,
   }
   const env = {
@@ -235,7 +255,7 @@ export function* execute({ email, workflow, settings, history = [] }) {
     category: ctx.category, flags: ctx.flags, confidence: ctx.confidence ?? ctx.certainty ?? 0,
     sources: ctx.sources, draft: ctx.draft || '', decision, reasons, trace, path,
     requireConfirm: Boolean(end.requireConfirm), priority: end.priority || (ctx.careful ? 'urgent' : 'normal'), owner: end.owner || null,
-    ready: Boolean(end.ready), alerts: ctx.alerts, careful: ctx.careful,
+    ready: Boolean(end.ready), alerts: ctx.alerts, ticketActions: ctx.ticketActions, careful: ctx.careful,
     engine: ctx.usedAI ? 'ai' : 'simulated', model: ctx.model, aiFallback: ctx.aiFallback,
   }
 }

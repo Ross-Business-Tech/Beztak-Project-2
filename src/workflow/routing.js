@@ -33,9 +33,9 @@ export function planRoutes(geos, rects) {
   const sorted = [...geos].sort((a, b) => a.sx - b.sx || (a.id < b.id ? -1 : 1))
   for (const g of sorted) {
     const yLo = Math.min(g.sy, g.ty); const yHi = Math.max(g.sy, g.ty)
-    if (g.tx - g.sx > 40) {
+    if (g.tx - g.sx > 30) {
       // a normal left-to-right line: place its vertical stretch in the gap between the blocks, away from other lines
-      const lo = g.sx + 12; const hi = g.tx - 12
+      const lo = g.sx + 10; const hi = g.tx - 10
       const base = (g.sx + g.tx) / 2
       const free = (x) => x >= lo && x <= hi
         && !verticals.some((v) => Math.abs(v.x - x) < 13 && v.lo < yHi + 4 && yLo - 4 < v.hi)
@@ -47,7 +47,7 @@ export function planRoutes(geos, rects) {
         if (hit !== undefined) { chosen = hit; break }
       }
       verticals.push({ x: chosen, lo: yLo, hi: yHi })
-      plan.set(g.id, { centerX: chosen, offset: 12 })
+      plan.set(g.id, { centerX: chosen, offset: 10 })
     } else {
       // a line that goes back to an earlier block (a loop): run it at the nearest height where it crosses no block
       const stub = 28

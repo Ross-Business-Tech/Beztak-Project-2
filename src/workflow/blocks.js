@@ -8,6 +8,7 @@ export const GROUPS = {
   filter: { label: 'Filters', color: '#8a5a0a' },
   logic: { label: 'Logic', color: '#1f6f78' },
   action: { label: 'Actions', color: '#3b6b45' },
+  ticket: { label: 'Ticket', color: '#2f5d8a' },
   end: { label: 'Finish', color: '#7a2f2f' },
 }
 
@@ -110,6 +111,21 @@ export const BLOCKS = {
     summary: (c) => `To ${c.role}`,
     help: 'Notifies a person or team without ending the case. For now alerts appear in this tool (the case and the Activity log). The message then carries on to the next block.',
   },
+  ticket_status: {
+    title: 'Set ticket status', group: 'ticket', icon: 'ticket', ports: () => one, defaults: () => ({ status: 'Pending' }),
+    summary: (c) => `Status: ${c.status || '(choose)'}`,
+    help: 'Changes the status of the ticket in Zoro, for example to Escalated when something serious is found, or Answered once a reply is ready. The email then carries on to the next block. Until Zoro is connected, this only records what it would do, which you can see on each case.',
+  },
+  ticket_tag: {
+    title: 'Tag ticket', group: 'ticket', icon: 'tag', ports: () => one, defaults: () => ({ fromRisks: true, tags: [] }),
+    summary: (c) => `${c.fromRisks ? 'Risk names' : ''}${c.fromRisks && c.tags.length ? ' + ' : ''}${c.tags.join(', ')}` || 'Add tags',
+    help: 'Adds labels to the ticket in Zoro so staff can filter and search. Turn on "Tag with the risks found" to add the name of every risk that was flagged, such as Harassment, plus any fixed tags you list. Until Zoro is connected, this only records what it would do.',
+  },
+  ticket_assign: {
+    title: 'Assign ticket', group: 'ticket', icon: 'user', ports: () => one, defaults: () => ({ assignee: 'HR Business Partner' }),
+    summary: (c) => `To ${c.assignee || '(choose)'}`,
+    help: 'Assigns the ticket in Zoro to a person or team and carries on to the next block. This is different from "Escalate / assign owner", which ends the case. Until Zoro is connected, this only records what it would do.',
+  },
   email_out: {
     title: 'Email sent', group: 'end', icon: 'send', ports: () => [], defaults: () => ({ requireApproval: true }),
     summary: (c) => (c.requireApproval ? 'Ready to send, a person approves first' : 'Sends automatically'),
@@ -137,8 +153,17 @@ export const PALETTE = [
   { label: 'Filters', kinds: ['filter_flag', 'filter_text'] },
   { label: 'Logic', kinds: ['if', 'while', 'switch_topic'] },
   { label: 'Actions', kinds: ['alert'] },
+  { label: 'Ticket (Zoro)', kinds: ['ticket_status', 'ticket_tag', 'ticket_assign'] },
   { label: 'Finish the case', kinds: ['email_out', 'review', 'assign', 'close'] },
 ]
 
+/** Colour meaning of an exit, so paths can be told apart at a glance (the label is always shown too). */
+export function portTone(id) {
+  if (id === 'flagged' || id === 'no') return 'bad'
+  if (id === 'clear' || id === 'yes' || id === 'done') return 'good'
+  if (id === 'loop' || id === 'match' || id.startsWith('topic:')) return 'info'
+  return 'neutral'
+}
+export const TICKET_STATUSES = ['Open', 'Pending', 'Answered', 'Escalated', 'Closed']
 export const portsOf = (node) => BLOCKS[node.data.kind].ports(node.data.config)
 export const titleOf = (node) => node.data.label || BLOCKS[node.data.kind].title

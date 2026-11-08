@@ -5,7 +5,7 @@
 //    Changing or deleting a preset adds a new, newer version (a delete is a "tombstone"), and the newest version wins.
 //    Everything read back is treated as untrusted and checked in sanitizeWorkflow() before it is used.
 
-import { CATEGORIES, SEVERITIES } from '../data/defaults'
+import { CATEGORIES, DEFAULT_SETTINGS, SEVERITIES } from '../data/defaults'
 import { BLOCKS, FIELDS, portsOf } from './blocks'
 
 const LOCAL_KEY = 'hr-helpdesk-presets-v1'
@@ -79,6 +79,29 @@ export function sanitizeWorkflow(raw) {
   return { ok: true, workflow: { nodes, edges } }
 }
 
+/** Settings that came from outside: keep only known fields, with safe types. */
+export function sanitizeSettings(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const d = DEFAULT_SETTINGS
+  const z = raw.integrations?.zoro && typeof raw.integrations.zoro === 'object' ? raw.integrations.zoro : {}
+  const model = typeof raw.ai?.model === 'string' && /^[\w.\-/:]{1,100}$/.test(raw.ai.model) ? raw.ai.model : d.ai.model
+  return {
+    tone: oneOf(raw.tone, ['warm', 'professional', 'concise'], d.tone),
+    helpDeskName: str(raw.helpDeskName, d.helpDeskName, 80), replyToAddress: str(raw.replyToAddress, d.replyToAddress, 120),
+    signature: str(raw.signature, d.signature, 400), footer: str(raw.footer, d.footer, 500), includeFooter: bool(raw.includeFooter, d.includeFooter),
+    minutesSavedPerReply: Math.max(1, Math.min(60, Math.round(Number(raw.minutesSavedPerReply)) || d.minutesSavedPerReply)),
+    ai: { engine: oneOf(raw.ai?.engine, ['ai', 'simulated'], d.ai.engine), model },
+    integrations: { zoro: { enabled: bool(z.enabled, false), serverUrl: str(z.serverUrl, '', 200), pullTickets: bool(z.pullTickets, true), sendReplies: bool(z.sendReplies, true), replyAs: oneOf(z.replyAs, ['draft_note', 'none'], 'draft_note') } },
+  }
+}
+
+/** What a saved preset contains: the workflow and (for full presets) the Settings. Older presets hold only a workflow. */
+export function sanitizePayload(raw) {
+  const wf = sanitizeWorkflow(raw && raw.workflow ? raw.workflow : raw)
+  if (!wf.ok) return wf
+  return { ok: true, workflow: wf.workflow, settings: raw && raw.workflow ? sanitizeSettings(raw.settings) : null }
+}
+
 // ---------------- packing (keeps records under the 16 KB limit) ----------------
 const toB64 = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i += 8192) s += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(s) }
 
@@ -147,7 +170,7 @@ export async function teamList() {
   for (const r of records) {
     const d = r && typeof r === 'object' ? (r.data && typeof r.data === 'object' ? r.data : r) : null
     if (!d || typeof d.key !== 'string') continue
-    const rec = { key: d.key.slice(0, 64), name: str(d.name, 'Untitled', 80), description: str(d.description, '', 300), author: str(d.author, '', 80), savedAt: str(d.saved_at, '', 40), enc: d.enc === 'gzip' ? 'gzip' : 'json', workflow: str(d.workflow, '', MAX_FIELD + 100), deleted: d.deleted === true }
+    const rec = { key: d.key.slice(0, 64), name: str(d.name, 'Untitled', 80), description: str(d.description, '', 300), author: str(d.author, '', 80), savedAt: str(d.saved_at, '', 40), enc: d.enc === 'gzip' ? 'gzip' : 'json', full: d.full === true, workflow: str(d.workflow, '', MAX_FIELD + 100), deleted: d.deleted === true }
     const prev = newest.get(rec.key)
     if (!prev || rec.savedAt >= prev.savedAt) newest.set(rec.key, rec)
   }
@@ -164,6 +187,6 @@ async function teamPost(fields) {
 }
 
 /** Save (or save a newer version of) a preset for the whole team. */
-export async function teamSave(p) { return teamPost({ key: p.key, name: p.name, description: p.description, author: p.author, saved_at: p.savedAt, enc: p.enc, workflow: p.workflow, deleted: false }) }
+export async function teamSave(p) { return teamPost({ key: p.key, name: p.name, description: p.description, author: p.author, saved_at: p.savedAt, enc: p.enc, full: p.full === true, workflow: p.workflow, deleted: false }) }
 /** Remove a preset for the team by adding a newer "deleted" version. */
-export async function teamRemove(p) { return teamPost({ key: p.key, name: p.name, description: '', author: p.author || '', saved_at: new Date().toISOString(), enc: 'json', workflow: '', deleted: true }) }
+export async function teamRemove(p) { return teamPost({ key: p.key, name: p.name, description: '', author: p.author || '', saved_at: new Date().toISOString(), enc: 'json', full: false, workflow: '', deleted: true }) }

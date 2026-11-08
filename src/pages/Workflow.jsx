@@ -14,7 +14,7 @@ import { Badge, Card, HelpPanel, Icon, Modal, PageHeader, Trace, catLabel } from
 
 const nodeTypes = { block: BlockNode }
 const edgeTypes = { link: LinkEdge }
-const EDGE_STYLE = { type: 'link', markerEnd: { type: MarkerType.ArrowClosed, color: '#7a8699' } }
+const EDGE_STYLE = { type: 'link', markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--wf-edge)', width: 12, height: 12 } }
 const rectOf = (n) => ({ id: n.id, x: n.position.x, y: n.position.y, w: n.measured?.width ?? NODE_W, h: n.measured?.height ?? NODE_H })
 
 const clean = (nodes, edges) => ({
@@ -52,7 +52,7 @@ function Palette({ onAdd, nodes }) {
 }
 
 function Editor() {
-  const { workflow, workflowBackup, setWorkflow, resetWorkflow, restoreWorkflow, sendTestEmail, toast } = useApp()
+  const { workflow, designBackup, setWorkflow, resetWorkflow, restoreWorkflow, sendTestEmail, toast } = useApp()
   const rf = useReactFlow()
   const wrap = useRef(null)
   const [nodes, setNodes] = useState(workflow.nodes)
@@ -188,17 +188,25 @@ function Editor() {
 
   return (
     <>
-      <PageHeader title="Workflow" subtitle="Design how every email is handled. Drag blocks onto the canvas and connect them.">
-        <button className="btn" onClick={() => setPalOpen(true)} id="add-block-mobile"><Icon name="plus" size={16} /> Add block</button>
-        <button className="btn" onClick={() => { setShowChecks((v) => !v); setShowTest(false) }}>
-          Design check {counts.error + counts.warn > 0 ? <Badge tone={counts.error ? 'red' : 'amber'}>{counts.error + counts.warn}</Badge> : <Badge tone="green">OK</Badge>}
-        </button>
-        <button className="btn primary" onClick={() => { setShowTest((v) => !v); setShowChecks(false) }}>Test this workflow</button>
-        <button className="btn" onClick={() => rf.fitView({ padding: 0.15, duration: 300 })}>Fit to screen</button>
-        <button className="btn" onClick={() => setPresetsOpen(true)}>Presets</button>
-        {workflowBackup && <button className="btn" onClick={() => { restoreWorkflow(); toast('Previous design restored.') }}>Restore previous design</button>}
-        <button className="btn danger" onClick={() => setConfirmReset(true)}>Reset</button>
-      </PageHeader>
+      <PageHeader title="Workflow" subtitle="Design how every email is handled. Drag blocks onto the canvas and connect them." />
+
+      <div className="wf-toolbar" role="toolbar" aria-label="Workflow tools">
+        <div className="grp">
+          <button className="btn primary" onClick={() => { setShowTest((v) => !v); setShowChecks(false) }}>Test this workflow</button>
+          <button className="btn" onClick={() => { setShowChecks((v) => !v); setShowTest(false) }}>
+            Design check {counts.error + counts.warn > 0 ? <Badge tone={counts.error ? 'red' : 'amber'}>{counts.error + counts.warn}</Badge> : <Badge tone="green">OK</Badge>}
+          </button>
+        </div>
+        <div className="grp">
+          <button className="btn" onClick={() => setPresetsOpen(true)}>Presets</button>
+          {designBackup && <button className="btn" onClick={() => { restoreWorkflow(); toast('Previous design restored.') }}>Restore previous design</button>}
+        </div>
+        <div className="grp end">
+          <button className="btn" onClick={() => setPalOpen(true)} id="add-block-mobile"><Icon name="plus" size={16} /> Add block</button>
+          <button className="btn" onClick={() => rf.fitView({ padding: 0.15, duration: 300 })}>Fit to screen</button>
+          <button className="btn danger" onClick={() => setConfirmReset(true)}>Reset</button>
+        </div>
+      </div>
 
       <HelpPanel id="workflow" defaultOpen={false} title="How the workflow editor works (steps)" steps={[
         'Every email enters at Email received on the left and follows the connectors you draw. Add blocks from the list on the left: drag one onto the canvas, or select it to place it in the middle.',
@@ -211,7 +219,8 @@ function Editor() {
         'Use Test this workflow to run an example email through your design. The path it took lights up, and the Design check lists mistakes and risks.',
       ]} note="Changes save automatically. This design replaces the old Settings and Flag rules pages: the reply mode is the Email sent block, and flag rules live inside Risk filters." />
 
-      <p className="wf-hint"><strong>Drag</strong> a block from the list onto the canvas. <strong>Connect</strong> the circles. <strong>Select</strong> a block to edit it. <strong>Hover</strong> over a line to light it up, and <strong>double-click</strong> it to remove it. Scroll or pinch to zoom, drag the background to move around.</p>
+      <p className="wf-hint"><strong>Drag</strong> a block onto the canvas. <strong>Connect</strong> the circles. <strong>Select</strong> a block to edit it. <strong>Double-click</strong> a line to remove it. Exits are colour coded:
+        <span className="key"><i className="dot good" />go ahead</span><span className="key"><i className="dot bad" />needs attention</span><span className="key"><i className="dot info" />match or repeat</span></p>
 
       {showChecks && (
         <Card title="Design check" hint="Problems and risks in your current design." className="wf-panel">

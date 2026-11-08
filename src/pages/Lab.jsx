@@ -108,6 +108,16 @@ function EmailTab() {
   )
 }
 
+export function TicketActions({ actions }) {
+  const label = { status: 'Set status', tags: 'Add tags', assign: 'Assign to' }
+  return (
+    <div className="ticket-actions">
+      <strong className="small">Ticket actions in Zoro</strong> <Badge>Recorded only until Zoro is connected</Badge>
+      <ul>{actions.map((a, i) => <li key={i}>{label[a.type]}: <strong>{Array.isArray(a.value) ? (a.value.length ? a.value.join(', ') : 'nothing to add') : a.value}</strong></li>)}</ul>
+    </div>
+  )
+}
+
 export function Result({ email }) {
   const r = email.result
   const tone = r.decision === 'sent' ? 'green' : r.decision === 'escalated' || r.requireConfirm ? 'red' : r.decision === 'closed' ? 'gray' : 'amber'
@@ -120,6 +130,7 @@ export function Result({ email }) {
           <Icon name={{ green: 'check', amber: 'mail', red: 'flag', gray: 'dash' }[tone]} />
           <div><strong>{headline}</strong>{r.reasons.map((x, i) => <p key={i}>{x}</p>)}</div>
         </div>
+        {r.ticketActions?.length > 0 && <TicketActions actions={r.ticketActions} />}
         {r.alerts?.length > 0 && <p className="small" style={{ marginBottom: 10 }}><strong>Alerts sent:</strong> {r.alerts.map((a) => `${a.role}: ${a.message}`).join(' · ')}</p>}
         <div className="two-col">
           <div><div className="muted small">Topic</div><strong>{catLabel(r.category)}</strong></div>

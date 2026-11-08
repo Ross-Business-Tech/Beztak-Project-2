@@ -8,6 +8,7 @@
         "author": { "type": "string", "maxLength": 80, "trim": true },
         "saved_at": { "type": "string", "maxLength": 40 },
         "enc": { "type": "string", "maxLength": 8 },
+        "full": { "type": "boolean" },
         "workflow": { "type": "string", "maxLength": 14100 },
         "deleted": { "type": "boolean" }
       },
