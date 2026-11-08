@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../store'
+import { DEFAULT_MODEL, testConnection } from '../engine/ai'
 import { CATEGORIES } from '../data/defaults'
 import { Badge, Card, HelpPanel, Icon, Field, Modal, PageHeader, Segmented, SettingRow, Toggle } from '../components/ui'
 
@@ -12,6 +13,7 @@ const MODES = [
 export default function Settings() {
   const { settings: s, updateSettings, log, toast, resetAll, storageFull } = useApp()
   const [confirmReset, setConfirmReset] = useState(false)
+  const [check, setCheck] = useState(null)
   const set = (patch, note) => updateSettings(patch, note)
   const nested = (key, patch, note) => set({ [key]: { ...s[key], ...patch } }, note)
   const zoro = s.integrations.zoro
@@ -20,6 +22,7 @@ export default function Settings() {
     <>
       <PageHeader title="Settings" subtitle="Changes save automatically and apply to the next email." />
       <HelpPanel id="settings" steps={[
+        'AI engine chooses whether a real AI model or the simple word-matching stand-in reads each message. Use Check the AI connection to confirm it is working.',
         'Start with "How should replies go out?" This is the most important decision: whether a person approves every reply, or the system sends low-risk ones itself.',
         'Under Auto-send rules, set the confidence needed, the topics allowed to send automatically, and limits that prevent loops.',
         'Reply style controls tone, signature and the AI disclosure footer on every message.',
@@ -27,6 +30,32 @@ export default function Settings() {
         'Connection to Zoro (your ticketing system) is a placeholder for now. Reporting sets how time saved is estimated.',
       ]} note="Changes save automatically and apply to the next email processed." />
       {storageFull && <div className="sim-banner" role="alert">This browser is out of storage, so recent changes may not be saved. Delete some large files in Knowledge files.</div>}
+
+      <Card title="AI engine" hint="What reads each message and writes the draft.">
+        <div className="mode-cards" role="radiogroup" aria-label="AI engine" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          {[['ai', 'AI language model', 'Reads for meaning, so it can recognise a sensitive situation even when no trigger word appears. Drafts are grounded in your documents, and every quote is verified.'], ['simulated', 'Simulated (word matching)', 'Free and instant, but only matches the words on your flag rules. Useful for comparison.']].map(([id, t, d]) => (
+            <button key={id} type="button" role="radio" aria-checked={s.ai.engine === id} className={`mode-card ${s.ai.engine === id ? 'on' : ''}`}
+              onClick={() => { set({ ai: { ...s.ai, engine: id } }, `AI engine changed to "${t}"`); setCheck(null) }}>
+              <strong>{t}</strong><span className="muted small">{d}</span>
+            </button>
+          ))}
+        </div>
+        {s.ai.engine === 'ai' && (
+          <div style={{ marginTop: 16 }}>
+            <Field label="Model" hint="An OpenRouter model name. Leave the default unless your instructor suggests another.">
+              {(id) => <input id={id} type="text" value={s.ai.model} onChange={(e) => set({ ai: { ...s.ai, model: e.target.value } })} placeholder={DEFAULT_MODEL} />}
+            </Field>
+            <div className="row">
+              <button className="btn" disabled={check === 'busy'} onClick={async () => {
+                setCheck('busy')
+                try { await testConnection(s.ai.model); setCheck({ ok: true }) } catch (e) { setCheck({ ok: false, msg: e.message }) }
+              }}>{check === 'busy' ? 'Checking...' : 'Check the AI connection'}</button>
+              {check && check !== 'busy' && (check.ok ? <Badge tone="green">Connected</Badge> : <span className="muted small"><Badge tone="red">Not connected</Badge> {check.msg} Messages will use the simulated engine until this works.</span>)}
+            </div>
+            <div className="guardrail" role="note"><Icon name="lock" /><div>The AI only proposes. Whether a reply is sent, held or escalated is decided by the fixed rules on this page, so the AI cannot send a flagged message. Messages and your documents are sent to the AI service to be read, so use made-up data while testing.</div></div>
+          </div>
+        )}
+      </Card>
 
       <Card title="How should replies go out?">
         <div className="mode-cards" role="radiogroup" aria-label="Reply mode">

@@ -41,6 +41,8 @@ export const DEFAULT_SETTINGS = {
   maxAutoPerSenderPerDay: 3,
   lowConfidenceBehavior: 'draft',
   minutesSavedPerReply: 6,
+  // 'ai' = real AI model (falls back to the simulation if unreachable); 'simulated' = word matching only
+  ai: { engine: 'ai', model: 'anthropic/claude-sonnet-4.5' },
   integrations: {
     // Zoro is the ticketing system: tickets come in from it and replies go back out through it.
     zoro: { enabled: false, serverUrl: '', pullTickets: true, sendReplies: true, replyAs: 'draft_note' },

@@ -66,12 +66,12 @@ function searchFiles(text, files) {
   return scored.slice(0, 2)
 }
 
-function firstName(name, email) {
+export function firstName(name, email) {
   const n = (name || '').trim().split(/\s+/)[0]
   return n || (email || 'there').split('@')[0]
 }
 
-function buildDraft({ email, category, sources, settings }) {
+export function buildDraft({ email, category, sources, settings }) {
   const first = firstName(email.name, email.from)
   const greet = {
     warm: `Hi ${first},\n\nThanks so much for reaching out!`,
@@ -92,7 +92,7 @@ function buildDraft({ email, category, sources, settings }) {
 }
 
 // High-risk situations get a careful, human-sounding draft: no policy quotes, no advice, no promises.
-function buildSensitiveDraft({ email, flags, settings }) {
+export function buildSensitiveDraft({ email, flags, settings }) {
   const first = firstName(email.name, email.from)
   const ids = flags.map((f) => f.ruleId)
   let body
@@ -165,7 +165,16 @@ export function analyzeEmail(email, { settings, rules, files, history = [] }, ov
     detail: escalate ? 'Wrote a careful draft for a person to rewrite and approve. It is never sent without a human.' : `Wrote a reply (${settings.tone} tone, ${confidence}% confident).`,
   })
 
-  // ---- Decision ----
+  return conclude({ email, settings, mode, history, cat, catLabel, flags, sources, confidence, draft, trace })
+}
+
+/**
+ * The send-or-hold decision. This is ordinary code on purpose: the AI model proposes a draft and
+ * flags, but it never decides whether something is sent. Used by both the simulated and real AI.
+ */
+export function conclude({ email, settings, mode, history, cat, catLabel, flags, sources, confidence, draft, trace, extra = {} }) {
+  const escalate = flags.some((f) => f.action === 'escalate')
+  const flagged = flags.length > 0
   const reasons = []
   let decision = 'review' // 'review' | 'sent' | 'escalated'
   if (escalate) {
@@ -206,7 +215,8 @@ export function analyzeEmail(email, { settings, rules, files, history = [] }, ov
 
   const ack = escalate && settings.ackOnEscalate ? settings.ackText : null
 
-  return { category: cat.id, flags, confidence, sources, draft, decision, reasons, trace, mode, acknowledgement: ack }
+
+  return { category: cat.id, flags, confidence, sources, draft, decision, reasons, trace, mode, acknowledgement: ack, engine: 'simulated', ...extra }
 }
 
 export function statusFromDecision(decision) {

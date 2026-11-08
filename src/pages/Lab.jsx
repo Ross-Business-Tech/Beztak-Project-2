@@ -39,15 +39,19 @@ function EmailTab() {
   const [form, setForm] = useState(BLANK)
   const [mode, setMode] = useState('')
   const [selId, setSelId] = useState(null)
+  const [busy, setBusy] = useState(false)
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const tests = emails.filter((e) => e.source === 'test')
   const selected = emails.find((e) => e.id === selId) || tests[0]
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault()
-    const sent = sendTestEmail({ ...form, from: form.from.trim() || 'test.employee@example.com', name: form.name.trim() || 'Test Employee' }, mode)
-    setSelId(sent.id)
-    toast('Test email processed. See the result on the right.')
+    setBusy(true)
+    try {
+      const sent = await sendTestEmail({ ...form, from: form.from.trim() || 'test.employee@example.com', name: form.name.trim() || 'Test Employee' }, mode)
+      setSelId(sent.id)
+      toast(sent.result.aiFallback ? 'Processed with the simulated engine. The AI was not reachable.' : 'Test email processed. See the result on the right.', sent.result.aiFallback ? 'warn' : 'ok')
+    } finally { setBusy(false) }
   }
   function loadScenario(id) {
     const s = SCENARIOS.find((x) => x.id === id)
@@ -79,7 +83,7 @@ function EmailTab() {
               ]} />}
             </Field>
             <div className="row" style={{ marginTop: 6 }}>
-              <button className="btn primary" type="submit">Send test email</button>
+              <button className="btn primary" type="submit" disabled={busy}>{busy ? 'The AI is reading it...' : 'Send test email'}</button>
               <button className="btn" type="button" onClick={() => setForm(BLANK)}>Clear</button>
             </div>
           </form>
@@ -116,7 +120,8 @@ export function Result({ email }) {
   const headline = { sent: 'Reply sent automatically', review: 'Draft is waiting for a person to review', escalated: 'High-risk: draft saved for a person to review' }[r.decision]
   return (
     <>
-      <Card title="What the AI did" actions={<Badge tone="gray">Simulated AI</Badge>}>
+      <Card title="What the AI did" actions={r.engine === 'ai' ? <Badge tone="green">AI model: {r.model}</Badge> : <Badge tone="gray">Simulated engine</Badge>}>
+        {r.aiFallback && <div className="outcome amber"><Icon name="alert" /><div><strong>The real AI was not used for this message</strong><p>{r.aiFallback} The simulated engine, which matches words only, answered instead.</p></div></div>}
         <div className={`outcome ${tone}`}>
           <Icon name={{ green: 'check', amber: 'mail', red: 'flag' }[tone]} />
           <div><strong>{headline}</strong>{r.reasons.map((x, i) => <p key={i}>{x}</p>)}</div>
@@ -131,7 +136,9 @@ export function Result({ email }) {
             {r.flags.map((f) => (
               <div key={f.ruleId} className="row" style={{ marginTop: 6 }}>
                 <SeverityBadge severity={f.severity} /> <strong>{f.name}</strong>
-                <span className="muted small">matched: {f.matched.map((m) => <span key={m} className="chip hit">{m}</span>)}</span>
+                {f.matched.length > 0 && <span className="muted small">words: {f.matched.map((m) => <span key={m} className="chip hit">{m}</span>)}</span>}
+                {f.by === 'ai' && <Badge tone="blue">Caught by meaning</Badge>}
+                {f.reason && <span className="muted small" style={{ flexBasis: '100%' }}>Why: {f.reason}</span>}
               </div>
             ))}
             <p className="muted small" style={{ marginTop: 6 }}>Suggested owner: {[...new Set(r.flags.map((f) => f.notify))].join(', ')}. It will be marked as a priority in the Review queue.</p>

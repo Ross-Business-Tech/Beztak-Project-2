@@ -1,6 +1,21 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_RULES, DEFAULT_SETTINGS, SAMPLE_FILES, SCENARIOS, SEED_EMAILS } from './data/defaults'
 import { analyzeEmail, statusFromDecision } from './engine/mockAI'
+import { analyzeWithAI } from './engine/ai'
+
+/** Use the real AI when it is switched on; if it cannot be reached, fall back to the simulation and say so. */
+async function analyze(email, ctx, override) {
+  if (ctx.settings.ai?.engine !== 'ai') return analyzeEmail(email, ctx, override)
+  try {
+    return await analyzeWithAI(email, ctx, override)
+  } catch (e) {
+    const result = analyzeEmail(email, ctx, override)
+    const why = e?.message || 'The AI could not be reached.'
+    result.trace.splice(1, 0, { step: 'AI model', status: 'warn', detail: `${why} Used the simulated engine (word matching) instead.` })
+    result.aiFallback = why
+    return result
+  }
+}
 
 const KEY = 'hr-helpdesk-sandbox-v2'
 const Ctx = createContext(null)
@@ -38,7 +53,7 @@ function load() {
     const raw = localStorage.getItem(KEY)
     if (raw) {
       const d = JSON.parse(raw)
-      return { ...makeSeed(), ...d, settings: { ...DEFAULT_SETTINGS, ...d.settings, integrations: { ...DEFAULT_SETTINGS.integrations, ...(d.settings?.integrations || {}) } } }
+      return { ...makeSeed(), ...d, settings: { ...DEFAULT_SETTINGS, ...d.settings, ai: { ...DEFAULT_SETTINGS.ai, ...(d.settings?.ai || {}) }, integrations: { ...DEFAULT_SETTINGS.integrations, ...(d.settings?.integrations || {}) } } }
     }
   } catch { /* fall through */ }
   return makeSeed()
@@ -83,10 +98,10 @@ export function AppProvider({ children }) {
     deleteFile(id) { setData((d) => ({ ...d, files: d.files.filter((f) => f.id !== id) })) },
 
     /** Run a test email through the simulated AI and store the result. */
-    sendTestEmail(input, overrideMode) {
+    async sendTestEmail(input, overrideMode) {
       const d = dataRef.current
       const email = { id: uid('e'), attachments: [], ...input, receivedAt: new Date().toISOString(), source: 'test' }
-      const result = analyzeEmail(email, { settings: d.settings, rules: d.rules, files: d.files, history: d.emails }, overrideMode || undefined)
+      const result = await analyze(email, { settings: d.settings, rules: d.rules, files: d.files, history: d.emails }, overrideMode || undefined)
       const status = statusFromDecision(result.decision)
       const now = new Date().toISOString()
       const history = [
@@ -120,11 +135,11 @@ export function AppProvider({ children }) {
     saveDraft(id, text) {
       setData((d) => ({ ...d, emails: d.emails.map((e) => (e.id === id ? { ...e, editedDraft: text } : e)) }))
     },
-    regenerate(id) {
+    async regenerate(id) {
       const d = dataRef.current
       const e = d.emails.find((x) => x.id === id)
       if (!e) return
-      const result = analyzeEmail(e, { settings: d.settings, rules: d.rules, files: d.files, history: d.emails.filter((x) => x.id !== id) }, 'draft')
+      const result = await analyze(e, { settings: d.settings, rules: d.rules, files: d.files, history: d.emails.filter((x) => x.id !== id) }, 'draft')
       const next = statusFromDecision(result.decision)
       setData((s) => ({ ...s, emails: s.emails.map((x) => (x.id === id ? { ...x, result, editedDraft: undefined, status: next === 'auto_sent' ? 'pending_review' : next, history: [...x.history, { at: new Date().toISOString(), text: 'Draft regenerated with current settings' }] } : x)) }))
     },

@@ -71,6 +71,7 @@ export default function Review() {
 function Detail({ email, onBack }) {
   const { resolveEmail, regenerate, saveDraft, addNote, deleteEmail, toast, settings } = useApp()
   const [note, setNote] = useState('')
+  const [regen, setRegen] = useState(false)
   const r = email.result
   const open = isOpen(email)
   const highRisk = r.decision === 'escalated'
@@ -96,7 +97,7 @@ function Detail({ email, onBack }) {
           </Card>
           <Card title="Why it's here"><ul style={{ margin: 0, paddingLeft: 18 }}>{r.reasons.map((x, i) => <li key={i}>{x}</li>)}</ul>
             {r.flags.map((f) => (
-              <div key={f.ruleId} className="row" style={{ marginTop: 10 }}><SeverityBadge severity={f.severity} /><strong>{f.name}</strong> {f.matched.map((m) => <span key={m} className="chip hit">{m}</span>)}</div>
+              <div key={f.ruleId} className="row" style={{ marginTop: 10 }}><SeverityBadge severity={f.severity} /><strong>{f.name}</strong> {f.matched.map((m) => <span key={m} className="chip hit">{m}</span>)}{f.by === 'ai' && <Badge tone="blue">Caught by meaning</Badge>}{f.reason && <span className="muted small" style={{ flexBasis: '100%' }}>Why: {f.reason}</span>}</div>
             ))}
           </Card>
           <Card title="Sources">
@@ -130,7 +131,7 @@ function Detail({ email, onBack }) {
                 )}
                 <div className="modal-actions" style={{ justifyContent: 'flex-start', marginTop: 12 }}>
                   <button className="btn primary" disabled={!text.trim() || (highRisk && !checked)} onClick={() => { resolveEmail(email.id, 'send', text); toast('Reply sent (simulated, no real email)'); onBack() }}>Send reply</button>
-                  <button className="btn" onClick={() => { regenerate(email.id); toast('Draft regenerated') }}>Regenerate</button>
+                  <button className="btn" onClick={async () => { setRegen(true); await regenerate(email.id); setRegen(false); toast('Draft regenerated') }} disabled={regen}>{regen ? 'Rewriting...' : 'Regenerate'}</button>
                   <button className="btn danger" onClick={() => { resolveEmail(email.id, 'discard'); onBack() }}>Close without reply</button>
                 </div>
               </div>
