@@ -147,7 +147,7 @@ export async function teamList() {
   for (const r of records) {
     const d = r && typeof r === 'object' ? (r.data && typeof r.data === 'object' ? r.data : r) : null
     if (!d || typeof d.key !== 'string') continue
-    const rec = { key: d.key.slice(0, 64), name: str(d.name, 'Untitled', 80), description: str(d.description, '', 300), author: str(d.author, '', 80), savedAt: str(d.savedAt, '', 40), enc: d.enc === 'gzip' ? 'gzip' : 'json', workflow: str(d.workflow, '', MAX_FIELD + 100), deleted: d.deleted === true }
+    const rec = { key: d.key.slice(0, 64), name: str(d.name, 'Untitled', 80), description: str(d.description, '', 300), author: str(d.author, '', 80), savedAt: str(d.saved_at, '', 40), enc: d.enc === 'gzip' ? 'gzip' : 'json', workflow: str(d.workflow, '', MAX_FIELD + 100), deleted: d.deleted === true }
     const prev = newest.get(rec.key)
     if (!prev || rec.savedAt >= prev.savedAt) newest.set(rec.key, rec)
   }
@@ -164,6 +164,6 @@ async function teamPost(fields) {
 }
 
 /** Save (or save a newer version of) a preset for the whole team. */
-export async function teamSave(p) { return teamPost({ key: p.key, name: p.name, description: p.description, author: p.author, savedAt: p.savedAt, enc: p.enc, workflow: p.workflow, deleted: false }) }
+export async function teamSave(p) { return teamPost({ key: p.key, name: p.name, description: p.description, author: p.author, saved_at: p.savedAt, enc: p.enc, workflow: p.workflow, deleted: false }) }
 /** Remove a preset for the team by adding a newer "deleted" version. */
-export async function teamRemove(p) { return teamPost({ key: p.key, name: p.name, description: '', author: p.author || '', savedAt: new Date().toISOString(), enc: 'json', workflow: '', deleted: true }) }
+export async function teamRemove(p) { return teamPost({ key: p.key, name: p.name, description: '', author: p.author || '', saved_at: new Date().toISOString(), enc: 'json', workflow: '', deleted: true }) }
