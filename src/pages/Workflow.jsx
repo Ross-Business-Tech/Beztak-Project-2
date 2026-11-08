@@ -7,6 +7,7 @@ import { BLOCKS, GROUPS, PALETTE, portsOf } from '../workflow/blocks'
 import { validate } from '../workflow/validate'
 import BlockNode, { FlowInfo } from '../components/flow/BlockNode'
 import LinkEdge from '../components/flow/LinkEdge'
+import PresetsDialog from '../components/PresetsDialog'
 import { NODE_H, NODE_W, resolveOverlap } from '../workflow/routing'
 import Inspector from '../components/flow/Inspector'
 import { Badge, Card, HelpPanel, Icon, Modal, PageHeader, Trace, catLabel } from '../components/ui'
@@ -51,7 +52,7 @@ function Palette({ onAdd, nodes }) {
 }
 
 function Editor() {
-  const { workflow, setWorkflow, resetWorkflow, sendTestEmail, toast } = useApp()
+  const { workflow, workflowBackup, setWorkflow, resetWorkflow, restoreWorkflow, sendTestEmail, toast } = useApp()
   const rf = useReactFlow()
   const wrap = useRef(null)
   const [nodes, setNodes] = useState(workflow.nodes)
@@ -62,6 +63,7 @@ function Editor() {
   const [showTest, setShowTest] = useState(false)
   const [palOpen, setPalOpen] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [presetsOpen, setPresetsOpen] = useState(false)
   const [lastRun, setLastRun] = useState(null)
   const [scenario, setScenario] = useState('s_harass')
   const [running, setRunning] = useState(false)
@@ -69,7 +71,7 @@ function Editor() {
   // Keep the editor in step if the workflow is replaced from outside (Reset).
   const lastStored = useRef(workflow)
   useEffect(() => {
-    if (workflow !== lastStored.current) { setNodes(workflow.nodes); setEdges(workflow.edges); nodesRef.current = workflow.nodes; edgesRef.current = workflow.edges; setSelectedId(null); setLastRun(null) }
+    if (workflow !== lastStored.current) { lastStored.current = workflow; setNodes(workflow.nodes); setEdges(workflow.edges); nodesRef.current = workflow.nodes; edgesRef.current = workflow.edges; setSelectedId(null); setLastRun(null) }
   }, [workflow])
 
   const commit = useCallback((n, e) => {
@@ -193,6 +195,8 @@ function Editor() {
         </button>
         <button className="btn primary" onClick={() => { setShowTest((v) => !v); setShowChecks(false) }}>Test this workflow</button>
         <button className="btn" onClick={() => rf.fitView({ padding: 0.15, duration: 300 })}>Fit to screen</button>
+        <button className="btn" onClick={() => setPresetsOpen(true)}>Presets</button>
+        {workflowBackup && <button className="btn" onClick={() => { restoreWorkflow(); toast('Previous design restored.') }}>Restore previous design</button>}
         <button className="btn danger" onClick={() => setConfirmReset(true)}>Reset</button>
       </PageHeader>
 
@@ -201,6 +205,7 @@ function Editor() {
         'Connect blocks by dragging from a small circle on the right of one block to the left edge of another. Blocks with several exits (Flagged and Clear, Yes and No) need each exit connected.',
         'To remove a connection, double-click the line (it lights up when you hover over it), or select it and press Delete. To change where a line goes, drag its end to another block. You can also build with blocks left unconnected and join them later. Unconnected paths are simply held for a person.',
         'Lines keep themselves apart so they do not run on top of each other, and blocks nudge apart if you drop one on another.',
+        'Presets saves your whole design with a name so you can come back to it, or start from a ready-made template. Loading a preset keeps your previous design so you can restore it.',
         'Select a block to change its settings in the panel on the right. Each panel starts with a plain explanation of what the block does.',
         'Finish every path at an end block: Email sent, Review queue, Escalate, or Close. Anything left unconnected is held for a person, never lost.',
         'Use Test this workflow to run an example email through your design. The path it took lights up, and the Design check lists mistakes and risks.',
@@ -267,6 +272,8 @@ function Editor() {
         </div>
         {selected && <Inspector node={selected} onChange={updateNode} onDelete={deleteNode} onClose={() => setSelectedId(null)} connections={edges.filter((e) => e.source === selected.id || e.target === selected.id).length} onDisconnect={disconnectAll} />}
       </div>
+
+      {presetsOpen && <PresetsDialog workflow={{ nodes, edges }} onClose={() => setPresetsOpen(false)} onLoaded={() => setTimeout(() => rf.fitView({ padding: 0.15 }), 200)} />}
 
       {palOpen && (
         <Modal title="Add a block" onClose={() => setPalOpen(false)}>

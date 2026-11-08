@@ -1,0 +1,18 @@
+{
+  "collections": {
+    "presets": {
+      "fields": {
+        "key": { "type": "string", "required": true, "maxLength": 64, "trim": true },
+        "name": { "type": "string", "required": true, "maxLength": 80, "trim": true },
+        "description": { "type": "string", "maxLength": 300 },
+        "author": { "type": "string", "maxLength": 80, "trim": true },
+        "savedAt": { "type": "string", "maxLength": 40 },
+        "enc": { "type": "string", "maxLength": 8 },
+        "workflow": { "type": "string", "maxLength": 14100 },
+        "deleted": { "type": "boolean" }
+      },
+      "access": { "read": "public", "insert": "public", "update": "none", "delete": "none" },
+      "rateLimit": "30/hour/ip"
+    }
+  }
+}

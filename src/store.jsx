@@ -81,7 +81,10 @@ export function AppProvider({ children }) {
 
     /** Run a test email through the simulated AI and store the result. */
     setWorkflow(workflow) { setData((d) => ({ ...d, workflow })) },
-    resetWorkflow() { setData((d) => ({ ...d, workflow: makeDefaultWorkflow() })); log('workflow', 'Workflow reset to the starter design') },
+    resetWorkflow() { setData((d) => ({ ...d, workflowBackup: d.workflow, workflow: makeDefaultWorkflow() })); log('workflow', 'Workflow reset to the starter design') },
+    /** Replace the design (a preset or template). The old design is kept so it can be restored. */
+    loadWorkflow(workflow, label) { setData((d) => ({ ...d, workflowBackup: d.workflow, workflow })); log('workflow', `Workflow replaced by "${label}"`) },
+    restoreWorkflow() { setData((d) => (d.workflowBackup ? { ...d, workflow: d.workflowBackup, workflowBackup: d.workflow } : d)); log('workflow', 'Previous workflow design restored') },
     async sendTestEmail(input) {
       const d = dataRef.current
       const email = { id: uid('e'), attachments: [], ...input, receivedAt: new Date().toISOString(), source: 'test' }

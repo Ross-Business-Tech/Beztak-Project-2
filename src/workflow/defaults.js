@@ -1,11 +1,11 @@
 import { DEFAULT_RULES } from '../data/defaults'
 
-const rule = (id) => {
+export const rule = (id) => {
   const r = DEFAULT_RULES.find((x) => x.id === id)
   return { id: r.id, name: r.name, description: r.description, keywords: r.keywords, severity: r.severity, notify: r.notify }
 }
-const node = (id, kind, x, y, config = {}, label = '') => ({ id, type: 'block', position: { x, y }, data: { kind, label, config } })
-const edge = (source, sourceHandle, target) => ({ id: `e_${source}_${sourceHandle}_${target}`, source, sourceHandle, target, targetHandle: 'in' })
+export const node = (id, kind, x, y, config = {}, label = '') => ({ id, type: 'block', position: { x, y }, data: { kind, label, config } })
+export const edge = (source, sourceHandle, target) => ({ id: `e_${source}_${sourceHandle}_${target}`, source, sourceHandle, target, targetHandle: 'in' })
 
 /** The starting workflow. `autoSend` lets the final Email sent block send without a person (used for sample data). */
 export function makeDefaultWorkflow({ autoSend = false } = {}) {
