@@ -1,0 +1,81 @@
+import { useApp } from '../store'
+import { CATEGORIES } from '../data/defaults'
+import { Badge, Card, Empty, PageHeader, SeverityBadge, StatusBadge, timeAgo } from '../components/ui'
+
+const MODE = { draft: 'Draft for review', auto_safe: 'Auto-send when safe', auto_all: 'Auto-send everything safe' }
+
+export default function Dashboard() {
+  const { emails, settings, rules, files, activity } = useApp()
+  const week = emails.filter((e) => Date.now() - new Date(e.receivedAt) < 7 * 864e5)
+  const auto = week.filter((e) => e.status === 'auto_sent').length
+  const open = emails.filter((e) => e.status === 'pending_review' || e.status === 'escalated')
+  const flagged = week.filter((e) => e.result.flags.length)
+  const avgConf = week.length ? Math.round(week.reduce((a, e) => a + e.result.confidence, 0) / week.length) : 0
+
+  const byCat = CATEGORIES.map((c) => ({ ...c, n: week.filter((e) => e.result.category === c.id).length })).filter((c) => c.n).sort((a, b) => b.n - a.n)
+  const maxCat = Math.max(1, ...byCat.map((c) => c.n))
+  const flagCounts = rules.map((r) => ({ r, n: week.filter((e) => e.result.flags.some((f) => f.ruleId === r.id)).length })).filter((x) => x.n).sort((a, b) => b.n - a.n)
+  const activeFiles = files.filter((f) => f.active && f.content).length
+
+  return (
+    <>
+      <PageHeader title="Admin dashboard" subtitle="Last 7 days. Sample data until a real mailbox is connected." />
+      <div className="tiles">
+        <div className="tile"><div className="num">{week.length}</div><div className="lbl">Emails received</div></div>
+        <div className="tile"><div className="num">{week.length ? Math.round((auto / week.length) * 100) : 0}%</div><div className="lbl">Answered automatically</div></div>
+        <div className="tile"><div className="num">{open.length}</div><div className="lbl">Waiting for a person</div></div>
+        <div className="tile"><div className="num">{avgConf}%</div><div className="lbl">Average AI confidence</div></div>
+      </div>
+
+      <div className="grid-2">
+        <Card title="Current setup" actions={<a className="btn small" href="#/admin/settings">Change</a>}>
+          <div className="stack" style={{ gap: 10 }}>
+            <div className="row between"><span>Reply mode</span><Badge tone={settings.mode === 'draft' ? 'blue' : 'amber'}>{MODE[settings.mode]}</Badge></div>
+            <div className="row between"><span>Flag rules active</span><strong>{rules.filter((r) => r.enabled).length} of {rules.length}</strong></div>
+            <div className="row between"><span>Documents the AI can read</span><strong>{activeFiles} of {files.length}</strong></div>
+            <div className="row between"><span>Zoro connection</span><Badge>{settings.integrations.zoro.enabled ? 'Simulated' : 'Not connected'}</Badge></div>
+            <div className="row between"><span>Mailbox</span><Badge>Not connected</Badge></div>
+          </div>
+        </Card>
+        <Card title={`Needs attention (${open.length})`} actions={<a className="btn small" href="#/admin/review">Open queue</a>}>
+          {open.length === 0 ? <Empty icon="🎉" title="All caught up" /> : (
+            <div className="list">
+              {open.slice(0, 5).map((e) => (
+                <a key={e.id} className="item" href="#/admin/review" style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div className="body">
+                    <div className="truncate cell-title">{e.subject}</div>
+                    <div className="meta"><StatusBadge status={e.status} />{e.result.flags.length > 0 && <SeverityBadge severity={['critical', 'high', 'medium'].find((s) => e.result.flags.some((f) => f.severity === s))} />}<span className="muted small">{timeAgo(e.receivedAt)}</span></div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid-2" style={{ marginTop: 16 }}>
+        <Card title="What people are asking about">
+          {byCat.length === 0 ? <Empty icon="📊" title="No data yet" /> : (
+            <div className="bars">{byCat.map((c) => (
+              <div key={c.id} className="bar-row"><span className="truncate">{c.label}</span><div className="bar"><div style={{ width: `${(c.n / maxCat) * 100}%` }} /></div><strong>{c.n}</strong></div>
+            ))}</div>
+          )}
+        </Card>
+        <Card title={`Flagged messages (${flagged.length})`} actions={<a className="btn small" href="#/admin/flags">Edit rules</a>}>
+          {flagCounts.length === 0 ? <Empty icon="✅" title="Nothing flagged this week" /> : (
+            <div className="bars">{flagCounts.map(({ r, n }) => (
+              <div key={r.id} className="bar-row"><span className="truncate">{r.name}</span><div className="bar"><div style={{ width: `${(n / flagCounts[0].n) * 100}%`, background: 'var(--red)' }} /></div><strong>{n}</strong></div>
+            ))}</div>
+          )}
+        </Card>
+      </div>
+
+      <div style={{ marginTop: 16 }} />
+      <Card title="Recent activity" actions={<a className="btn small" href="#/admin/activity">See all</a>}>
+        <div className="list">
+          {activity.slice(0, 6).map((a) => <div key={a.id} className="row between item" style={{ cursor: 'default' }}><span>{a.text}</span><span className="muted small">{timeAgo(a.at)}</span></div>)}
+        </div>
+      </Card>
+    </>
+  )
+}

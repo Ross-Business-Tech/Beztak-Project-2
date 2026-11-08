@@ -1,0 +1,127 @@
+import { useState } from 'react'
+import { useApp } from '../store'
+import { CATEGORIES } from '../data/defaults'
+import { Badge, Card, Field, Modal, PageHeader, Segmented, SettingRow, Toggle } from '../components/ui'
+
+const MODES = [
+  { id: 'draft', icon: '📝', title: 'Draft for review', text: 'The AI writes a reply. A person approves every one before it goes out. Safest.' },
+  { id: 'auto_safe', icon: '⚖️', title: 'Auto-send when safe', text: 'Sends on its own only for allowed topics when the AI is confident. Everything else waits for review.' },
+  { id: 'auto_all', icon: '⚡', title: 'Auto-send everything safe', text: 'Sends every unflagged reply that has a supporting document. Flagged messages still wait for a person.' },
+]
+
+export default function Settings() {
+  const { settings: s, updateSettings, log, toast, resetAll, storageFull } = useApp()
+  const [confirmReset, setConfirmReset] = useState(false)
+  const set = (patch, note) => updateSettings(patch, note)
+  const nested = (key, patch, note) => set({ [key]: { ...s[key], ...patch } }, note)
+  const zoro = s.integrations.zoro
+
+  return (
+    <>
+      <PageHeader title="Settings" subtitle="Changes save automatically and apply to the next email." />
+      {storageFull && <div className="sim-banner" role="alert">⚠️ This browser is out of storage, so recent changes may not be saved. Delete some large files in Knowledge files.</div>}
+
+      <Card title="How should replies go out?">
+        <div className="mode-cards" role="radiogroup" aria-label="Reply mode">
+          {MODES.map((m) => (
+            <button key={m.id} type="button" role="radio" aria-checked={s.mode === m.id} className={`mode-card ${s.mode === m.id ? 'on' : ''}`}
+              onClick={() => { set({ mode: m.id }, `Reply mode changed to "${m.title}"`); toast(`Mode: ${m.title}`) }}>
+              <span aria-hidden style={{ fontSize: '1.4rem' }}>{m.icon}</span><strong>{m.title}</strong><span className="muted small">{m.text}</span>
+            </button>
+          ))}
+        </div>
+        <div className="guardrail" role="note"><span aria-hidden>🔒</span><div>Messages that trigger a <a href="#/admin/flags">flag rule</a> (like harassment) are never sent automatically in any mode.</div></div>
+      </Card>
+
+      <Card title="Auto-send rules" hint={s.mode === 'draft' ? 'Not used while in "Draft for review" mode, but ready for when you switch.' : 'Applied when the AI wants to send on its own.'}>
+        {s.mode === 'auto_safe' || s.mode === 'draft' ? (
+          <>
+            <SettingRow title={`Minimum confidence: ${s.confidenceThreshold}%`} hint="Below this, the draft waits for review.">
+              <input type="range" min={40} max={99} value={s.confidenceThreshold} aria-label="Minimum confidence" onChange={(e) => set({ confidenceThreshold: Number(e.target.value) })} style={{ width: 220, maxWidth: '100%' }} />
+            </SettingRow>
+            <SettingRow title="Topics allowed to auto-send" hint="Turn off topics that should always be reviewed, like payroll.">
+              <div style={{ display: 'grid', gap: 8, minWidth: 250 }}>
+                {CATEGORIES.map((c) => (
+                  <div key={c.id} className="row between"><span>{c.label}</span>
+                    <Toggle label={`Auto-send ${c.label}`} checked={!!s.autoCategories[c.id]} onChange={(v) => set({ autoCategories: { ...s.autoCategories, [c.id]: v } }, `Auto-send for "${c.label}" turned ${v ? 'on' : 'off'}`)} /></div>
+                ))}
+              </div>
+            </SettingRow>
+          </>
+        ) : <p className="muted small" style={{ marginBottom: 6 }}>Topic and confidence limits are ignored in "Auto-send everything safe".</p>}
+        <SettingRow title="Only answer from documents" hint="If no document supports an answer, never auto-send." >
+          <div className="switch"><Toggle label="Require a source" checked={s.requireSource} onChange={(v) => set({ requireSource: v }, `"Only answer from documents" turned ${v ? 'on' : 'off'}`)} /></div>
+        </SettingRow>
+        <SettingRow title="Max automatic replies per sender per day" hint="Stops loops and back-and-forth.">
+          <input type="number" min={1} max={20} value={s.maxAutoPerSenderPerDay} aria-label="Max replies" style={{ width: 90 }} onChange={(e) => set({ maxAutoPerSenderPerDay: Math.max(1, Number(e.target.value) || 1) })} />
+        </SettingRow>
+        <SettingRow title="Business hours" hint="Optionally hold automatic replies sent outside working hours.">
+          <div className="row">
+            <Toggle label="Use business hours" checked={s.hours.enabled} onChange={(v) => nested('hours', { enabled: v })} />
+            {s.hours.enabled && <>
+              <input type="time" aria-label="Start" style={{ width: 120 }} value={s.hours.start} onChange={(e) => nested('hours', { start: e.target.value })} />
+              <span>to</span>
+              <input type="time" aria-label="End" style={{ width: 120 }} value={s.hours.end} onChange={(e) => nested('hours', { end: e.target.value })} />
+            </>}
+          </div>
+        </SettingRow>
+      </Card>
+
+      <Card title="Reply style">
+        <div className="two-col">
+          <Field label="Help desk name">{(id) => <input id={id} type="text" value={s.helpDeskName} onChange={(e) => set({ helpDeskName: e.target.value })} />}</Field>
+          <Field label="Reply-from address (example only)">{(id) => <input id={id} type="email" value={s.replyToAddress} onChange={(e) => set({ replyToAddress: e.target.value })} />}</Field>
+        </div>
+        <Field label="Tone">{() => <Segmented label="Tone" value={s.tone} onChange={(v) => set({ tone: v })} options={[{ value: 'warm', label: 'Warm' }, { value: 'professional', label: 'Professional' }, { value: 'concise', label: 'Concise' }]} />}</Field>
+        <Field label="Signature">{(id) => <textarea id={id} rows={3} value={s.signature} onChange={(e) => set({ signature: e.target.value })} />}</Field>
+        <SettingRow title="Add an AI disclosure footer" hint="Tells people an AI helped write the reply.">
+          <Toggle label="Footer" checked={s.includeFooter} onChange={(v) => set({ includeFooter: v })} />
+        </SettingRow>
+        {s.includeFooter && <Field label="Footer text">{(id) => <textarea id={id} rows={2} value={s.footer} onChange={(e) => set({ footer: e.target.value })} />}</Field>}
+      </Card>
+
+      <Card title="Escalations" hint="What happens when a rule says a person must handle it.">
+        <SettingRow title="Send a short acknowledgement" hint="Lets the employee know a person will be in touch. Contains no advice.">
+          <Toggle label="Acknowledge" checked={s.ackOnEscalate} onChange={(v) => set({ ackOnEscalate: v }, `Escalation acknowledgement turned ${v ? 'on' : 'off'}`)} />
+        </SettingRow>
+        {s.ackOnEscalate && <Field label="Acknowledgement text">{(id) => <textarea id={id} rows={3} value={s.ackText} onChange={(e) => set({ ackText: e.target.value })} />}</Field>}
+        <Field label="Alert email for flagged messages (example only)">{(id) => <input id={id} type="email" value={s.integrations.notifyEmail} onChange={(e) => nested('integrations', { notifyEmail: e.target.value })} />}</Field>
+      </Card>
+
+      <Card title="Connections" hint="Planned, not working yet. These switches only change how the sandbox behaves.">
+        <SettingRow title={<>Zoro (HR system) <Badge tone="amber">Coming soon</Badge></>} hint="Will let the AI look up employee details through Zoro's MCP service, so replies can use a person's real balances and plan.">
+          <Toggle label="Zoro" checked={zoro.enabled} onChange={(v) => nested('integrations', { zoro: { ...zoro, enabled: v } }, `Zoro connection turned ${v ? 'on (simulated)' : 'off'}`)} />
+        </SettingRow>
+        {zoro.enabled && (
+          <div style={{ paddingBottom: 8 }}>
+            <Field label="Zoro MCP server address" hint="Placeholder. Nothing is called.">{(id) => <input id={id} type="text" value={zoro.serverUrl} onChange={(e) => nested('integrations', { zoro: { ...zoro, serverUrl: e.target.value } })} placeholder="https://…" />}</Field>
+            <div className="muted small" style={{ marginBottom: 6 }}>What the AI may look up</div>
+            {[['employee', 'Employee name and manager'], ['pto', 'PTO balance'], ['benefits', 'Benefits enrollment'], ['payroll', 'Pay information (sensitive)']].map(([k, label]) => (
+              <div key={k} className="row between" style={{ marginBottom: 6 }}><span>{label}</span>
+                <Toggle label={label} checked={zoro.lookups[k]} onChange={(v) => nested('integrations', { zoro: { ...zoro, lookups: { ...zoro.lookups, [k]: v } } })} /></div>
+            ))}
+          </div>
+        )}
+        <SettingRow title={<>Help desk mailbox <Badge tone="amber">Coming soon</Badge></>} hint="The inbox the AI will read, such as Outlook or Gmail.">
+          <select aria-label="Mailbox provider" value={s.integrations.mailbox.provider} onChange={(e) => nested('integrations', { mailbox: { ...s.integrations.mailbox, provider: e.target.value } })}>
+            <option value="none">Not connected</option><option value="outlook">Microsoft Outlook</option><option value="gmail">Gmail</option>
+          </select>
+        </SettingRow>
+      </Card>
+
+      <Card title="Sandbox data">
+        <SettingRow title="Reset the sandbox" hint="Brings back the sample emails, documents, rules and settings. Your test emails and uploads are removed."><button className="btn danger" onClick={() => setConfirmReset(true)}>Reset everything</button></SettingRow>
+      </Card>
+
+      {confirmReset && (
+        <Modal title="Reset everything?" onClose={() => setConfirmReset(false)}>
+          <p>This deletes your test emails, uploaded files, custom rules and settings changes in this browser.</p>
+          <div className="modal-actions">
+            <button className="btn" onClick={() => setConfirmReset(false)}>Cancel</button>
+            <button className="btn primary" style={{ background: 'var(--red)', borderColor: 'var(--red)', color: '#fff' }} onClick={() => { resetAll(); setConfirmReset(false); toast('Sandbox reset'); log('system', 'Sandbox reset') }}>Reset</button>
+          </div>
+        </Modal>
+      )}
+    </>
+  )
+}
