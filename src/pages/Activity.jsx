@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useApp } from '../store'
 import { Badge, Card, HelpPanel, Empty, PageHeader, Segmented, fmtDate } from '../components/ui'
 
-const TYPES = { settings: ['Settings', 'blue'], rules: ['Flag rules', 'red'], file: ['Files', 'amber'], email: ['Email', 'green'], review: ['Review', 'green'], system: ['System', 'gray'] }
+const TYPES = { settings: ['Settings', 'blue'], workflow: ['Workflow', 'red'],
+  alert: ['Alerts', 'amber'], file: ['Files', 'amber'], email: ['Email', 'green'], review: ['Review', 'green'], system: ['System', 'gray'] }
 
 export default function Activity() {
   const { activity } = useApp()

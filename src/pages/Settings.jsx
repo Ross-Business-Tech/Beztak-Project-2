@@ -1,14 +1,7 @@
 import { useState } from 'react'
 import { useApp } from '../store'
 import { DEFAULT_MODEL, testConnection } from '../engine/ai'
-import { CATEGORIES } from '../data/defaults'
 import { Badge, Card, HelpPanel, Icon, Field, Modal, PageHeader, Segmented, SettingRow, Toggle } from '../components/ui'
-
-const MODES = [
-  { id: 'draft', title: 'Draft for review', text: 'The AI writes a reply. A person approves every one before it goes out. Safest.' },
-  { id: 'auto_safe', title: 'Auto-send when safe', text: 'Sends on its own only for allowed topics when the AI is confident. Everything else waits for review.' },
-  { id: 'auto_all', title: 'Auto-send everything safe', text: 'Sends every unflagged reply that has a supporting document. Flagged messages still wait for a person.' },
-]
 
 export default function Settings() {
   const { settings: s, updateSettings, log, toast, resetAll, storageFull } = useApp()
@@ -23,17 +16,15 @@ export default function Settings() {
       <PageHeader title="Settings" subtitle="Changes save automatically and apply to the next email." />
       <HelpPanel id="settings" steps={[
         'AI engine chooses whether a real AI model or the simple word-matching stand-in reads each message. Use Check the AI connection to confirm it is working.',
-        'Start with "How should replies go out?" This is the most important decision: whether a person approves every reply, or the system sends low-risk ones itself.',
-        'Under Auto-send rules, set the confidence needed, the topics allowed to send automatically, and limits that prevent loops.',
-        'Reply style controls tone, signature and the AI disclosure footer on every message.',
-        'Escalations covers the optional instant acknowledgement for sensitive messages. Staff are alerted inside this tool, in the Review queue.',
+        'Reply style controls the tone, signature and AI disclosure footer on every message the AI writes.',
         'Connection to Zoro (your ticketing system) is a placeholder for now. Reporting sets how time saved is estimated.',
+        'Routing rules, flagging and automatic sending are in the Workflow, not here.',
       ]} note="Changes save automatically and apply to the next email processed." />
       {storageFull && <div className="sim-banner" role="alert">This browser is out of storage, so recent changes may not be saved. Delete some large files in Knowledge files.</div>}
 
       <Card title="AI engine" hint="What reads each message and writes the draft.">
         <div className="mode-cards" role="radiogroup" aria-label="AI engine" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-          {[['ai', 'AI language model', 'Reads for meaning, so it can recognise a sensitive situation even when no trigger word appears. Drafts are grounded in your documents, and every quote is verified.'], ['simulated', 'Simulated (word matching)', 'Free and instant, but only matches the words on your flag rules. Useful for comparison.']].map(([id, t, d]) => (
+          {[['ai', 'AI language model', 'Reads for meaning, so it can recognise a sensitive situation even when no trigger word appears. Drafts are grounded in your documents, and every quote is verified.'], ['simulated', 'Simulated (word matching)', 'Free and instant, but only matches the trigger words in your Risk filters. Useful for comparison.']].map(([id, t, d]) => (
             <button key={id} type="button" role="radio" aria-checked={s.ai.engine === id} className={`mode-card ${s.ai.engine === id ? 'on' : ''}`}
               onClick={() => { set({ ai: { ...s.ai, engine: id } }, `AI engine changed to "${t}"`); setCheck(null) }}>
               <strong>{t}</strong><span className="muted small">{d}</span>
@@ -52,55 +43,15 @@ export default function Settings() {
               }}>{check === 'busy' ? 'Checking...' : 'Check the AI connection'}</button>
               {check && check !== 'busy' && (check.ok ? <Badge tone="green">Connected</Badge> : <span className="muted small"><Badge tone="red">Not connected</Badge> {check.msg} Messages will use the simulated engine until this works.</span>)}
             </div>
-            <div className="guardrail" role="note"><Icon name="lock" /><div>The AI only proposes. Whether a reply is sent, held or escalated is decided by the fixed rules on this page, so the AI cannot send a flagged message. Messages and your documents are sent to the AI service to be read, so use made-up data while testing.</div></div>
+            <div className="guardrail" role="note"><Icon name="lock" /><div>The AI only reads and drafts. Where an email goes, and whether it is sent, is decided by your Workflow, never by the AI. Messages and your documents are sent to the AI service to be read, so use made-up data while testing.</div></div>
           </div>
         )}
       </Card>
 
-      <Card title="How should replies go out?">
-        <div className="mode-cards" role="radiogroup" aria-label="Reply mode">
-          {MODES.map((m) => (
-            <button key={m.id} type="button" role="radio" aria-checked={s.mode === m.id} className={`mode-card ${s.mode === m.id ? 'on' : ''}`}
-              onClick={() => { set({ mode: m.id }, `Reply mode changed to "${m.title}"`); toast(`Mode: ${m.title}`) }}>
-              <strong>{m.title}</strong><span className="muted small">{m.text}</span>
-            </button>
-          ))}
-        </div>
-        <div className="guardrail" role="note"><Icon name="lock" /><div>Messages that trigger a <a href="#/admin/flags">flag rule</a> (like harassment) are never sent automatically in any mode.</div></div>
-      </Card>
-
-      <Card title="Auto-send rules" hint={s.mode === 'draft' ? 'Not used while in "Draft for review" mode, but ready for when you switch.' : 'Applied when the AI wants to send on its own.'}>
-        {s.mode === 'auto_safe' || s.mode === 'draft' ? (
-          <>
-            <SettingRow title={`Minimum confidence: ${s.confidenceThreshold}%`} hint="Below this, the draft waits for review.">
-              <input type="range" min={40} max={99} value={s.confidenceThreshold} aria-label="Minimum confidence" onChange={(e) => set({ confidenceThreshold: Number(e.target.value) })} style={{ width: 220, maxWidth: '100%' }} />
-            </SettingRow>
-            <SettingRow title="Topics allowed to auto-send" hint="Turn off topics that should always be reviewed, like payroll.">
-              <div style={{ display: 'grid', gap: 8, minWidth: 250 }}>
-                {CATEGORIES.map((c) => (
-                  <div key={c.id} className="row between"><span>{c.label}</span>
-                    <Toggle label={`Auto-send ${c.label}`} checked={!!s.autoCategories[c.id]} onChange={(v) => set({ autoCategories: { ...s.autoCategories, [c.id]: v } }, `Auto-send for "${c.label}" turned ${v ? 'on' : 'off'}`)} /></div>
-                ))}
-              </div>
-            </SettingRow>
-          </>
-        ) : <p className="muted small" style={{ marginBottom: 6 }}>Topic and confidence limits are ignored in "Auto-send everything safe".</p>}
-        <SettingRow title="Only answer from documents" hint="If no document supports an answer, never auto-send." >
-          <div className="switch"><Toggle label="Require a source" checked={s.requireSource} onChange={(v) => set({ requireSource: v }, `"Only answer from documents" turned ${v ? 'on' : 'off'}`)} /></div>
-        </SettingRow>
-        <SettingRow title="Max automatic replies per sender per day" hint="Stops loops and back-and-forth.">
-          <input type="number" min={1} max={20} value={s.maxAutoPerSenderPerDay} aria-label="Max replies" style={{ width: 90 }} onChange={(e) => set({ maxAutoPerSenderPerDay: Math.max(1, Number(e.target.value) || 1) })} />
-        </SettingRow>
-        <SettingRow title="Business hours" hint="Optionally hold automatic replies sent outside working hours.">
-          <div className="row">
-            <Toggle label="Use business hours" checked={s.hours.enabled} onChange={(v) => nested('hours', { enabled: v })} />
-            {s.hours.enabled && <>
-              <input type="time" aria-label="Start" style={{ width: 120 }} value={s.hours.start} onChange={(e) => nested('hours', { start: e.target.value })} />
-              <span>to</span>
-              <input type="time" aria-label="End" style={{ width: 120 }} value={s.hours.end} onChange={(e) => nested('hours', { end: e.target.value })} />
-            </>}
-          </div>
-        </SettingRow>
+      <Card title="Where did the reply rules go?">
+        <p>How replies are routed now lives in the <a href="#/admin/workflow">Workflow</a>. There you decide, with blocks, what is flagged as high-risk (Risk filters), whether replies send automatically or wait for a person (the Email sent block), who gets alerted, and how confident the AI must be before anything is sent.</p>
+        <p className="muted small" style={{ marginTop: 8 }}>This page keeps the things that apply everywhere: how replies are written, the AI engine, the Zoro connection, and reporting.</p>
+        <div style={{ marginTop: 12 }}><a className="btn" href="#/admin/workflow">Open the Workflow</a></div>
       </Card>
 
       <Card title="Reply style">
@@ -114,13 +65,6 @@ export default function Settings() {
           <Toggle label="Footer" checked={s.includeFooter} onChange={(v) => set({ includeFooter: v })} />
         </SettingRow>
         {s.includeFooter && <Field label="Footer text">{(id) => <textarea id={id} rows={2} value={s.footer} onChange={(e) => set({ footer: e.target.value })} />}</Field>}
-      </Card>
-
-      <Card title="Escalations" hint="High-risk rules always produce a draft that a person must edit and confirm before it is sent.">
-        <SettingRow title="Also send a short acknowledgement right away" hint="On top of the draft a person reviews, instantly tells the employee someone will be in touch. Contains no advice.">
-          <Toggle label="Acknowledge" checked={s.ackOnEscalate} onChange={(v) => set({ ackOnEscalate: v }, `Escalation acknowledgement turned ${v ? 'on' : 'off'}`)} />
-        </SettingRow>
-        {s.ackOnEscalate && <Field label="Acknowledgement text">{(id) => <textarea id={id} rows={3} value={s.ackText} onChange={(e) => set({ ackText: e.target.value })} />}</Field>}
       </Card>
 
       <Card title="Connection to Zoro" hint="Planned, not working yet. These switches only change how the test environment behaves.">

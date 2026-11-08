@@ -21,25 +21,13 @@ export const SEVERITIES = [
 export const FILE_FOLDERS = ['Policies', 'Benefits', 'Payroll', 'Leave', 'Templates', 'Onboarding', 'Other']
 
 export const DEFAULT_SETTINGS = {
-  // How replies go out: 'draft' | 'auto_safe' | 'auto_all'
-  mode: 'draft',
-  confidenceThreshold: 80,
-  autoCategories: {
-    time_off: true, benefits: true, payroll: false, leave: false,
-    policy: true, onboarding: true, offboarding: false, other: false,
-  },
-  requireSource: true,
+  // How replies are routed (reply mode, flag rules, limits, business hours) now lives in the Workflow editor.
   tone: 'warm',
   helpDeskName: 'HR Help Desk',
   replyToAddress: 'hr-help@example.com',
   signature: 'Warm regards,\nThe HR Help Desk',
   footer: 'This reply was prepared with the help of an AI assistant. If anything looks off, just reply and a person from HR will follow up.',
   includeFooter: true,
-  ackOnEscalate: true,
-  ackText: 'Thank you for reaching out. Your message has been shared with a member of the HR team, who will contact you personally and privately. If this is an emergency, please call your local emergency number.',
-  hours: { enabled: false, start: '08:00', end: '18:00', outside: 'hold' },
-  maxAutoPerSenderPerDay: 3,
-  lowConfidenceBehavior: 'draft',
   minutesSavedPerReply: 6,
   // 'ai' = real AI model (falls back to the simulation if unreachable); 'simulated' = word matching only
   ai: { engine: 'ai', model: 'anthropic/claude-sonnet-4.5' },

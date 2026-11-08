@@ -2,10 +2,10 @@ import { useApp } from '../store'
 import { CATEGORIES } from '../data/defaults'
 import { Badge, Card, HelpPanel, Empty, PageHeader, SeverityBadge, StatusBadge, timeAgo } from '../components/ui'
 
-const MODE = { draft: 'Draft for review', auto_safe: 'Auto-send when safe', auto_all: 'Auto-send everything safe' }
 
 export default function Dashboard() {
-  const { emails, settings, rules, files, activity } = useApp()
+  const { emails, settings, rules, files, activity, workflow } = useApp()
+  const autoSends = workflow.nodes.some((n) => n.data.kind === 'email_out' && !n.data.config.requireApproval)
   const week = emails.filter((e) => Date.now() - new Date(e.receivedAt) < 7 * 864e5)
   const auto = week.filter((e) => e.status === 'auto_sent').length
   const open = emails.filter((e) => e.status === 'pending_review' || e.status === 'escalated')
@@ -26,7 +26,7 @@ export default function Dashboard() {
       <PageHeader title="Admin dashboard" subtitle="Last 7 days. Sample data until Zoro is connected." />
       <HelpPanel id="dash" steps={[
         'The four figures at the top summarise the last seven days. "Answered automatically" is the share sent without a person. "Time saved" multiplies replies by the minutes set in Settings. "Drafts sent without edits" shows answer quality: the higher it is, the less reviewers rewrite.',
-        'Current setup shows your reply mode and what is connected. Select Change to edit it.',
+        'Current setup shows how many blocks your workflow has and whether anything sends automatically. Select Change to open the Workflow.',
         'Needs attention lists drafts and flagged messages waiting for a person. Select Open queue to work through them.',
         'The two charts show what employees ask about and which flag rules are triggered most.',
       ]} note="Figures here include sample data and any test emails you have sent." />
@@ -38,10 +38,11 @@ export default function Dashboard() {
       </div>
 
       <div className="grid-2">
-        <Card title="Current setup" actions={<a className="btn small" href="#/admin/settings">Change</a>}>
+        <Card title="Current setup" actions={<a className="btn small" href="#/admin/workflow">Change</a>}>
           <div className="stack" style={{ gap: 10 }}>
-            <div className="row between"><span>Reply mode</span><Badge tone={settings.mode === 'draft' ? 'blue' : 'amber'}>{MODE[settings.mode]}</Badge></div>
-            <div className="row between"><span>Flag rules active</span><strong>{rules.filter((r) => r.enabled).length} of {rules.length}</strong></div>
+            <div className="row between"><span>Workflow</span><strong>{workflow.nodes.length} blocks</strong></div>
+            <div className="row between"><span>Automatic sending</span><Badge tone={autoSends ? 'amber' : 'blue'}>{autoSends ? 'On for some paths' : 'Off: a person approves'}</Badge></div>
+            <div className="row between"><span>Risk rules watching</span><strong>{rules.length}</strong></div>
             <div className="row between"><span>Documents the AI can read</span><strong>{activeFiles} of {files.length}</strong></div>
             <div className="row between"><span>Zoro (tickets)</span><Badge>{settings.integrations.zoro.enabled ? 'Simulated' : 'Not connected'}</Badge></div>
           </div>
@@ -70,7 +71,7 @@ export default function Dashboard() {
             ))}</div>
           )}
         </Card>
-        <Card title={`Flagged messages (${flagged.length})`} actions={<a className="btn small" href="#/admin/flags">Edit rules</a>}>
+        <Card title={`Flagged messages (${flagged.length})`} actions={<a className="btn small" href="#/admin/workflow">Edit rules</a>}>
           {flagCounts.length === 0 ? <Empty title="Nothing flagged this week" /> : (
             <div className="bars">{flagCounts.map(({ r, n }) => (
               <div key={r.id} className="bar-row"><span className="truncate">{r.name}</span><div className="bar"><div style={{ width: `${(n / flagCounts[0].n) * 100}%`, background: 'var(--red)' }} /></div><strong>{n}</strong></div>

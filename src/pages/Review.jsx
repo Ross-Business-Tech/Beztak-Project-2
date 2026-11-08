@@ -34,7 +34,7 @@ export default function Review() {
         'Select a message to read the original email, why it needs a person, and the AI draft.',
         'Edit the draft as you would any email. Select Save draft to keep your changes. Nothing is sent until you select Send reply.',
         'Use Case notes to record who you spoke to and what was agreed. Notes stay internal and are kept with the case.',
-        'High-risk messages show a red notice and require a confirmation before the Send button turns on.',
+        'High-risk messages show a red notice and require a confirmation before the Send button turns on. Which messages get that treatment is set in the Workflow.',
       ]} />}
       {selected ? <Detail key={selected.id} email={selected} onBack={() => setSelId(null)} /> : (
         <Card>
@@ -54,7 +54,7 @@ export default function Review() {
                       <StatusBadge status={e.status} />
                       {e.result.flags.length > 0 && <SeverityBadge severity={topSeverity(e.result.flags)} />}
                       {e.result.flags.length > 0 && <span className="small muted">{e.result.flags.map((f) => f.name).join(', ')}</span>}
-                      {e.source === 'test' && <Badge tone="blue">Test</Badge>}
+                      {e.result.priority === 'urgent' && <Badge tone="red">Urgent</Badge>}{e.source === 'test' && <Badge tone="blue">Test</Badge>}
                     </div>
                   </div>
                   <span className="muted small" style={{ whiteSpace: 'nowrap', flex: 'none' }}>{timeAgo(e.receivedAt)}</span>
@@ -74,7 +74,7 @@ function Detail({ email, onBack }) {
   const [regen, setRegen] = useState(false)
   const r = email.result
   const open = isOpen(email)
-  const highRisk = r.decision === 'escalated'
+  const highRisk = Boolean(r.requireConfirm)
   const [text, setText] = useState(email.editedDraft ?? r.draft)
   const [checked, setChecked] = useState(false)
   const [saved, setSaved] = useState(email.editedDraft !== undefined)
@@ -96,6 +96,9 @@ function Detail({ email, onBack }) {
             <div className="email-box">{email.body}</div>
           </Card>
           <Card title="Why it's here"><ul style={{ margin: 0, paddingLeft: 18 }}>{r.reasons.map((x, i) => <li key={i}>{x}</li>)}</ul>
+            {(r.owner || r.priority === 'urgent' || r.alerts?.length > 0) && (
+              <p className="small" style={{ marginTop: 10 }}>{r.priority === 'urgent' && <Badge tone="red">Urgent</Badge>} {r.owner && <>Suggested owner: <strong>{r.owner}</strong>. </>}{r.alerts?.length > 0 && <>Alerted: {r.alerts.map((a) => a.role).join(', ')}.</>}</p>
+            )}
             {r.flags.map((f) => (
               <div key={f.ruleId} className="row" style={{ marginTop: 10 }}><SeverityBadge severity={f.severity} /><strong>{f.name}</strong> {f.matched.map((m) => <span key={m} className="chip hit">{m}</span>)}{f.by === 'ai' && <Badge tone="blue">Caught by meaning</Badge>}{f.reason && <span className="muted small" style={{ flexBasis: '100%' }}>Why: {f.reason}</span>}</div>
             ))}

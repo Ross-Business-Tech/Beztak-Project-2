@@ -21,6 +21,16 @@ const PATHS = {
   plus: 'M12 5v14M5 12h14',
   upload: 'M12 16V4M7 9l5-5 5 5M4 20h16',
   chevron: 'M9 6l6 6-6 6',
+  brain: 'M9 4a3 3 0 00-3 3v1a3 3 0 00-1 5 3 3 0 003 4h1V4zM15 4a3 3 0 013 3v1a3 3 0 011 5 3 3 0 01-3 4h-1V4z',
+  search: 'M11 4a7 7 0 100 14 7 7 0 000-14zM21 21l-5-5',
+  branch: 'M6 4v8M6 12c0 4 4 4 6 4h6M18 16l-3-3M18 16l-3 3',
+  loop: 'M4 12a8 8 0 0114-5M20 4v4h-4M20 12a8 8 0 01-14 5M4 20v-4h4',
+  pen: 'M4 20l4-1 11-11-3-3L5 16zM14 6l3 3',
+  bell: 'M6 16V11a6 6 0 0112 0v5l2 2H4zM10 20a2 2 0 004 0',
+  send: 'M3 11l18-8-8 18-2-8z',
+  user: 'M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0',
+  split: 'M12 4v6M12 10L6 18M12 10l6 8',
+  workflow: 'M4 5h6v5H4zM14 14h6v5h-6zM10 7.5h4a2 2 0 012 2V14',
 }
 export function Icon({ name, size = 18 }) {
   return (
@@ -31,9 +41,9 @@ export function Icon({ name, size = 18 }) {
 }
 
 /** Plain-language "how to use this page" panel. Remembers if it was collapsed. */
-export function HelpPanel({ id, title = 'How to use this page', steps, note }) {
+export function HelpPanel({ id, title = 'How to use this page', steps, note, defaultOpen = true }) {
   const key = `help-collapsed-${id}`
-  const [open, setOpen] = useState(() => { try { return localStorage.getItem(key) !== '1' } catch { return true } })
+  const [open, setOpen] = useState(() => { try { const v = localStorage.getItem(key); return v === null ? defaultOpen : v !== '1' } catch { return defaultOpen } })
   const toggle = () => { setOpen(!open); try { localStorage.setItem(key, open ? '1' : '0') } catch { /* ignore */ } }
   return (
     <section className="help" aria-label={title}>

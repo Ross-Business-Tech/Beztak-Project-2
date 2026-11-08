@@ -5,7 +5,7 @@ import Lab from './pages/Lab'
 import Review from './pages/Review'
 import Dashboard from './pages/Dashboard'
 import Files from './pages/Files'
-import FlagRules from './pages/FlagRules'
+import Workflow from './pages/Workflow'
 import Settings from './pages/Settings'
 import Activity from './pages/Activity'
 import Guide from './pages/Guide'
@@ -30,9 +30,9 @@ const NAV = [
   { to: '/lab/docs', icon: 'file', label: 'Test documents', match: (r) => r === '/lab/docs' },
   { group: 'Administration' },
   { to: '/admin', icon: 'chart', label: 'Dashboard', match: (r) => r === '/admin' },
+  { to: '/admin/workflow', icon: 'workflow', label: 'Workflow', match: (r) => r === '/admin/workflow' || r === '/admin/flags' },
   { to: '/admin/review', icon: 'inbox', label: 'Review queue', badge: true, match: (r) => r === '/admin/review' },
   { to: '/admin/files', icon: 'folder', label: 'Knowledge files', match: (r) => r === '/admin/files' },
-  { to: '/admin/flags', icon: 'flag', label: 'Flag rules', match: (r) => r === '/admin/flags' },
   { to: '/admin/settings', icon: 'gear', label: 'Settings', match: (r) => r === '/admin/settings' },
   { to: '/admin/activity', icon: 'log', label: 'Activity log', match: (r) => r === '/admin/activity' },
 ]
@@ -44,7 +44,8 @@ function Page({ route }) {
     case '/admin': return <Dashboard />
     case '/admin/review': return <Review />
     case '/admin/files': return <Files />
-    case '/admin/flags': return <FlagRules />
+    case '/admin/flags':
+    case '/admin/workflow': return <Workflow />
     case '/admin/settings': return <Settings />
     case '/admin/activity': return <Activity />
     default: return <Guide />

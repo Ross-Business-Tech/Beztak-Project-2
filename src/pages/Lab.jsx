@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../store'
 import { SCENARIOS } from '../data/defaults'
 import { Uploader } from '../components/Uploader'
-import { Badge, Card, HelpPanel, Icon, ConfidenceMeter, Empty, Field, PageHeader, Segmented, SeverityBadge, StatusBadge, Trace, catLabel, fmtSize, timeAgo } from '../components/ui'
+import { Badge, Card, HelpPanel, Icon, ConfidenceMeter, Empty, Field, PageHeader, SeverityBadge, StatusBadge, Trace, catLabel, fmtSize, timeAgo } from '../components/ui'
 
 const BLANK = { name: '', from: '', subject: '', body: '' }
 
@@ -18,7 +18,7 @@ export default function Lab({ route }) {
       {tab === 'email' ? (
         <HelpPanel id="lab-email" steps={[
           'Choose an example from the list, or write your own message as if you were an employee.',
-          'Optionally change "Try it as if reply mode were" to see how the same message behaves in draft mode versus auto-send. This affects only the one test.',
+          'Your Workflow decides what happens to it. To change the outcome, edit the blocks on the Workflow page, then send the same example again.',
           'Select Send test email. The result appears on the right: what the AI decided, the reply, anything flagged, the documents it used, and its reasoning.',
           'If the result says a person must review it, open it in the Review queue to edit and approve it.',
         ]} note="To test an answer from your own documents, add one under Test documents first, then ask a question about it here." />
@@ -35,9 +35,8 @@ export default function Lab({ route }) {
 }
 
 function EmailTab() {
-  const { emails, settings, sendTestEmail, clearTestEmails, toast } = useApp()
+  const { emails, sendTestEmail, clearTestEmails, toast } = useApp()
   const [form, setForm] = useState(BLANK)
-  const [mode, setMode] = useState('')
   const [selId, setSelId] = useState(null)
   const [busy, setBusy] = useState(false)
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -48,7 +47,7 @@ function EmailTab() {
     e.preventDefault()
     setBusy(true)
     try {
-      const sent = await sendTestEmail({ ...form, from: form.from.trim() || 'test.employee@example.com', name: form.name.trim() || 'Test Employee' }, mode)
+      const sent = await sendTestEmail({ ...form, from: form.from.trim() || 'test.employee@example.com', name: form.name.trim() || 'Test Employee' })
       setSelId(sent.id)
       toast(sent.result.aiFallback ? 'Processed with the simulated engine. The AI was not reachable.' : 'Test email processed. See the result on the right.', sent.result.aiFallback ? 'warn' : 'ok')
     } finally { setBusy(false) }
@@ -77,11 +76,6 @@ function EmailTab() {
             </div>
             <Field label="Subject">{(id) => <input id={id} type="text" required value={form.subject} onChange={set('subject')} />}</Field>
             <Field label="Message">{(id) => <textarea id={id} required rows={8} value={form.body} onChange={set('body')} />}</Field>
-            <Field label="Try it as if reply mode were…" hint={`Your real setting is "${{ draft: 'Draft for review', auto_safe: 'Auto-send when safe', auto_all: 'Auto-send everything safe' }[settings.mode]}". This only changes this one test.`}>
-              {() => <Segmented label="Reply mode for this test" value={mode} onChange={setMode} options={[
-                { value: '', label: 'Current setting' }, { value: 'draft', label: 'Draft' }, { value: 'auto_safe', label: 'Auto if safe' }, { value: 'auto_all', label: 'Auto all' },
-              ]} />}
-            </Field>
             <div className="row" style={{ marginTop: 6 }}>
               <button className="btn primary" type="submit" disabled={busy}>{busy ? 'The AI is reading it...' : 'Send test email'}</button>
               <button className="btn" type="button" onClick={() => setForm(BLANK)}>Clear</button>
@@ -116,16 +110,17 @@ function EmailTab() {
 
 export function Result({ email }) {
   const r = email.result
-  const tone = r.decision === 'sent' ? 'green' : r.decision === 'escalated' ? 'red' : 'amber'
-  const headline = { sent: 'Reply sent automatically', review: 'Draft is waiting for a person to review', escalated: 'High-risk: draft saved for a person to review' }[r.decision]
+  const tone = r.decision === 'sent' ? 'green' : r.decision === 'escalated' || r.requireConfirm ? 'red' : r.decision === 'closed' ? 'gray' : 'amber'
+  const headline = { sent: 'Reply sent automatically', review: r.ready ? 'Reply is ready, waiting for a person to approve it' : 'Draft is waiting for a person to review', escalated: `Escalated${r.owner ? ` to ${r.owner}` : ''}: a person must handle it`, closed: 'Closed without a reply' }[r.decision]
   return (
     <>
       <Card title="What the AI did" actions={r.engine === 'ai' ? <Badge tone="green">AI model: {r.model}</Badge> : <Badge tone="gray">Simulated engine</Badge>}>
         {r.aiFallback && <div className="outcome amber"><Icon name="alert" /><div><strong>The real AI was not used for this message</strong><p>{r.aiFallback} The simulated engine, which matches words only, answered instead.</p></div></div>}
         <div className={`outcome ${tone}`}>
-          <Icon name={{ green: 'check', amber: 'mail', red: 'flag' }[tone]} />
+          <Icon name={{ green: 'check', amber: 'mail', red: 'flag', gray: 'dash' }[tone]} />
           <div><strong>{headline}</strong>{r.reasons.map((x, i) => <p key={i}>{x}</p>)}</div>
         </div>
+        {r.alerts?.length > 0 && <p className="small" style={{ marginBottom: 10 }}><strong>Alerts sent:</strong> {r.alerts.map((a) => `${a.role}: ${a.message}`).join(' · ')}</p>}
         <div className="two-col">
           <div><div className="muted small">Topic</div><strong>{catLabel(r.category)}</strong></div>
           <div><div className="muted small">Confidence</div><ConfidenceMeter value={r.confidence} /></div>
@@ -146,16 +141,18 @@ export function Result({ email }) {
         )}
       </Card>
 
-      <Card title={r.decision === 'sent' ? 'Reply that was sent' : 'Draft saved'}>
-        {r.decision === 'escalated' && <p className="muted small" style={{ marginBottom: 8 }}>High-risk: this draft waits in the review queue. Nothing is sent until a person edits and approves it.</p>}
-        <div className="draft-box">{email.editedDraft || r.draft}</div>
-        {r.acknowledgement && <p className="muted small" style={{ marginTop: 10 }}>Also sent right away (Settings Escalations): "{r.acknowledgement}"</p>}
-        <div className="row" style={{ marginTop: 12 }}>
-          {email.status === 'pending_review' || email.status === 'escalated'
-            ? <a className="btn small" href="#/admin/review">Open draft in review queue</a>
-            : <span className="muted small">Status: <StatusBadge status={email.status} /></span>}
-        </div>
-      </Card>
+      {r.decision !== 'closed' && (
+        <Card title={r.decision === 'sent' ? 'Reply that was sent' : 'Draft saved'}>
+          {r.requireConfirm && <p className="muted small" style={{ marginBottom: 8 }}>High-risk: this draft waits in the review queue. Nothing is sent until a person edits and confirms it.</p>}
+          {r.draft ? <div className="draft-box">{email.editedDraft || r.draft}</div> : <p className="muted">No reply was written on this path.</p>}
+          <div className="row" style={{ marginTop: 12 }}>
+            {email.status === 'pending_review' || email.status === 'escalated'
+              ? <a className="btn small" href="#/admin/review">Open draft in review queue</a>
+              : <span className="muted small">Status: <StatusBadge status={email.status} /></span>}
+            <a className="btn small" href="#/admin/workflow">Edit the workflow</a>
+          </div>
+        </Card>
+      )}
 
       <Card title="Sources used">
         {r.sources.length === 0 ? <p className="muted">No document supported an answer. Try uploading one in the Test documents tab.</p> : r.sources.map((s, i) => (
@@ -163,7 +160,7 @@ export function Result({ email }) {
         ))}
       </Card>
 
-      <Card title="How it decided" hint="Each step the AI took, in order."><Trace trace={r.trace} /></Card>
+      <Card title="How it decided" hint="Each block the email went through, in order."><Trace trace={r.trace} /></Card>
     </>
   )
 }

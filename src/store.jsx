@@ -1,23 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { DEFAULT_RULES, DEFAULT_SETTINGS, SAMPLE_FILES, SCENARIOS, SEED_EMAILS } from './data/defaults'
-import { analyzeEmail, statusFromDecision } from './engine/mockAI'
-import { analyzeWithAI } from './engine/ai'
+import { DEFAULT_SETTINGS, SAMPLE_FILES, SCENARIOS, SEED_EMAILS } from './data/defaults'
+import { statusFromDecision } from './engine/mockAI'
+import { runWorkflow, runWorkflowSync } from './workflow/runner'
+import { makeDefaultWorkflow, rulesOf } from './workflow/defaults'
 
-/** Use the real AI when it is switched on; if it cannot be reached, fall back to the simulation and say so. */
-async function analyze(email, ctx, override) {
-  if (ctx.settings.ai?.engine !== 'ai') return analyzeEmail(email, ctx, override)
-  try {
-    return await analyzeWithAI(email, ctx, override)
-  } catch (e) {
-    const result = analyzeEmail(email, ctx, override)
-    const why = e?.message || 'The AI could not be reached.'
-    result.trace.splice(1, 0, { step: 'AI model', status: 'warn', detail: `${why} Used the simulated engine (word matching) instead.` })
-    result.aiFallback = why
-    return result
-  }
-}
-
-const KEY = 'hr-helpdesk-sandbox-v2'
+const KEY = 'hr-helpdesk-sandbox-v3'
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
 
@@ -26,26 +13,28 @@ export const uid = (p) => `${p}_${Date.now().toString(36)}${(counter++).toString
 
 function makeSeed() {
   const settings = DEFAULT_SETTINGS
-  const rules = DEFAULT_RULES
   const files = SAMPLE_FILES
+  const workflow = makeDefaultWorkflow()
+  const sampleFlow = makeDefaultWorkflow({ autoSend: true }) // sample history shows some automatic replies
   const emails = []
   // Oldest first so the per-sender limit works the way it would live.
   for (const s of [...SEED_EMAILS].sort((a, b) => b.minutesAgo - a.minutesAgo)) {
     const sc = SCENARIOS.find((x) => x.id === s.scenario)
     const receivedAt = new Date(Date.now() - s.minutesAgo * 60000).toISOString()
     const email = { id: uid('e'), name: sc.name, from: sc.from, subject: sc.subject, body: sc.body, attachments: [], receivedAt, source: 'sample' }
-    const result = analyzeEmail(email, { settings, rules, files, history: emails }, 'auto_safe')
+    const result = runWorkflowSync({ email, workflow: sampleFlow, settings, files, history: emails })
     let status = statusFromDecision(result.decision)
     const history = [{ at: receivedAt, text: 'Email received' }]
-    history.push({ at: receivedAt, text: status === 'auto_sent' ? 'Reply sent automatically' : status === 'escalated' ? 'Escalated to a person' : 'Draft created, waiting for review' })
+    history.push({ at: receivedAt, text: status === 'auto_sent' ? 'Reply sent automatically' : status === 'escalated' ? 'Escalated to a person' : status === 'discarded' ? 'Closed without a reply' : 'Draft created, waiting for review' })
     let finalReply = status === 'auto_sent' ? result.draft : null
+    let wasEdited
     if (status === 'pending_review' && s.minutesAgo > 1000 && result.draft) {
-      status = 'approved_sent'; finalReply = result.draft
+      status = 'approved_sent'; finalReply = result.draft; wasEdited = s.minutesAgo % 2 === 0 && s.minutesAgo > 2000
       history.push({ at: receivedAt, text: 'Reviewed and sent by a person' })
     }
-    emails.push({ ...email, result, status, finalReply, history })
+    emails.push({ ...email, result, status, finalReply, wasEdited, history })
   }
-  return { settings, rules, files, emails: emails.reverse(), activity: [{ id: uid('a'), at: new Date().toISOString(), type: 'system', text: 'Test environment created with sample data' }] }
+  return { settings, workflow, files, emails: emails.reverse(), activity: [{ id: uid('a'), at: new Date().toISOString(), type: 'system', text: 'Test environment created with sample data' }] }
 }
 
 function load() {
@@ -86,22 +75,17 @@ export function AppProvider({ children }) {
       setData((d) => ({ ...d, settings: { ...d.settings, ...patch } }))
       if (note) log('settings', note)
     },
-    saveRule(rule) {
-      setData((d) => {
-        const exists = d.rules.some((r) => r.id === rule.id)
-        return { ...d, rules: exists ? d.rules.map((r) => (r.id === rule.id ? rule : r)) : [...d.rules, rule] }
-      })
-    },
-    deleteRule(id) { setData((d) => ({ ...d, rules: d.rules.filter((r) => r.id !== id) })) },
     addFile(file) { setData((d) => ({ ...d, files: [{ ...file, id: uid('f') }, ...d.files] })) },
     updateFile(id, patch) { setData((d) => ({ ...d, files: d.files.map((f) => (f.id === id ? { ...f, ...patch } : f)) })) },
     deleteFile(id) { setData((d) => ({ ...d, files: d.files.filter((f) => f.id !== id) })) },
 
     /** Run a test email through the simulated AI and store the result. */
-    async sendTestEmail(input, overrideMode) {
+    setWorkflow(workflow) { setData((d) => ({ ...d, workflow })) },
+    resetWorkflow() { setData((d) => ({ ...d, workflow: makeDefaultWorkflow() })); log('workflow', 'Workflow reset to the starter design') },
+    async sendTestEmail(input) {
       const d = dataRef.current
       const email = { id: uid('e'), attachments: [], ...input, receivedAt: new Date().toISOString(), source: 'test' }
-      const result = await analyze(email, { settings: d.settings, rules: d.rules, files: d.files, history: d.emails }, overrideMode || undefined)
+      const result = await runWorkflow({ email, workflow: d.workflow, settings: d.settings, files: d.files, history: d.emails })
       const status = statusFromDecision(result.decision)
       const now = new Date().toISOString()
       const history = [
@@ -111,6 +95,7 @@ export function AppProvider({ children }) {
       const full = { ...email, result, status, finalReply: status === 'auto_sent' ? result.draft : null, history }
       setData((s) => ({ ...s, emails: [full, ...s.emails] }))
       log('email', `Test email "${email.subject}" processed: ${status.replace('_', ' ')}`)
+      result.alerts.forEach((a) => log('alert', `Alert to ${a.role}: ${a.message} ("${email.subject}")`))
       return full
     },
     /** Review actions: send (with edited text) or discard. */
@@ -139,7 +124,7 @@ export function AppProvider({ children }) {
       const d = dataRef.current
       const e = d.emails.find((x) => x.id === id)
       if (!e) return
-      const result = await analyze(e, { settings: d.settings, rules: d.rules, files: d.files, history: d.emails.filter((x) => x.id !== id) }, 'draft')
+      const result = await runWorkflow({ email: e, workflow: d.workflow, settings: d.settings, files: d.files, history: d.emails.filter((x) => x.id !== id) })
       const next = statusFromDecision(result.decision)
       setData((s) => ({ ...s, emails: s.emails.map((x) => (x.id === id ? { ...x, result, editedDraft: undefined, status: next === 'auto_sent' ? 'pending_review' : next, history: [...x.history, { at: new Date().toISOString(), text: 'Draft regenerated with current settings' }] } : x)) }))
     },
@@ -148,6 +133,7 @@ export function AppProvider({ children }) {
     resetAll() { localStorage.removeItem(KEY); setData(makeSeed()) },
   }), [toast, log])
 
-  const value = { ...data, ...actions, toasts, storageFull }
+  const rules = useMemo(() => rulesOf(data.workflow), [data.workflow])
+  const value = { ...data, rules, ...actions, toasts, storageFull }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
