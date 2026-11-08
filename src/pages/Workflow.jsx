@@ -6,11 +6,15 @@ import { SCENARIOS } from '../data/defaults'
 import { BLOCKS, GROUPS, PALETTE, portsOf } from '../workflow/blocks'
 import { validate } from '../workflow/validate'
 import BlockNode, { FlowInfo } from '../components/flow/BlockNode'
+import LinkEdge from '../components/flow/LinkEdge'
+import { NODE_H, NODE_W, resolveOverlap } from '../workflow/routing'
 import Inspector from '../components/flow/Inspector'
 import { Badge, Card, HelpPanel, Icon, Modal, PageHeader, Trace, catLabel } from '../components/ui'
 
 const nodeTypes = { block: BlockNode }
-const EDGE_STYLE = { type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed } }
+const edgeTypes = { link: LinkEdge }
+const EDGE_STYLE = { type: 'link', markerEnd: { type: MarkerType.ArrowClosed, color: '#7a8699' } }
+const rectOf = (n) => ({ id: n.id, x: n.position.x, y: n.position.y, w: n.measured?.width ?? NODE_W, h: n.measured?.height ?? NODE_H })
 
 const clean = (nodes, edges) => ({
   nodes: nodes.map((n) => ({ id: n.id, type: 'block', position: { x: Math.round(n.position.x), y: Math.round(n.position.y) }, data: n.data })),
@@ -101,9 +105,19 @@ function Editor() {
 
   const onNodesChange = useCallback((changes) => {
     const allowed = changes.filter((c) => !(c.type === 'remove' && BLOCKS[nodesRef.current.find((n) => n.id === c.id)?.data.kind]?.undeletable))
-    const next = applyNodeChanges(allowed, nodesRef.current)
+    let next = applyNodeChanges(allowed, nodesRef.current)
+    // when a block is dropped, nudge it off any block it landed on (overlapping blocks would hide their connections)
+    const dropped = allowed.filter((c) => c.type === 'position' && c.dragging === false).map((c) => c.id)
+    if (dropped.length) {
+      for (const id of dropped) {
+        const n = next.find((x) => x.id === id)
+        if (!n) continue
+        const p = resolveOverlap(rectOf(n), next.map(rectOf))
+        next = next.map((x) => (x.id === id ? { ...x, position: p } : x))
+      }
+    }
     nodesRef.current = next; setNodes(next)
-    if (allowed.some((c) => (c.type === 'position' && c.dragging === false) || c.type === 'remove')) commit(next, edgesRef.current)
+    if (dropped.length || allowed.some((c) => c.type === 'remove')) commit(next, edgesRef.current)
   }, [commit])
   const onEdgesChange = useCallback((changes) => {
     const next = applyEdgeChanges(changes, edgesRef.current)
@@ -115,7 +129,18 @@ function Editor() {
     const kept = edgesRef.current.filter((e) => !(e.source === c.source && e.sourceHandle === c.sourceHandle))
     commit(nodesRef.current, [...kept, { id: uid('e'), source: c.source, sourceHandle: c.sourceHandle, target: c.target, targetHandle: 'in' }])
   }, [commit])
-  const isValidConnection = useCallback((c) => c.source !== c.target, [])
+  // no block to itself, and no second copy of a connection that already exists
+  const isValidConnection = useCallback((c) => c.source !== c.target
+    && !edgesRef.current.some((e) => e.source === c.source && e.sourceHandle === c.sourceHandle && e.target === c.target), [])
+  // drag the end of an existing line onto a different block or exit to move it
+  const onReconnect = useCallback((old, c) => {
+    const kept = edgesRef.current.filter((e) => e.id !== old.id && !(e.source === c.source && e.sourceHandle === c.sourceHandle))
+    commit(nodesRef.current, [...kept, { id: old.id, source: c.source, sourceHandle: c.sourceHandle, target: c.target, targetHandle: 'in' }])
+  }, [commit])
+  const disconnectAll = useCallback((id) => {
+    commit(nodesRef.current, edgesRef.current.filter((e) => e.source !== id && e.target !== id))
+    toast('All connections to this block were removed.')
+  }, [commit, toast])
 
   const addBlock = useCallback((kind, at) => {
     const def = BLOCKS[kind]
@@ -126,6 +151,7 @@ function Editor() {
       const c = rf.screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 })
       pos = { x: c.x - 110 + (nodesRef.current.length % 5) * 18, y: c.y - 40 + (nodesRef.current.length % 5) * 18 }
     }
+    pos = resolveOverlap({ id: 'new', x: pos.x, y: pos.y, w: NODE_W, h: NODE_H }, nodesRef.current.map(rectOf))
     const node = { id: uid('n'), type: 'block', position: pos, data: { kind, label: '', config: def.defaults() } }
     commit([...nodesRef.current, node], edgesRef.current)
     setSelectedId(node.id); setPalOpen(false)
@@ -173,12 +199,14 @@ function Editor() {
       <HelpPanel id="workflow" defaultOpen={false} title="How the workflow editor works (steps)" steps={[
         'Every email enters at Email received on the left and follows the connectors you draw. Add blocks from the list on the left: drag one onto the canvas, or select it to place it in the middle.',
         'Connect blocks by dragging from a small circle on the right of one block to the left edge of another. Blocks with several exits (Flagged and Clear, Yes and No) need each exit connected.',
+        'To remove a connection, hover over the line and select Remove connection, or select the line and press Delete. To change where a line goes, drag its end to another block. You can also build with blocks left unconnected and join them later. Unconnected paths are simply held for a person.',
+        'Lines keep themselves apart so they do not run on top of each other, and blocks nudge apart if you drop one on another.',
         'Select a block to change its settings in the panel on the right. Each panel starts with a plain explanation of what the block does.',
         'Finish every path at an end block: Email sent, Review queue, Escalate, or Close. Anything left unconnected is held for a person, never lost.',
         'Use Test this workflow to run an example email through your design. The path it took lights up, and the Design check lists mistakes and risks.',
       ]} note="Changes save automatically. This design replaces the old Settings and Flag rules pages: the reply mode is the Email sent block, and flag rules live inside Risk filters." />
 
-      <p className="wf-hint"><strong>Drag</strong> a block from the list onto the canvas. <strong>Connect</strong> the circles. <strong>Select</strong> a block to edit it. Scroll or pinch to zoom, drag the background to move around.</p>
+      <p className="wf-hint"><strong>Drag</strong> a block from the list onto the canvas. <strong>Connect</strong> the circles. <strong>Select</strong> a block to edit it. <strong>Hover</strong> over a line to light it up and remove it. Scroll or pinch to zoom, drag the background to move around.</p>
 
       {showChecks && (
         <Card title="Design check" hint="Problems and risks in your current design." className="wf-panel">
@@ -225,7 +253,7 @@ function Editor() {
         <div className="wf-canvas" ref={wrap} onDrop={onDrop} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}>
           <FlowInfo.Provider value={{ visited, warned }}>
             <ReactFlow
-              nodes={shownNodes} edges={shownEdges} nodeTypes={nodeTypes}
+              nodes={shownNodes} edges={shownEdges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onReconnect={onReconnect}
               onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} isValidConnection={isValidConnection}
               onNodeClick={(_, n) => setSelectedId(n.id)} onPaneClick={() => setSelectedId(null)}
               defaultViewport={{ x: 24, y: 70, zoom: 0.72 }} minZoom={0.2} maxZoom={1.5} deleteKeyCode={['Backspace', 'Delete']}
@@ -237,7 +265,7 @@ function Editor() {
             </ReactFlow>
           </FlowInfo.Provider>
         </div>
-        {selected && <Inspector node={selected} onChange={updateNode} onDelete={deleteNode} onClose={() => setSelectedId(null)} />}
+        {selected && <Inspector node={selected} onChange={updateNode} onDelete={deleteNode} onClose={() => setSelectedId(null)} connections={edges.filter((e) => e.source === selected.id || e.target === selected.id).length} onDisconnect={disconnectAll} />}
       </div>
 
       {palOpen && (

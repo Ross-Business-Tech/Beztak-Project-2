@@ -250,3 +250,14 @@ tr:last-child td { border-bottom: 0; }
   .wf-layout { grid-template-columns: 1fr; } .wf-palette-col { display: none; } #add-block-mobile { display: inline-flex; }
   .wf-canvas { height: 62vh; } .react-flow__minimap { display: none; }
 }
+
+/* ---------- connection lines ---------- */
+.react-flow__edge .react-flow__edge-path { stroke: #7a8699; stroke-width: 2; transition: stroke .12s, stroke-width .12s; }
+.react-flow__edge:hover .react-flow__edge-path, .react-flow__edge.selected .react-flow__edge-path, .link.hover .react-flow__edge-path { stroke: var(--accent); stroke-width: 4.5; }
+.react-flow__edge { cursor: pointer; }
+.edge-del { position: absolute; pointer-events: all; z-index: 5; }
+.edge-del button { background: var(--surface); color: var(--red); border: 1px solid var(--red); border-radius: 6px; padding: 5px 10px; font-weight: 650; font-size: .8rem; cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, .25); min-height: 32px; }
+.edge-del button:hover { background: var(--red); color: #fff; }
+.react-flow__edge.edge-ran .react-flow__edge-path { stroke: var(--green); stroke-width: 3; }
+.react-flow__edge.edge-ran:hover .react-flow__edge-path { stroke: var(--accent); }
+.react-flow__edgeupdater { r: 7; fill: var(--accent); cursor: grab; }
