@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../store'
 import { FILE_FOLDERS } from '../data/defaults'
 import { Uploader } from '../components/Uploader'
-import { Badge, Card, Empty, Modal, PageHeader, Toggle, fmtSize } from '../components/ui'
+import { Badge, Card, HelpPanel, Empty, Modal, PageHeader, Toggle, fmtSize } from '../components/ui'
 
 export default function Files() {
   const { files, updateFile, deleteFile, toast, log } = useApp()
@@ -19,8 +19,14 @@ export default function Files() {
   return (
     <>
       <PageHeader title="Knowledge files" subtitle="The documents the AI is allowed to answer from.">
-        <button className="btn primary" onClick={() => setShowUpload(true)}>＋ Upload files</button>
+        <button className="btn primary" onClick={() => setShowUpload(true)}>Upload files</button>
       </PageHeader>
+      <HelpPanel id="files" steps={[
+        'Select Upload files to add a document, or paste text. Choose the folder it belongs in.',
+        'The AI answers only from files whose "AI can use" switch is on. Turn a file off to stop using it without deleting it.',
+        'Use View to read a document exactly as the AI sees it. Use the folder filter and search to find files.',
+        'Delete removes a file permanently, so prefer turning it off if you may need it again.',
+      ]} note="Keep documents short, current and clearly written. The AI searches them paragraph by paragraph, so one topic per paragraph works best." />
       <div className="tiles" style={{ gridTemplateColumns: 'repeat(3, minmax(0,1fr))' }}>
         <div className="tile"><div className="num">{files.length}</div><div className="lbl">Total files</div></div>
         <div className="tile"><div className="num">{readable}</div><div className="lbl">In use by the AI</div></div>
@@ -31,7 +37,7 @@ export default function Files() {
           <select aria-label="Folder" style={{ maxWidth: 200 }} value={folder} onChange={(e) => setFolder(e.target.value)}>{folders.map((f) => <option key={f}>{f}</option>)}</select>
           <input type="search" className="grow" style={{ maxWidth: 300 }} placeholder="Search files" aria-label="Search files" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        {list.length === 0 ? <Empty icon="📂" title="No files">Upload a policy, FAQ or guide to get started.</Empty> : (
+        {list.length === 0 ? <Empty title="No files">Upload a policy, FAQ or guide to get started.</Empty> : (
           <div className="table-wrap">
             <table>
               <thead><tr><th>Name</th><th>Folder</th><th>Size</th><th>AI can use</th><th aria-label="Actions" /></tr></thead>

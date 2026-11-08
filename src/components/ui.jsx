@@ -1,5 +1,54 @@
-import { useEffect, useId } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { CATEGORIES } from '../data/defaults'
+
+const PATHS = {
+  mail: 'M3 6h18v12H3zM3 7l9 6 9-6',
+  file: 'M7 3h7l5 5v13H7zM14 3v5h5',
+  chart: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+  inbox: 'M3 13l3-8h12l3 8v6H3zM3 13h5l1 3h6l1-3h5',
+  folder: 'M3 6h6l2 2h10v11H3z',
+  flag: 'M5 21V4M5 4h12l-2 4 2 4H5',
+  gear: 'M12 15a3 3 0 100-6 3 3 0 000 6zM19 12l2-1-1-3-2 .5-1.5-1.5.5-2-3-1-1 2h-2l-1-2-3 1 .5 2L6 8.5 4 8l-1 3 2 1v0l-2 1 1 3 2-.5L7.5 17l-.5 2 3 1 1-2h2l1 2 3-1-.5-2L18 15.5l2 .5 1-3z',
+  log: 'M5 4h14v16H5zM9 9h6M9 13h6M9 17h3',
+  book: 'M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 19V5',
+  menu: 'M4 7h16M4 12h16M4 17h16',
+  close: 'M6 6l12 12M18 6L6 18',
+  check: 'M5 12l4 4 10-10',
+  alert: 'M12 8v5M12 17v.5M12 3l10 18H2z',
+  dash: 'M6 12h12',
+  lock: 'M6 11h12v9H6zM8 11V8a4 4 0 018 0v3',
+  info: 'M12 11v6M12 7.5v.5M12 3a9 9 0 100 18 9 9 0 000-18z',
+  plus: 'M12 5v14M5 12h14',
+  upload: 'M12 16V4M7 9l5-5 5 5M4 20h16',
+  chevron: 'M9 6l6 6-6 6',
+}
+export function Icon({ name, size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" style={{ flex: 'none' }}>
+      <path d={PATHS[name]} />
+    </svg>
+  )
+}
+
+/** Plain-language "how to use this page" panel. Remembers if it was collapsed. */
+export function HelpPanel({ id, title = 'How to use this page', steps, note }) {
+  const key = `help-collapsed-${id}`
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem(key) !== '1' } catch { return true } })
+  const toggle = () => { setOpen(!open); try { localStorage.setItem(key, open ? '1' : '0') } catch { /* ignore */ } }
+  return (
+    <section className="help" aria-label={title}>
+      <button type="button" className="help-head" aria-expanded={open} onClick={toggle}>
+        <Icon name="info" /><strong>{title}</strong><span className="help-toggle">{open ? 'Hide' : 'Show'}</span>
+      </button>
+      {open && (
+        <div className="help-body">
+          <ol>{steps.map((st, i) => <li key={i}>{st}</li>)}</ol>
+          {note && <p className="muted small">{note}</p>}
+        </div>
+      )}
+    </section>
+  )
+}
 
 export const catLabel = (id) => CATEGORIES.find((c) => c.id === id)?.label || 'Other'
 
@@ -99,7 +148,7 @@ export function Modal({ title, onClose, children, wide }) {
       <div className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-head">
           <h2>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">✕</button>
+          <button className="icon-btn" onClick={onClose} aria-label="Close"><Icon name="close" /></button>
         </div>
         {children}
       </div>
@@ -107,8 +156,8 @@ export function Modal({ title, onClose, children, wide }) {
   )
 }
 
-export const Empty = ({ icon = '📭', title, children }) => (
-  <div className="empty"><div className="empty-icon" aria-hidden>{icon}</div><strong>{title}</strong>{children && <p className="muted">{children}</p>}</div>
+export const Empty = ({ title, children }) => (
+  <div className="empty"><strong>{title}</strong>{children && <p className="muted">{children}</p>}</div>
 )
 
 export function Toasts({ toasts }) {
@@ -132,7 +181,7 @@ export function Segmented({ value, onChange, options, label }) {
 
 /** The step-by-step "how the AI decided" list. */
 export function Trace({ trace }) {
-  const icon = { ok: '✓', warn: '!', flag: '⚑', skipped: '–' }
+  const icon = { ok: <Icon name="check" size={13} />, warn: <Icon name="alert" size={13} />, flag: <Icon name="flag" size={13} />, skipped: <Icon name="dash" size={13} /> }
   return (
     <ol className="trace">
       {trace.map((t, i) => (

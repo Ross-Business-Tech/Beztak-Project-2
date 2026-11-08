@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useApp } from '../store'
 import { FILE_FOLDERS } from '../data/defaults'
-import { Field, Modal } from './ui'
+import { Field, Icon, Modal } from './ui'
 
 const TEXT_EXT = /\.(txt|md|markdown|csv|json|html?|rtf)$/i
 const MAX_TEXT = 60000
@@ -25,7 +25,7 @@ export function Uploader({ test = false, folder = 'Other' }) {
         description: test ? 'Uploaded in the Test Lab' : '',
       })
       log('file', `File "${f.name}" uploaded${test ? ' (test)' : ''}`)
-      toast(content !== null ? `Added ${f.name}` : `Added ${f.name}. Text from PDF/Word files can't be read in this sandbox yet.`, content !== null ? 'ok' : 'warn')
+      toast(content !== null ? `Added ${f.name}` : `Added ${f.name}. Text from PDF/Word files can't be read in this test environment yet.`, content !== null ? 'ok' : 'warn')
     }
   }
 
@@ -35,13 +35,13 @@ export function Uploader({ test = false, folder = 'Other' }) {
         onClick={() => input.current.click()} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && input.current.click()}
         onDragOver={(e) => { e.preventDefault(); setOver(true) }} onDragLeave={() => setOver(false)}
         onDrop={(e) => { e.preventDefault(); setOver(false); ingest(e.dataTransfer.files) }}>
-        <div style={{ fontSize: '1.6rem' }} aria-hidden>📄</div>
+        <Icon name="upload" size={26} />
         <strong>Drop files here or tap to choose</strong>
         <p className="muted small">Best for testing: .txt, .md or .csv files (the AI can read these). PDF and Word files are stored but not read yet.</p>
         <input ref={input} type="file" multiple hidden onChange={(e) => { ingest(e.target.files); e.target.value = '' }} />
       </div>
       <div style={{ marginTop: 10 }}>
-        <button className="btn small" onClick={() => setPasting(true)}>＋ Paste text as a document</button>
+        <button className="btn small" onClick={() => setPasting(true)}>Paste text as a document</button>
       </div>
       {pasting && <PasteModal test={test} folder={folder} onClose={() => setPasting(false)} />}
     </>

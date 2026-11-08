@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useApp } from '../store'
-import { Badge, Card, ConfidenceMeter, Empty, PageHeader, Segmented, SeverityBadge, StatusBadge, Trace, catLabel, fmtDate, timeAgo } from '../components/ui'
+import { Badge, Card, HelpPanel, Icon, ConfidenceMeter, Empty, PageHeader, Segmented, SeverityBadge, StatusBadge, Trace, catLabel, fmtDate, timeAgo } from '../components/ui'
 
 const FILTERS = [
   { value: 'open', label: 'Needs action' },
@@ -29,13 +29,19 @@ export default function Review() {
   return (
     <>
       <PageHeader title="Review queue" subtitle="Drafts and flagged messages that need a person." />
+      {!selected && <HelpPanel id="review" steps={[
+        'Use the filters to see what needs action, what was flagged, or what has already been handled.',
+        'Select a message to read the original email, why it needs a person, and the AI draft.',
+        'Edit the draft as you would any email. Select Save draft to keep your changes. Nothing is sent until you select Send reply.',
+        'High-risk messages show a red notice and require a confirmation before the Send button turns on.',
+      ]} />}
       {selected ? <Detail key={selected.id} email={selected} onBack={() => setSelId(null)} /> : (
         <Card>
           <div className="row between" style={{ marginBottom: 12 }}>
             <Segmented label="Filter" value={filter} onChange={setFilter} options={FILTERS} />
             <input type="search" className="grow" style={{ maxWidth: 280, minWidth: 0 }} placeholder="Search sender or subject" aria-label="Search" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-          {list.length === 0 ? <Empty icon="🎉" title="Nothing here">{filter === 'open' ? 'No messages are waiting for review.' : 'No messages match.'}</Empty> : (
+          {list.length === 0 ? <Empty title="Nothing here">{filter === 'open' ? 'No messages are waiting for review.' : 'No messages match.'}</Empty> : (
             <div className="list">
               {list.map((e) => (
                 <button key={e.id} className="item" onClick={() => setSelId(e.id)}>
@@ -75,7 +81,7 @@ function Detail({ email, onBack }) {
 
   return (
     <>
-      <button className="btn small" onClick={onBack} style={{ marginBottom: 14 }}>← Back to queue</button>
+      <button className="btn small" onClick={onBack} style={{ marginBottom: 14 }}>Back to queue</button>
       <div className="lab-grid">
         <div className="stack">
           <Card title={email.subject} hint={`${email.name} <${email.from}> · ${fmtDate(email.receivedAt)}`}>
@@ -92,14 +98,14 @@ function Detail({ email, onBack }) {
             ))}
           </Card>
           <Card title="Sources">
-            {r.sources.length === 0 ? <p className="muted">No supporting document found.</p> : r.sources.map((s, i) => <div key={i} style={{ marginBottom: 8 }}><strong>📄 {s.name}</strong><div className="quote">{s.snippet}</div></div>)}
+            {r.sources.length === 0 ? <p className="muted">No supporting document found.</p> : r.sources.map((s, i) => <div key={i} style={{ marginBottom: 8 }}><strong>{s.name}</strong><div className="quote">{s.snippet}</div></div>)}
           </Card>
           <Card title="History"><ul className="tl">{email.history.map((h, i) => <li key={i}>{h.text}<div className="muted small">{fmtDate(h.at)}</div></li>)}</ul></Card>
         </div>
 
         <div className="stack">
           <Card title={open ? 'Draft reply' : 'Reply'} actions={<ConfidenceMeter value={r.confidence} />}>
-            {highRisk && open && <div className="outcome red"><span aria-hidden>🚩</span><div><strong>High-risk: please read carefully before sending</strong><p>The AI wrote a cautious starting draft. Rewrite it in your own words if needed. It cannot be sent until you confirm below.</p></div></div>}
+            {highRisk && open && <div className="outcome red"><Icon name="flag" /><div><strong>High-risk: please read carefully before sending</strong><p>The AI wrote a cautious starting draft. Rewrite it in your own words if needed. It cannot be sent until you confirm below.</p></div></div>}
             {open ? (
               <div className="compose">
                 <div className="compose-line"><span>To</span><strong>{email.name} &lt;{email.from}&gt;</strong></div>
@@ -107,7 +113,7 @@ function Detail({ email, onBack }) {
                 <div className="compose-line"><span>Subject</span><strong>Re: {email.subject}</strong></div>
                 <textarea id="reply" aria-label="Reply body" rows={14} value={text} onChange={(e) => { setText(e.target.value); setSaved(false) }} placeholder="Type your reply…" />
                 <div className="row between" style={{ margin: '6px 0 10px' }}>
-                  <span className="muted small">{saved ? '✓ Draft saved' : edited ? 'Unsaved edits' : 'AI draft, not yet edited'} · nothing is sent until you press Send</span>
+                  <span className="muted small">{saved ? 'Draft saved' : edited ? 'Unsaved edits' : 'AI draft, not yet edited'} · nothing is sent until you press Send</span>
                   <button className="btn small" onClick={() => { saveDraft(email.id, text); setSaved(true); toast('Draft saved') }}>Save draft</button>
                 </div>
                 {highRisk && (

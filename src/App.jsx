@@ -8,9 +8,11 @@ import Files from './pages/Files'
 import FlagRules from './pages/FlagRules'
 import Settings from './pages/Settings'
 import Activity from './pages/Activity'
+import Guide from './pages/Guide'
+import { Icon } from './components/ui'
 
 function useHashRoute() {
-  const get = () => window.location.hash.replace(/^#/, '') || '/lab'
+  const get = () => window.location.hash.replace(/^#/, '') || '/help'
   const [route, setRoute] = useState(get)
   useEffect(() => {
     const h = () => { setRoute(get()); window.scrollTo(0, 0) }
@@ -21,20 +23,23 @@ function useHashRoute() {
 }
 
 const NAV = [
+  { group: 'Guide' },
+  { to: '/help', icon: 'book', label: 'Getting started', match: (r) => r === '/help' },
   { group: 'Test Lab' },
-  { to: '/lab', icon: '✉️', label: 'Test emails', match: (r) => r === '/lab' },
-  { to: '/lab/docs', icon: '📄', label: 'Test documents', match: (r) => r === '/lab/docs' },
-  { group: 'Admin' },
-  { to: '/admin', icon: '📊', label: 'Dashboard', match: (r) => r === '/admin' },
-  { to: '/admin/review', icon: '📝', label: 'Review queue', badge: true, match: (r) => r === '/admin/review' },
-  { to: '/admin/files', icon: '🗂️', label: 'Knowledge files', match: (r) => r === '/admin/files' },
-  { to: '/admin/flags', icon: '🚩', label: 'Flag rules', match: (r) => r === '/admin/flags' },
-  { to: '/admin/settings', icon: '⚙️', label: 'Settings', match: (r) => r === '/admin/settings' },
-  { to: '/admin/activity', icon: '🗒️', label: 'Activity log', match: (r) => r === '/admin/activity' },
+  { to: '/lab', icon: 'mail', label: 'Test emails', match: (r) => r === '/lab' },
+  { to: '/lab/docs', icon: 'file', label: 'Test documents', match: (r) => r === '/lab/docs' },
+  { group: 'Administration' },
+  { to: '/admin', icon: 'chart', label: 'Dashboard', match: (r) => r === '/admin' },
+  { to: '/admin/review', icon: 'inbox', label: 'Review queue', badge: true, match: (r) => r === '/admin/review' },
+  { to: '/admin/files', icon: 'folder', label: 'Knowledge files', match: (r) => r === '/admin/files' },
+  { to: '/admin/flags', icon: 'flag', label: 'Flag rules', match: (r) => r === '/admin/flags' },
+  { to: '/admin/settings', icon: 'gear', label: 'Settings', match: (r) => r === '/admin/settings' },
+  { to: '/admin/activity', icon: 'log', label: 'Activity log', match: (r) => r === '/admin/activity' },
 ]
 
 function Page({ route }) {
   if (route.startsWith('/lab')) return <Lab route={route} />
+  if (route === '/help') return <Guide />
   switch (route) {
     case '/admin': return <Dashboard />
     case '/admin/review': return <Review />
@@ -42,7 +47,7 @@ function Page({ route }) {
     case '/admin/flags': return <FlagRules />
     case '/admin/settings': return <Settings />
     case '/admin/activity': return <Activity />
-    default: return <Lab route="/lab" />
+    default: return <Guide />
   }
 }
 
@@ -55,21 +60,21 @@ export default function App() {
 
   return (
     <div className="shell">
-      <div className="topbar"><button onClick={() => setOpen(true)} aria-label="Open menu">☰</button> HR Help Desk AI</div>
+      <div className="topbar"><button onClick={() => setOpen(true)} aria-label="Open menu"><Icon name="menu" size={22} /></button> HR Help Desk AI</div>
       {open && <div className="scrim" onClick={() => setOpen(false)} />}
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         <div className="brand"><div className="brand-mark" aria-hidden>HR</div>HR Help Desk AI</div>
         <nav className="nav" aria-label="Main">
           {NAV.map((n) => n.group ? <div key={n.group} className="nav-group">{n.group}</div> : (
             <a key={n.to} href={`#${n.to}`} className={n.match(route) ? 'active' : ''} aria-current={n.match(route) ? 'page' : undefined}>
-              <span aria-hidden>{n.icon}</span>{n.label}{n.badge && waiting > 0 && <span className="count">{waiting}</span>}
+              <Icon name={n.icon} />{n.label}{n.badge && waiting > 0 && <span className="count">{waiting}</span>}
             </a>
           ))}
         </nav>
-        <div className="side-note">Sandbox: simulated AI. No real email is read or sent.</div>
+        <div className="side-note">Test environment. Simulated AI.</div>
       </aside>
       <main className="main">
-        <div className="sim-banner" role="note"><span aria-hidden>🧪</span>Test environment. The AI here is simulated and nothing is sent to real people.</div>
+        <div className="sim-banner" role="note"><strong>Test environment.</strong> The AI is simulated and no real email is read or sent.</div>
         <Page route={route} />
       </main>
       <Toasts toasts={toasts} />

@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useApp } from '../store'
 import { CATEGORIES } from '../data/defaults'
-import { Badge, Card, Field, Modal, PageHeader, Segmented, SettingRow, Toggle } from '../components/ui'
+import { Badge, Card, HelpPanel, Icon, Field, Modal, PageHeader, Segmented, SettingRow, Toggle } from '../components/ui'
 
 const MODES = [
-  { id: 'draft', icon: '📝', title: 'Draft for review', text: 'The AI writes a reply. A person approves every one before it goes out. Safest.' },
-  { id: 'auto_safe', icon: '⚖️', title: 'Auto-send when safe', text: 'Sends on its own only for allowed topics when the AI is confident. Everything else waits for review.' },
-  { id: 'auto_all', icon: '⚡', title: 'Auto-send everything safe', text: 'Sends every unflagged reply that has a supporting document. Flagged messages still wait for a person.' },
+  { id: 'draft', title: 'Draft for review', text: 'The AI writes a reply. A person approves every one before it goes out. Safest.' },
+  { id: 'auto_safe', title: 'Auto-send when safe', text: 'Sends on its own only for allowed topics when the AI is confident. Everything else waits for review.' },
+  { id: 'auto_all', title: 'Auto-send everything safe', text: 'Sends every unflagged reply that has a supporting document. Flagged messages still wait for a person.' },
 ]
 
 export default function Settings() {
@@ -19,18 +19,25 @@ export default function Settings() {
   return (
     <>
       <PageHeader title="Settings" subtitle="Changes save automatically and apply to the next email." />
-      {storageFull && <div className="sim-banner" role="alert">⚠️ This browser is out of storage, so recent changes may not be saved. Delete some large files in Knowledge files.</div>}
+      <HelpPanel id="settings" steps={[
+        'Start with "How should replies go out?" This is the most important decision: whether a person approves every reply, or the system sends low-risk ones itself.',
+        'Under Auto-send rules, set the confidence needed, the topics allowed to send automatically, and limits that prevent loops.',
+        'Reply style controls tone, signature and the AI disclosure footer on every message.',
+        'Escalations covers the optional instant acknowledgement for sensitive messages.',
+        'Connections shows planned integrations (Zoro and the mailbox). They are placeholders for now.',
+      ]} note="Changes save automatically and apply to the next email processed." />
+      {storageFull && <div className="sim-banner" role="alert">This browser is out of storage, so recent changes may not be saved. Delete some large files in Knowledge files.</div>}
 
       <Card title="How should replies go out?">
         <div className="mode-cards" role="radiogroup" aria-label="Reply mode">
           {MODES.map((m) => (
             <button key={m.id} type="button" role="radio" aria-checked={s.mode === m.id} className={`mode-card ${s.mode === m.id ? 'on' : ''}`}
               onClick={() => { set({ mode: m.id }, `Reply mode changed to "${m.title}"`); toast(`Mode: ${m.title}`) }}>
-              <span aria-hidden style={{ fontSize: '1.4rem' }}>{m.icon}</span><strong>{m.title}</strong><span className="muted small">{m.text}</span>
+              <strong>{m.title}</strong><span className="muted small">{m.text}</span>
             </button>
           ))}
         </div>
-        <div className="guardrail" role="note"><span aria-hidden>🔒</span><div>Messages that trigger a <a href="#/admin/flags">flag rule</a> (like harassment) are never sent automatically in any mode.</div></div>
+        <div className="guardrail" role="note"><Icon name="lock" /><div>Messages that trigger a <a href="#/admin/flags">flag rule</a> (like harassment) are never sent automatically in any mode.</div></div>
       </Card>
 
       <Card title="Auto-send rules" hint={s.mode === 'draft' ? 'Not used while in "Draft for review" mode, but ready for when you switch.' : 'Applied when the AI wants to send on its own.'}>
@@ -88,7 +95,7 @@ export default function Settings() {
         <Field label="Alert email for flagged messages (example only)">{(id) => <input id={id} type="email" value={s.integrations.notifyEmail} onChange={(e) => nested('integrations', { notifyEmail: e.target.value })} />}</Field>
       </Card>
 
-      <Card title="Connections" hint="Planned, not working yet. These switches only change how the sandbox behaves.">
+      <Card title="Connections" hint="Planned, not working yet. These switches only change how the test environment behaves.">
         <SettingRow title={<>Zoro (HR system) <Badge tone="amber">Coming soon</Badge></>} hint="Will let the AI look up employee details through Zoro's MCP service, so replies can use a person's real balances and plan.">
           <Toggle label="Zoro" checked={zoro.enabled} onChange={(v) => nested('integrations', { zoro: { ...zoro, enabled: v } }, `Zoro connection turned ${v ? 'on (simulated)' : 'off'}`)} />
         </SettingRow>
@@ -109,16 +116,16 @@ export default function Settings() {
         </SettingRow>
       </Card>
 
-      <Card title="Sandbox data">
-        <SettingRow title="Reset the sandbox" hint="Brings back the sample emails, documents, rules and settings. Your test emails and uploads are removed."><button className="btn danger" onClick={() => setConfirmReset(true)}>Reset everything</button></SettingRow>
+      <Card title="Test data">
+        <SettingRow title="Reset test data" hint="Brings back the sample emails, documents, rules and settings. Your test emails and uploads are removed."><button className="btn danger" onClick={() => setConfirmReset(true)}>Reset everything</button></SettingRow>
       </Card>
 
       {confirmReset && (
-        <Modal title="Reset everything?" onClose={() => setConfirmReset(false)}>
+        <Modal title="Reset all test data?" onClose={() => setConfirmReset(false)}>
           <p>This deletes your test emails, uploaded files, custom rules and settings changes in this browser.</p>
           <div className="modal-actions">
             <button className="btn" onClick={() => setConfirmReset(false)}>Cancel</button>
-            <button className="btn primary" style={{ background: 'var(--red)', borderColor: 'var(--red)', color: '#fff' }} onClick={() => { resetAll(); setConfirmReset(false); toast('Sandbox reset'); log('system', 'Sandbox reset') }}>Reset</button>
+            <button className="btn primary" style={{ background: 'var(--red)', borderColor: 'var(--red)', color: '#fff' }} onClick={() => { resetAll(); setConfirmReset(false); toast('Test data reset'); log('system', 'Test data reset') }}>Reset</button>
           </div>
         </Modal>
       )}

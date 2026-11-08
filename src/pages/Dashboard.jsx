@@ -1,6 +1,6 @@
 import { useApp } from '../store'
 import { CATEGORIES } from '../data/defaults'
-import { Badge, Card, Empty, PageHeader, SeverityBadge, StatusBadge, timeAgo } from '../components/ui'
+import { Badge, Card, HelpPanel, Empty, PageHeader, SeverityBadge, StatusBadge, timeAgo } from '../components/ui'
 
 const MODE = { draft: 'Draft for review', auto_safe: 'Auto-send when safe', auto_all: 'Auto-send everything safe' }
 
@@ -20,6 +20,12 @@ export default function Dashboard() {
   return (
     <>
       <PageHeader title="Admin dashboard" subtitle="Last 7 days. Sample data until a real mailbox is connected." />
+      <HelpPanel id="dash" steps={[
+        'The four figures at the top summarise the last seven days. "Answered automatically" is the share of emails sent without a person.',
+        'Current setup shows your reply mode and what is connected. Select Change to edit it.',
+        'Needs attention lists drafts and flagged messages waiting for a person. Select Open queue to work through them.',
+        'The two charts show what employees ask about and which flag rules are triggered most.',
+      ]} note="Figures here include sample data and any test emails you have sent." />
       <div className="tiles">
         <div className="tile"><div className="num">{week.length}</div><div className="lbl">Emails received</div></div>
         <div className="tile"><div className="num">{week.length ? Math.round((auto / week.length) * 100) : 0}%</div><div className="lbl">Answered automatically</div></div>
@@ -38,7 +44,7 @@ export default function Dashboard() {
           </div>
         </Card>
         <Card title={`Needs attention (${open.length})`} actions={<a className="btn small" href="#/admin/review">Open queue</a>}>
-          {open.length === 0 ? <Empty icon="🎉" title="All caught up" /> : (
+          {open.length === 0 ? <Empty title="All caught up" /> : (
             <div className="list">
               {open.slice(0, 5).map((e) => (
                 <a key={e.id} className="item" href="#/admin/review" style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -55,14 +61,14 @@ export default function Dashboard() {
 
       <div className="grid-2" style={{ marginTop: 16 }}>
         <Card title="What people are asking about">
-          {byCat.length === 0 ? <Empty icon="📊" title="No data yet" /> : (
+          {byCat.length === 0 ? <Empty title="No data yet" /> : (
             <div className="bars">{byCat.map((c) => (
               <div key={c.id} className="bar-row"><span className="truncate">{c.label}</span><div className="bar"><div style={{ width: `${(c.n / maxCat) * 100}%` }} /></div><strong>{c.n}</strong></div>
             ))}</div>
           )}
         </Card>
         <Card title={`Flagged messages (${flagged.length})`} actions={<a className="btn small" href="#/admin/flags">Edit rules</a>}>
-          {flagCounts.length === 0 ? <Empty icon="✅" title="Nothing flagged this week" /> : (
+          {flagCounts.length === 0 ? <Empty title="Nothing flagged this week" /> : (
             <div className="bars">{flagCounts.map(({ r, n }) => (
               <div key={r.id} className="bar-row"><span className="truncate">{r.name}</span><div className="bar"><div style={{ width: `${(n / flagCounts[0].n) * 100}%`, background: 'var(--red)' }} /></div><strong>{n}</strong></div>
             ))}</div>

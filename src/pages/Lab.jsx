@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../store'
 import { SCENARIOS } from '../data/defaults'
 import { Uploader } from '../components/Uploader'
-import { Badge, Card, ConfidenceMeter, Empty, Field, PageHeader, Segmented, SeverityBadge, StatusBadge, Trace, catLabel, fmtSize, timeAgo } from '../components/ui'
+import { Badge, Card, HelpPanel, Icon, ConfidenceMeter, Empty, Field, PageHeader, Segmented, SeverityBadge, StatusBadge, Trace, catLabel, fmtSize, timeAgo } from '../components/ui'
 
 const BLANK = { name: '', from: '', subject: '', body: '' }
 
@@ -12,9 +12,23 @@ export default function Lab({ route }) {
     <>
       <PageHeader title="Test Lab" subtitle="Try the help desk safely. Nothing here reads or sends real email." />
       <div className="tabs" role="tablist">
-        <a href="#/lab" className={tab === 'email' ? 'on' : ''} role="tab" aria-selected={tab === 'email'}>✉️ Test emails</a>
-        <a href="#/lab/docs" className={tab === 'docs' ? 'on' : ''} role="tab" aria-selected={tab === 'docs'}>📄 Test documents</a>
+        <a href="#/lab" className={tab === 'email' ? 'on' : ''} role="tab" aria-selected={tab === 'email'}>Test emails</a>
+        <a href="#/lab/docs" className={tab === 'docs' ? 'on' : ''} role="tab" aria-selected={tab === 'docs'}>Test documents</a>
       </div>
+      {tab === 'email' ? (
+        <HelpPanel id="lab-email" steps={[
+          'Choose an example from the list, or write your own message as if you were an employee.',
+          'Optionally change "Try it as if reply mode were" to see how the same message behaves in draft mode versus auto-send. This affects only the one test.',
+          'Select Send test email. The result appears on the right: what the AI decided, the reply, anything flagged, the documents it used, and its reasoning.',
+          'If the result says a person must review it, open it in the Review queue to edit and approve it.',
+        ]} note="To test an answer from your own documents, add one under Test documents first, then ask a question about it here." />
+      ) : (
+        <HelpPanel id="lab-docs" steps={[
+          'Upload a text, Markdown or CSV file, or select "Paste text as a document" and type or paste a policy.',
+          'Go to Test emails and ask a question the document answers. The AI will quote the relevant passage.',
+          'Turn a document off to confirm the AI stops using it, or remove it when you are finished.',
+        ]} note="PDF and Word files can be stored but not read in this test environment. Paste their text instead." />
+      )}
       {tab === 'email' ? <EmailTab /> : <DocsTab />}
     </>
   )
@@ -72,7 +86,7 @@ function EmailTab() {
         </Card>
 
         <Card title="Test history" actions={tests.length > 0 && <button className="btn small" onClick={clearTestEmails}>Clear all</button>}>
-          {tests.length === 0 ? <Empty icon="🧪" title="No test emails yet">Send one above and it will show up here.</Empty> : (
+          {tests.length === 0 ? <Empty title="No test emails yet">Send one above and it will show up here.</Empty> : (
             <div className="list">
               {tests.map((e) => (
                 <button key={e.id} className={`item ${selected?.id === e.id ? 'sel' : ''}`} onClick={() => setSelId(e.id)}>
@@ -89,7 +103,7 @@ function EmailTab() {
 
       <div className="stack">
         {selected ? <Result email={selected} /> : (
-          <Card><Empty icon="🤖" title="The AI's answer will appear here">Send a test email, or pick an example, to see the draft, what got flagged, and why the AI decided what it did.</Empty></Card>
+          <Card><Empty title="The AI's answer will appear here">Send a test email, or pick an example, to see the draft, what got flagged, and why the AI decided what it did.</Empty></Card>
         )}
       </div>
     </div>
@@ -105,7 +119,7 @@ export function Result({ email }) {
     <>
       <Card title="What the AI did" actions={<Badge tone="gray">Simulated AI</Badge>}>
         <div className={`outcome ${tone}`}>
-          <span aria-hidden>{{ green: '✅', amber: '📝', red: '🚩' }[tone]}</span>
+          <Icon name={{ green: 'check', amber: 'mail', red: 'flag' }[tone]} />
           <div><strong>{headline}</strong>{r.reasons.map((x, i) => <p key={i}>{x}</p>)}</div>
         </div>
         <div className="two-col">
@@ -129,17 +143,17 @@ export function Result({ email }) {
       <Card title={r.decision === 'sent' ? 'Reply that was sent' : 'Draft saved'}>
         {r.decision === 'escalated' && <p className="muted small" style={{ marginBottom: 8 }}>High-risk: this draft waits in the review queue. Nothing is sent until a person edits and approves it.</p>}
         <div className="draft-box">{email.editedDraft || r.draft}</div>
-        {r.acknowledgement && <p className="muted small" style={{ marginTop: 10 }}>Also sent right away (Settings → Escalations): "{r.acknowledgement}"</p>}
+        {r.acknowledgement && <p className="muted small" style={{ marginTop: 10 }}>Also sent right away (Settings Escalations): "{r.acknowledgement}"</p>}
         <div className="row" style={{ marginTop: 12 }}>
           {email.status === 'pending_review' || email.status === 'escalated'
-            ? <a className="btn small" href="#/admin/review">Open draft in review queue →</a>
+            ? <a className="btn small" href="#/admin/review">Open draft in review queue</a>
             : <span className="muted small">Status: <StatusBadge status={email.status} /></span>}
         </div>
       </Card>
 
       <Card title="Sources used">
         {r.sources.length === 0 ? <p className="muted">No document supported an answer. Try uploading one in the Test documents tab.</p> : r.sources.map((s, i) => (
-          <div key={i} style={{ marginBottom: 8 }}><strong>📄 {s.name}</strong><div className="quote">{s.snippet}</div></div>
+          <div key={i} style={{ marginBottom: 8 }}><strong>{s.name}</strong><div className="quote">{s.snippet}</div></div>
         ))}
       </Card>
 
@@ -155,10 +169,10 @@ function DocsTab() {
     <div className="grid-2">
       <Card title="Upload test documents" hint="Add a policy or FAQ, then go to Test emails and ask a question about it.">
         <Uploader test folder="Other" />
-        <p className="muted small" style={{ marginTop: 14 }}>Tip: Test documents are used right away by the AI. Real documents live in Admin → Knowledge files.</p>
+        <p className="muted small" style={{ marginTop: 14 }}>Tip: Test documents are used right away by the AI. Real documents live in Admin Knowledge files.</p>
       </Card>
       <Card title={`Your test documents (${tests.length})`}>
-        {tests.length === 0 ? <Empty icon="📂" title="No test documents yet">Upload a file or paste text to get started.</Empty> : (
+        {tests.length === 0 ? <Empty title="No test documents yet">Upload a file or paste text to get started.</Empty> : (
           <div className="list">
             {tests.map((f) => (
               <div key={f.id} className="item" style={{ cursor: 'default' }}>

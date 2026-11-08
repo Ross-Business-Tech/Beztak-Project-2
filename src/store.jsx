@@ -30,7 +30,7 @@ function makeSeed() {
     }
     emails.push({ ...email, result, status, finalReply, history })
   }
-  return { settings, rules, files, emails: emails.reverse(), activity: [{ id: uid('a'), at: new Date().toISOString(), type: 'system', text: 'Sandbox created with sample data' }] }
+  return { settings, rules, files, emails: emails.reverse(), activity: [{ id: uid('a'), at: new Date().toISOString(), type: 'system', text: 'Test environment created with sample data' }] }
 }
 
 function load() {

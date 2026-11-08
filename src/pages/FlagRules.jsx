@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useApp, uid } from '../store'
 import { SEVERITIES } from '../data/defaults'
 import { checkFlags } from '../engine/mockAI'
-import { Badge, Card, Field, Modal, PageHeader, Segmented, SeverityBadge, Toggle } from '../components/ui'
+import { Badge, Card, HelpPanel, Icon, Field, Modal, PageHeader, Segmented, SeverityBadge, Toggle } from '../components/ui'
 
 const ACTIONS = { escalate: 'High-risk: careful draft + extra confirmation', hold: 'Hold: draft, a person reviews' }
 const NEW = { id: '', name: '', description: '', severity: 'high', action: 'hold', enabled: true, keywords: [], notify: 'HR Business Partner' }
@@ -16,10 +16,17 @@ export default function FlagRules() {
   return (
     <>
       <PageHeader title="Flag rules" subtitle='Choose what counts as "needs human review". Flagged messages are never sent automatically.'>
-        <button className="btn primary" onClick={() => setEdit({ ...NEW })}>＋ New rule</button>
+        <button className="btn primary" onClick={() => setEdit({ ...NEW })}>New rule</button>
       </PageHeader>
 
-      <div className="guardrail" role="note" style={{ marginTop: 0, marginBottom: 16 }}><span aria-hidden>ℹ️</span><div><strong>Sandbox note:</strong> rules here match words and phrases only. The real AI will also read for meaning, so a message that never says "harassment" can still be caught. The "What is it for?" description on each rule is what it will use, so write it clearly. Your word lists stay on as a safety net.</div></div>
+      <HelpPanel id="flags" steps={[
+        'Each rule describes a sensitive situation, with trigger words, a severity, and a person or team to notify.',
+        'Use the switch to turn a rule on or off, or Edit to change its words, severity and action.',
+        'Choose what happens when a rule triggers. "Hold for review" writes a normal draft for a person to approve. "High-risk" writes a careful, no-advice draft that must be edited and confirmed before sending.',
+        'Use "Try a message" to paste a sentence and see which rules would catch it before relying on a change.',
+        'Select New rule to add your own, such as salary negotiation or a specific department.',
+      ]} />
+      <div className="guardrail" role="note" style={{ marginTop: 16, marginBottom: 16 }}><Icon name="info" /><div><strong>Test environment note:</strong> rules here match words and phrases only. The real AI will also read for meaning, so a message that never says "harassment" can still be caught. The "What is it for?" description on each rule is what it will use, so write it clearly. Your word lists stay on as a safety net.</div></div>
 
       <Card title="Try a message" hint="Paste a sentence to see which rules would catch it.">
         <textarea rows={3} aria-label="Message to test" value={probe} onChange={(e) => setProbe(e.target.value)} placeholder="e.g. My manager keeps making comments that feel like harassment…" />
@@ -53,7 +60,7 @@ export default function FlagRules() {
           </div>
         ))}
       </div>
-      <div className="guardrail" role="note"><span aria-hidden>🔒</span><div><strong>Built-in safety guardrail:</strong> any message that triggers a rule is held for a person, regardless of your reply mode or confidence.</div></div>
+      <div className="guardrail" role="note"><Icon name="lock" /><div><strong>Built-in safety guardrail:</strong> any message that triggers a rule is held for a person, regardless of your reply mode or confidence.</div></div>
 
       {edit && <RuleModal rule={edit} onClose={() => setEdit(null)}
         onSave={(r) => { const isNew = !r.id; saveRule({ ...r, id: r.id || uid('rule') }); log('rules', `Flag rule "${r.name}" ${isNew ? 'created' : 'updated'}`); toast('Rule saved'); setEdit(null) }}
