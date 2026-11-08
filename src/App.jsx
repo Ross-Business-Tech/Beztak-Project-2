@@ -1,122 +1,134 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useEffect, useRef, useState } from 'react'
+import { SAMPLE_QUESTIONS, askAgent } from './hrAgent.js'
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+const WELCOME = {
+  from: 'bot',
+  text: 'Hi, I’m the HRITT assistant. I answer common HR questions from the sample employee handbook. Anything sensitive goes straight to a human HR partner.',
 }
 
-export default App
+const TIME = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+
+export default function App() {
+  const [messages, setMessages] = useState([WELCOME])
+  const [input, setInput] = useState('')
+  const [agent, setAgent] = useState({ topic: null, misses: 0 })
+  const [tickets, setTickets] = useState([])
+  const logRef = useRef(null)
+
+  useEffect(() => {
+    const el = logRef.current
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+  }, [messages])
+
+  function send(text) {
+    const question = text.trim()
+    if (!question) return
+    const result = askAgent(question, agent)
+    setAgent({ topic: result.topic, misses: result.misses })
+    setMessages((m) => [
+      ...m,
+      { from: 'user', text: question },
+      { from: 'bot', text: result.reply, source: result.source, flagged: result.escalate },
+    ])
+    if (result.escalate) {
+      setTickets((t) => [
+        {
+          id: `HR-${1042 + t.length}`,
+          question,
+          reasons: result.reasons.join(', '),
+          urgency: result.urgency,
+          time: TIME(new Date()),
+        },
+        ...t,
+      ])
+    }
+    setInput('')
+  }
+
+  return (
+    <div className="app">
+      <header className="topbar">
+        <div className="brand">
+          <span className="logo" aria-hidden="true">H</span>
+          <div>
+            <strong>HRITT</strong>
+            <span className="brand-sub">HR Internal Ticketing Tool</span>
+          </div>
+        </div>
+        <span className="pill">Demo · sample data</span>
+      </header>
+
+      <main className="hero">
+        <div className="intro">
+          <h1>Get HR answers fast</h1>
+          <p>Ask about leave, pay, benefits or policy. Sensitive topics go straight to a person.</p>
+        </div>
+
+        <div className="layout">
+          <section className="card chat" aria-label="HR assistant">
+            <div className="log" ref={logRef} aria-live="polite">
+              {messages.map((m, i) => (
+                <div key={i} className={`msg ${m.from}`}>
+                  <p>{m.text}</p>
+                  {m.source && <small className="meta">Source: {m.source}</small>}
+                  {m.flagged && <small className="meta flag">Flagged for human review</small>}
+                </div>
+              ))}
+            </div>
+
+            <div className="chips">
+              {SAMPLE_QUESTIONS.map((q) => (
+                <button key={q} type="button" className="chip" onClick={() => send(q)}>
+                  {q}
+                </button>
+              ))}
+            </div>
+
+            <form
+              className="composer"
+              onSubmit={(e) => {
+                e.preventDefault()
+                send(input)
+              }}
+            >
+              <label htmlFor="question" className="sr-only">Your question</label>
+              <input
+                id="question"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Type your HR question…"
+                autoComplete="off"
+              />
+              <button type="submit" className="primary" disabled={!input.trim()}>
+                Send
+              </button>
+            </form>
+          </section>
+
+          <aside className="card queue" aria-label="HR review queue">
+            <h2>HR review queue</h2>
+            {tickets.length === 0 ? (
+              <p className="muted">Nothing flagged yet. Sensitive or unresolved questions appear here for an HR partner.</p>
+            ) : (
+              <ul>
+                {tickets.map((t) => (
+                  <li key={t.id} className="ticket">
+                    <div className="ticket-top">
+                      <strong>{t.id}</strong>
+                      <span className={`badge ${t.urgency.toLowerCase()}`}>{t.urgency}</span>
+                    </div>
+                    <p className="ticket-q">“{t.question}”</p>
+                    <small className="meta">{t.reasons} · {t.time} · Open</small>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="fine">Demo only: tickets stay in this browser tab and are not sent to HR.</p>
+          </aside>
+        </div>
+
+        <footer className="fine">Sample handbook content for demonstration. Not HR advice.</footer>
+      </main>
+    </div>
+  )
+}
