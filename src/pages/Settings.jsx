@@ -80,8 +80,8 @@ export default function Settings() {
         {s.includeFooter && <Field label="Footer text">{(id) => <textarea id={id} rows={2} value={s.footer} onChange={(e) => set({ footer: e.target.value })} />}</Field>}
       </Card>
 
-      <Card title="Escalations" hint="What happens when a rule says a person must handle it.">
-        <SettingRow title="Send a short acknowledgement" hint="Lets the employee know a person will be in touch. Contains no advice.">
+      <Card title="Escalations" hint="High-risk rules always produce a draft that a person must edit and confirm before it is sent.">
+        <SettingRow title="Also send a short acknowledgement right away" hint="On top of the draft a person reviews, instantly tells the employee someone will be in touch. Contains no advice.">
           <Toggle label="Acknowledge" checked={s.ackOnEscalate} onChange={(v) => set({ ackOnEscalate: v }, `Escalation acknowledgement turned ${v ? 'on' : 'off'}`)} />
         </SettingRow>
         {s.ackOnEscalate && <Field label="Acknowledgement text">{(id) => <textarea id={id} rows={3} value={s.ackText} onChange={(e) => set({ ackText: e.target.value })} />}</Field>}

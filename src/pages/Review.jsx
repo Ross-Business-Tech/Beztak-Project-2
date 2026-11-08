@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useApp } from '../store'
 import { Badge, Card, ConfidenceMeter, Empty, PageHeader, Segmented, SeverityBadge, StatusBadge, Trace, catLabel, fmtDate, timeAgo } from '../components/ui'
 
@@ -62,11 +62,16 @@ export default function Review() {
 }
 
 function Detail({ email, onBack }) {
-  const { resolveEmail, regenerate, deleteEmail, toast } = useApp()
-  const [text, setText] = useState(email.result.draft)
+  const { resolveEmail, regenerate, saveDraft, deleteEmail, toast, settings } = useApp()
   const r = email.result
   const open = isOpen(email)
-  useEffect(() => { setText(email.result.draft) }, [email.result])
+  const highRisk = r.decision === 'escalated'
+  const [text, setText] = useState(email.editedDraft ?? r.draft)
+  const [checked, setChecked] = useState(false)
+  const [saved, setSaved] = useState(email.editedDraft !== undefined)
+  const [prevResult, setPrevResult] = useState(r)
+  if (prevResult !== r) { setPrevResult(r); setText(r.draft); setSaved(false); setChecked(false) }
+  const edited = text !== r.draft
 
   return (
     <>
@@ -86,26 +91,35 @@ function Detail({ email, onBack }) {
               <div key={f.ruleId} className="row" style={{ marginTop: 10 }}><SeverityBadge severity={f.severity} /><strong>{f.name}</strong> {f.matched.map((m) => <span key={m} className="chip hit">{m}</span>)}</div>
             ))}
           </Card>
+          <Card title="Sources">
+            {r.sources.length === 0 ? <p className="muted">No supporting document found.</p> : r.sources.map((s, i) => <div key={i} style={{ marginBottom: 8 }}><strong>📄 {s.name}</strong><div className="quote">{s.snippet}</div></div>)}
+          </Card>
           <Card title="History"><ul className="tl">{email.history.map((h, i) => <li key={i}>{h.text}<div className="muted small">{fmtDate(h.at)}</div></li>)}</ul></Card>
         </div>
 
         <div className="stack">
-          <Card title={open ? (email.status === 'escalated' ? 'Write your reply' : 'Review the draft') : 'Reply'} actions={<ConfidenceMeter value={r.confidence} />}>
-            {email.status === 'escalated' && <div className="outcome red"><span aria-hidden>🚩</span><div><strong>Handle this personally</strong><p>The AI did not write a reply because of the flag. Contact the employee privately.</p></div></div>}
+          <Card title={open ? 'Draft reply' : 'Reply'} actions={<ConfidenceMeter value={r.confidence} />}>
+            {highRisk && open && <div className="outcome red"><span aria-hidden>🚩</span><div><strong>High-risk: please read carefully before sending</strong><p>The AI wrote a cautious starting draft. Rewrite it in your own words if needed. It cannot be sent until you confirm below.</p></div></div>}
             {open ? (
-              <>
-                <label htmlFor="reply" className="muted small">You can edit before sending</label>
-                <textarea id="reply" rows={13} value={text} onChange={(e) => setText(e.target.value)} placeholder="Type your reply…" />
+              <div className="compose">
+                <div className="compose-line"><span>To</span><strong>{email.name} &lt;{email.from}&gt;</strong></div>
+                <div className="compose-line"><span>From</span><span>{settings.helpDeskName} &lt;{settings.replyToAddress}&gt;</span></div>
+                <div className="compose-line"><span>Subject</span><strong>Re: {email.subject}</strong></div>
+                <textarea id="reply" aria-label="Reply body" rows={14} value={text} onChange={(e) => { setText(e.target.value); setSaved(false) }} placeholder="Type your reply…" />
+                <div className="row between" style={{ margin: '6px 0 10px' }}>
+                  <span className="muted small">{saved ? '✓ Draft saved' : edited ? 'Unsaved edits' : 'AI draft, not yet edited'} · nothing is sent until you press Send</span>
+                  <button className="btn small" onClick={() => { saveDraft(email.id, text); setSaved(true); toast('Draft saved') }}>Save draft</button>
+                </div>
+                {highRisk && (
+                  <label className="confirm-box"><input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} /> I have read this message and edited the reply as needed. It is appropriate to send.</label>
+                )}
                 <div className="modal-actions" style={{ justifyContent: 'flex-start', marginTop: 12 }}>
-                  <button className="btn primary" disabled={!text.trim()} onClick={() => { resolveEmail(email.id, 'send', text); toast('Reply sent (simulated, no real email)') ; onBack() }}>Send reply</button>
-                  {email.status !== 'escalated' && <button className="btn" onClick={() => { regenerate(email.id); toast('Draft regenerated') }}>Regenerate</button>}
+                  <button className="btn primary" disabled={!text.trim() || (highRisk && !checked)} onClick={() => { resolveEmail(email.id, 'send', text); toast('Reply sent (simulated, no real email)'); onBack() }}>Send reply</button>
+                  <button className="btn" onClick={() => { regenerate(email.id); toast('Draft regenerated') }}>Regenerate</button>
                   <button className="btn danger" onClick={() => { resolveEmail(email.id, 'discard'); onBack() }}>Close without reply</button>
                 </div>
-              </>
+              </div>
             ) : email.finalReply ? <div className="draft-box">{email.finalReply}</div> : <p className="muted">Closed without a reply.</p>}
-          </Card>
-          <Card title="Sources">
-            {r.sources.length === 0 ? <p className="muted">No supporting document found.</p> : r.sources.map((s, i) => <div key={i} style={{ marginBottom: 8 }}><strong>📄 {s.name}</strong><div className="quote">{s.snippet}</div></div>)}
           </Card>
           <Card title="How it decided"><Trace trace={r.trace} /></Card>
           <button className="btn small danger" style={{ justifySelf: 'start' }} onClick={() => { deleteEmail(email.id); onBack() }}>Delete this record</button>

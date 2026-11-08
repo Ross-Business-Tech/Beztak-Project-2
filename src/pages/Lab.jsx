@@ -100,7 +100,7 @@ export function Result({ email }) {
   const { settings } = useApp()
   const r = email.result
   const tone = r.decision === 'sent' ? 'green' : r.decision === 'escalated' ? 'red' : 'amber'
-  const headline = { sent: 'Reply sent automatically', review: 'Draft is waiting for a person to review', escalated: 'Escalated to a person, no AI reply' }[r.decision]
+  const headline = { sent: 'Reply sent automatically', review: 'Draft is waiting for a person to review', escalated: 'High-risk: draft saved for a person to review' }[r.decision]
   return (
     <>
       <Card title="What the AI did" actions={<Badge tone="gray">Simulated AI</Badge>}>
@@ -126,16 +126,13 @@ export function Result({ email }) {
         )}
       </Card>
 
-      <Card title={r.decision === 'sent' ? 'Reply that was sent' : 'Draft reply'}>
-        {r.decision === 'escalated' ? (
-          <>
-            <p className="muted">The AI wrote no reply. {r.acknowledgement ? 'It would send only this short acknowledgement:' : 'No acknowledgement is sent (turned off in Settings).'}</p>
-            {r.acknowledgement && <div className="draft-box" style={{ marginTop: 10 }}>{r.acknowledgement}</div>}
-          </>
-        ) : <div className="draft-box">{r.draft}</div>}
+      <Card title={r.decision === 'sent' ? 'Reply that was sent' : 'Draft saved'}>
+        {r.decision === 'escalated' && <p className="muted small" style={{ marginBottom: 8 }}>High-risk: this draft waits in the review queue. Nothing is sent until a person edits and approves it.</p>}
+        <div className="draft-box">{email.editedDraft || r.draft}</div>
+        {r.acknowledgement && <p className="muted small" style={{ marginTop: 10 }}>Also sent right away (Settings → Escalations): "{r.acknowledgement}"</p>}
         <div className="row" style={{ marginTop: 12 }}>
           {email.status === 'pending_review' || email.status === 'escalated'
-            ? <a className="btn small" href="#/admin/review">Open in review queue →</a>
+            ? <a className="btn small" href="#/admin/review">Open draft in review queue →</a>
             : <span className="muted small">Status: <StatusBadge status={email.status} /></span>}
         </div>
       </Card>

@@ -91,6 +91,22 @@ function buildDraft({ email, category, sources, settings }) {
   return parts.join('\n\n')
 }
 
+// High-risk situations get a careful, human-sounding draft: no policy quotes, no advice, no promises.
+function buildSensitiveDraft({ email, flags, settings }) {
+  const first = firstName(email.name, email.from)
+  const ids = flags.map((f) => f.ruleId)
+  let body
+  if (ids.includes('legal') && !ids.some((i) => ['harassment', 'discrimination', 'retaliation', 'safety', 'wellbeing'].includes(i))) {
+    body = `Thank you for your message. I have shared it with the right people on our team, and someone will respond to you directly. I am not able to discuss the details over email, but your message has been received and is being looked at.`
+  } else {
+    body = `Thank you for telling us about this. I'm sorry you are dealing with it, and I want you to know it is being taken seriously.\n\nA member of the HR team will contact you personally to talk it through in private. You do not need to do anything else right now. If you would prefer a phone call or an in-person conversation, just reply with a time that works for you.`
+    if (ids.includes('wellbeing') || ids.includes('safety')) body += `\n\nIf you or anyone else is in immediate danger, please contact your local emergency number right away.`
+  }
+  const parts = [`Hi ${first},`, body, settings.signature]
+  if (settings.includeFooter && settings.footer) parts.push(`--\n${settings.footer}`)
+  return parts.join('\n\n')
+}
+
 function inHours(date, hours) {
   const mins = date.getHours() * 60 + date.getMinutes()
   const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
@@ -140,11 +156,13 @@ export function analyzeEmail(email, { settings, rules, files, history = [] }, ov
 
   const escalate = flags.some((f) => f.action === 'escalate')
   const flagged = flags.length > 0
-  const draft = escalate ? '' : buildDraft({ email, category: cat.id, sources, settings })
+  const draft = flagged
+    ? (escalate ? buildSensitiveDraft({ email, flags, settings }) : buildDraft({ email, category: cat.id, sources, settings }))
+    : buildDraft({ email, category: cat.id, sources, settings })
   trace.push({
     step: 'Draft',
-    status: escalate ? 'skipped' : 'ok',
-    detail: escalate ? 'No AI reply written. A person must respond to this one.' : `Wrote a reply (${settings.tone} tone, ${confidence}% confident).`,
+    status: escalate ? 'flag' : 'ok',
+    detail: escalate ? 'Wrote a careful draft for a person to rewrite and approve. It is never sent without a human.' : `Wrote a reply (${settings.tone} tone, ${confidence}% confident).`,
   })
 
   // ---- Decision ----
@@ -152,7 +170,7 @@ export function analyzeEmail(email, { settings, rules, files, history = [] }, ov
   let decision = 'review' // 'review' | 'sent' | 'escalated'
   if (escalate) {
     decision = 'escalated'
-    reasons.push('A flag rule is set to escalate: ' + flags.filter((f) => f.action === 'escalate').map((f) => f.name).join(', ') + '.')
+    reasons.push('High-risk: ' + flags.filter((f) => f.action === 'escalate').map((f) => f.name).join(', ') + '. A careful draft was written, but a person must review, edit and send it.')
   } else if (flagged) {
     reasons.push('Flagged for human review: ' + flags.map((f) => f.name).join(', ') + '. Flagged messages are never sent automatically.')
   } else if (mode === 'draft') {
@@ -183,7 +201,7 @@ export function analyzeEmail(email, { settings, rules, files, history = [] }, ov
   trace.push({
     step: 'Decision',
     status: decision === 'sent' ? 'ok' : decision === 'escalated' ? 'flag' : 'warn',
-    detail: { sent: 'Auto-send the reply', review: 'Hold the draft for a person to review', escalated: 'Escalate to a person (no AI reply)' }[decision],
+    detail: { sent: 'Auto-send the reply', review: 'Hold the draft for a person to review', escalated: 'High-risk: draft saved for a person to edit and send' }[decision],
   })
 
   const ack = escalate && settings.ackOnEscalate ? settings.ackText : null

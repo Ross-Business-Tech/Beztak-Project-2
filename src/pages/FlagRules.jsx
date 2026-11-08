@@ -4,7 +4,7 @@ import { SEVERITIES } from '../data/defaults'
 import { checkFlags } from '../engine/mockAI'
 import { Badge, Card, Field, Modal, PageHeader, Segmented, SeverityBadge, Toggle } from '../components/ui'
 
-const ACTIONS = { escalate: 'Escalate: no AI reply', hold: 'Hold: AI drafts, a person reviews' }
+const ACTIONS = { escalate: 'High-risk: careful draft + extra confirmation', hold: 'Hold: draft, a person reviews' }
 const NEW = { id: '', name: '', description: '', severity: 'high', action: 'hold', enabled: true, keywords: [], notify: 'HR Business Partner' }
 
 export default function FlagRules() {
@@ -18,6 +18,8 @@ export default function FlagRules() {
       <PageHeader title="Flag rules" subtitle='Choose what counts as "needs human review". Flagged messages are never sent automatically.'>
         <button className="btn primary" onClick={() => setEdit({ ...NEW })}>＋ New rule</button>
       </PageHeader>
+
+      <div className="guardrail" role="note" style={{ marginTop: 0, marginBottom: 16 }}><span aria-hidden>ℹ️</span><div><strong>Sandbox note:</strong> rules here match words and phrases only. The real AI will also read for meaning, so a message that never says "harassment" can still be caught. The "What is it for?" description on each rule is what it will use, so write it clearly. Your word lists stay on as a safety net.</div></div>
 
       <Card title="Try a message" hint="Paste a sentence to see which rules would catch it.">
         <textarea rows={3} aria-label="Message to test" value={probe} onChange={(e) => setProbe(e.target.value)} placeholder="e.g. My manager keeps making comments that feel like harassment…" />
@@ -38,7 +40,7 @@ export default function FlagRules() {
           <div key={r.id} className={`rule ${r.enabled ? '' : 'off'}`}>
             <div className="rule-top">
               <div style={{ minWidth: 0 }}>
-                <div className="row"><strong>{r.name}</strong><SeverityBadge severity={r.severity} /><Badge tone={r.action === 'escalate' ? 'red' : 'amber'}>{r.action === 'escalate' ? 'Escalate' : 'Hold for review'}</Badge></div>
+                <div className="row"><strong>{r.name}</strong><SeverityBadge severity={r.severity} /><Badge tone={r.action === 'escalate' ? 'red' : 'amber'}>{r.action === 'escalate' ? 'High-risk' : 'Hold for review'}</Badge></div>
                 <p className="muted small" style={{ margin: '4px 0 8px' }}>{r.description}</p>
                 <div>{r.keywords.slice(0, 8).map((k) => <span key={k} className="chip">{k.trim()}</span>)}{r.keywords.length > 8 && <span className="muted small"> +{r.keywords.length - 8} more</span>}</div>
                 <p className="muted small" style={{ marginTop: 6 }}>Notifies: {r.notify}</p>
@@ -77,9 +79,9 @@ function RuleModal({ rule, onClose, onSave, onDelete }) {
         <Field label="Notify (role or team)">{(id) => <input id={id} type="text" value={r.notify} onChange={(e) => set('notify', e.target.value)} />}</Field>
       </div>
       <Field label="When triggered">
-        {() => <Segmented label="Action" value={r.action} onChange={(v) => set('action', v)} options={[{ value: 'hold', label: 'Hold for review' }, { value: 'escalate', label: 'Escalate (no AI reply)' }]} />}
+        {() => <Segmented label="Action" value={r.action} onChange={(v) => set('action', v)} options={[{ value: 'hold', label: 'Hold for review' }, { value: 'escalate', label: 'High-risk' }]} />}
       </Field>
-      <p className="muted small">{r.action === 'hold' ? 'The AI still writes a draft, but a person must approve it.' : 'The AI writes nothing. A person must respond. Best for sensitive topics.'}</p>
+      <p className="muted small">{r.action === 'hold' ? 'The AI writes a normal draft from your documents. A person approves it.' : 'The AI writes a careful, no-advice draft. A person must edit it and tick a confirmation before it can be sent. Alerts the notify role. Best for sensitive topics.'}</p>
       <div className="modal-actions">
         {rule.id && <button className="btn danger" style={{ marginRight: 'auto' }} onClick={() => confirm(`Delete "${rule.name}"?`) && onDelete(rule)}>Delete</button>}
         <button className="btn" onClick={onClose}>Cancel</button>

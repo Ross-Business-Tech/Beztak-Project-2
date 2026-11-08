@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { DEFAULT_RULES, DEFAULT_SETTINGS, SAMPLE_FILES, SCENARIOS, SEED_EMAILS } from './data/defaults'
 import { analyzeEmail, statusFromDecision } from './engine/mockAI'
 
-const KEY = 'hr-helpdesk-sandbox-v1'
+const KEY = 'hr-helpdesk-sandbox-v2'
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
 
@@ -112,13 +112,16 @@ export function AppProvider({ children }) {
       }))
       log('review', kind === 'send' ? 'A reviewer sent a reply (simulated)' : 'A reviewer closed an email without replying')
     },
+    saveDraft(id, text) {
+      setData((d) => ({ ...d, emails: d.emails.map((e) => (e.id === id ? { ...e, editedDraft: text } : e)) }))
+    },
     regenerate(id) {
       const d = dataRef.current
       const e = d.emails.find((x) => x.id === id)
       if (!e) return
       const result = analyzeEmail(e, { settings: d.settings, rules: d.rules, files: d.files, history: d.emails.filter((x) => x.id !== id) }, 'draft')
       const next = statusFromDecision(result.decision)
-      setData((s) => ({ ...s, emails: s.emails.map((x) => (x.id === id ? { ...x, result, status: next === 'auto_sent' ? 'pending_review' : next, history: [...x.history, { at: new Date().toISOString(), text: 'Draft regenerated with current settings' }] } : x)) }))
+      setData((s) => ({ ...s, emails: s.emails.map((x) => (x.id === id ? { ...x, result, editedDraft: undefined, status: next === 'auto_sent' ? 'pending_review' : next, history: [...x.history, { at: new Date().toISOString(), text: 'Draft regenerated with current settings' }] } : x)) }))
     },
     deleteEmail(id) { setData((d) => ({ ...d, emails: d.emails.filter((e) => e.id !== id) })) },
     clearTestEmails() { setData((d) => ({ ...d, emails: d.emails.filter((e) => e.source !== 'test') })); log('system', 'Test emails cleared') },
