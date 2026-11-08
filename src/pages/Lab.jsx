@@ -111,7 +111,6 @@ function EmailTab() {
 }
 
 export function Result({ email }) {
-  const { settings } = useApp()
   const r = email.result
   const tone = r.decision === 'sent' ? 'green' : r.decision === 'escalated' ? 'red' : 'amber'
   const headline = { sent: 'Reply sent automatically', review: 'Draft is waiting for a person to review', escalated: 'High-risk: draft saved for a person to review' }[r.decision]
@@ -135,7 +134,7 @@ export function Result({ email }) {
                 <span className="muted small">matched: {f.matched.map((m) => <span key={m} className="chip hit">{m}</span>)}</span>
               </div>
             ))}
-            <p className="muted small" style={{ marginTop: 6 }}>Would notify: {[...new Set(r.flags.map((f) => f.notify))].join(', ')} ({settings.integrations.notifyEmail})</p>
+            <p className="muted small" style={{ marginTop: 6 }}>Suggested owner: {[...new Set(r.flags.map((f) => f.notify))].join(', ')}. It will be marked as a priority in the Review queue.</p>
           </div>
         )}
       </Card>

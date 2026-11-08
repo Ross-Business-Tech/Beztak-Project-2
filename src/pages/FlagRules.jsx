@@ -20,7 +20,7 @@ export default function FlagRules() {
       </PageHeader>
 
       <HelpPanel id="flags" steps={[
-        'Each rule describes a sensitive situation, with trigger words, a severity, and a person or team to notify.',
+        'Each rule describes a sensitive situation, with trigger words, a severity, and a suggested owner.',
         'Use the switch to turn a rule on or off, or Edit to change its words, severity and action.',
         'Choose what happens when a rule triggers. "Hold for review" writes a normal draft for a person to approve. "High-risk" writes a careful, no-advice draft that must be edited and confirmed before sending.',
         'Use "Try a message" to paste a sentence and see which rules would catch it before relying on a change.',
@@ -50,7 +50,7 @@ export default function FlagRules() {
                 <div className="row"><strong>{r.name}</strong><SeverityBadge severity={r.severity} /><Badge tone={r.action === 'escalate' ? 'red' : 'amber'}>{r.action === 'escalate' ? 'High-risk' : 'Hold for review'}</Badge></div>
                 <p className="muted small" style={{ margin: '4px 0 8px' }}>{r.description}</p>
                 <div>{r.keywords.slice(0, 8).map((k) => <span key={k} className="chip">{k.trim()}</span>)}{r.keywords.length > 8 && <span className="muted small"> +{r.keywords.length - 8} more</span>}</div>
-                <p className="muted small" style={{ marginTop: 6 }}>Notifies: {r.notify}</p>
+                <p className="muted small" style={{ marginTop: 6 }}>Suggested owner: {r.notify}</p>
               </div>
               <div className="row" style={{ flex: 'none', flexWrap: 'nowrap' }}>
                 <button className="btn small" onClick={() => setEdit({ ...r })}>Edit</button>
@@ -83,7 +83,7 @@ function RuleModal({ rule, onClose, onSave, onDelete }) {
       </Field>
       <div className="two-col">
         <Field label="Severity">{(id) => <select id={id} value={r.severity} onChange={(e) => set('severity', e.target.value)}>{SEVERITIES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}</select>}</Field>
-        <Field label="Notify (role or team)">{(id) => <input id={id} type="text" value={r.notify} onChange={(e) => set('notify', e.target.value)} />}</Field>
+        <Field label="Suggested owner (role or team)">{(id) => <input id={id} type="text" value={r.notify} onChange={(e) => set('notify', e.target.value)} />}</Field>
       </div>
       <Field label="When triggered">
         {() => <Segmented label="Action" value={r.action} onChange={(v) => set('action', v)} options={[{ value: 'hold', label: 'Hold for review' }, { value: 'escalate', label: 'High-risk' }]} />}

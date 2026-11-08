@@ -33,6 +33,7 @@ export default function Review() {
         'Use the filters to see what needs action, what was flagged, or what has already been handled.',
         'Select a message to read the original email, why it needs a person, and the AI draft.',
         'Edit the draft as you would any email. Select Save draft to keep your changes. Nothing is sent until you select Send reply.',
+        'Use Case notes to record who you spoke to and what was agreed. Notes stay internal and are kept with the case.',
         'High-risk messages show a red notice and require a confirmation before the Send button turns on.',
       ]} />}
       {selected ? <Detail key={selected.id} email={selected} onBack={() => setSelId(null)} /> : (
@@ -68,7 +69,8 @@ export default function Review() {
 }
 
 function Detail({ email, onBack }) {
-  const { resolveEmail, regenerate, saveDraft, deleteEmail, toast, settings } = useApp()
+  const { resolveEmail, regenerate, saveDraft, addNote, deleteEmail, toast, settings } = useApp()
+  const [note, setNote] = useState('')
   const r = email.result
   const open = isOpen(email)
   const highRisk = r.decision === 'escalated'
@@ -99,6 +101,13 @@ function Detail({ email, onBack }) {
           </Card>
           <Card title="Sources">
             {r.sources.length === 0 ? <p className="muted">No supporting document found.</p> : r.sources.map((s, i) => <div key={i} style={{ marginBottom: 8 }}><strong>{s.name}</strong><div className="quote">{s.snippet}</div></div>)}
+          </Card>
+          <Card title="Case notes" hint="Internal only. Never sent to the employee.">
+            {(email.notes || []).length === 0 ? <p className="muted small" style={{ marginBottom: 10 }}>No notes yet.</p> : (
+              <ul className="tl" style={{ marginBottom: 12 }}>{email.notes.map((n) => <li key={n.id}>{n.text}<div className="muted small">{fmtDate(n.at)}</div></li>)}</ul>
+            )}
+            <textarea rows={3} aria-label="New case note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note for the team, for example who you spoke to and what was agreed." />
+            <div style={{ marginTop: 8 }}><button className="btn small" disabled={!note.trim()} onClick={() => { addNote(email.id, note.trim()); setNote(''); toast('Note added') }}>Add note</button></div>
           </Card>
           <Card title="History"><ul className="tl">{email.history.map((h, i) => <li key={i}>{h.text}<div className="muted small">{fmtDate(h.at)}</div></li>)}</ul></Card>
         </div>

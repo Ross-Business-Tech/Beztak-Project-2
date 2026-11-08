@@ -1,7 +1,7 @@
-// SIMULATED AI. No real model, mailbox or Zoro connection yet.
+// SIMULATED AI. No real model or Zoro connection yet.
 //
 // `analyzeEmail` is the one place the real thing will plug in later:
-//   1. look up the employee in Zoro (MCP)         -> see "lookup" step in the trace
+//   1. pull the ticket from Zoro (MCP)            -> see the "Ticket source" step in the trace, and send the reply back the same way
 //   2. ask the AI model to classify + draft       -> replace classify() / buildDraft()
 //   3. keep the safety checks + send decision     -> checkFlags() / decide() stay as they are
 // Everything else in the app only reads the result object this returns.
@@ -125,9 +125,9 @@ export function analyzeEmail(email, { settings, rules, files, history = [] }, ov
 
   trace.push({ step: 'Received', status: 'ok', detail: `From ${email.name || email.from} <${email.from}>` })
   trace.push({
-    step: 'Employee lookup (Zoro)',
-    status: settings.integrations.zoro.enabled ? 'ok' : 'skipped',
-    detail: settings.integrations.zoro.enabled ? 'Simulated: record found.' : 'Not connected yet. Replies are based on the email and documents only.',
+    step: 'Ticket source (Zoro)',
+    status: 'skipped',
+    detail: 'Entered by hand in the Test Lab. In production this arrives as a Zoro ticket.',
   })
 
   const cat = classify(text)

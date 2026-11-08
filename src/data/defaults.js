@@ -40,10 +40,10 @@ export const DEFAULT_SETTINGS = {
   hours: { enabled: false, start: '08:00', end: '18:00', outside: 'hold' },
   maxAutoPerSenderPerDay: 3,
   lowConfidenceBehavior: 'draft',
+  minutesSavedPerReply: 6,
   integrations: {
-    zoro: { enabled: false, serverUrl: '', lookups: { employee: true, pto: true, benefits: false, payroll: false } },
-    mailbox: { provider: 'none', address: '' },
-    notifyEmail: 'hr-leads@example.com',
+    // Zoro is the ticketing system: tickets come in from it and replies go back out through it.
+    zoro: { enabled: false, serverUrl: '', pullTickets: true, sendReplies: true, replyAs: 'draft_note' },
   },
 }
 

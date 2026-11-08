@@ -23,8 +23,8 @@ export default function Settings() {
         'Start with "How should replies go out?" This is the most important decision: whether a person approves every reply, or the system sends low-risk ones itself.',
         'Under Auto-send rules, set the confidence needed, the topics allowed to send automatically, and limits that prevent loops.',
         'Reply style controls tone, signature and the AI disclosure footer on every message.',
-        'Escalations covers the optional instant acknowledgement for sensitive messages.',
-        'Connections shows planned integrations (Zoro and the mailbox). They are placeholders for now.',
+        'Escalations covers the optional instant acknowledgement for sensitive messages. Staff are alerted inside this tool, in the Review queue.',
+        'Connection to Zoro (your ticketing system) is a placeholder for now. Reporting sets how time saved is estimated.',
       ]} note="Changes save automatically and apply to the next email processed." />
       {storageFull && <div className="sim-banner" role="alert">This browser is out of storage, so recent changes may not be saved. Delete some large files in Knowledge files.</div>}
 
@@ -92,27 +92,29 @@ export default function Settings() {
           <Toggle label="Acknowledge" checked={s.ackOnEscalate} onChange={(v) => set({ ackOnEscalate: v }, `Escalation acknowledgement turned ${v ? 'on' : 'off'}`)} />
         </SettingRow>
         {s.ackOnEscalate && <Field label="Acknowledgement text">{(id) => <textarea id={id} rows={3} value={s.ackText} onChange={(e) => set({ ackText: e.target.value })} />}</Field>}
-        <Field label="Alert email for flagged messages (example only)">{(id) => <input id={id} type="email" value={s.integrations.notifyEmail} onChange={(e) => nested('integrations', { notifyEmail: e.target.value })} />}</Field>
       </Card>
 
-      <Card title="Connections" hint="Planned, not working yet. These switches only change how the test environment behaves.">
-        <SettingRow title={<>Zoro (HR system) <Badge tone="amber">Coming soon</Badge></>} hint="Will let the AI look up employee details through Zoro's MCP service, so replies can use a person's real balances and plan.">
+      <Card title="Connection to Zoro" hint="Planned, not working yet. These switches only change how the test environment behaves.">
+        <SettingRow title={<>Zoro ticketing <Badge tone="amber">Coming soon</Badge></>} hint="Zoro is where tickets arrive and where replies are sent. The AI does not look up employee records.">
           <Toggle label="Zoro" checked={zoro.enabled} onChange={(v) => nested('integrations', { zoro: { ...zoro, enabled: v } }, `Zoro connection turned ${v ? 'on (simulated)' : 'off'}`)} />
         </SettingRow>
         {zoro.enabled && (
           <div style={{ paddingBottom: 8 }}>
-            <Field label="Zoro MCP server address" hint="Placeholder. Nothing is called.">{(id) => <input id={id} type="text" value={zoro.serverUrl} onChange={(e) => nested('integrations', { zoro: { ...zoro, serverUrl: e.target.value } })} placeholder="https://…" />}</Field>
-            <div className="muted small" style={{ marginBottom: 6 }}>What the AI may look up</div>
-            {[['employee', 'Employee name and manager'], ['pto', 'PTO balance'], ['benefits', 'Benefits enrollment'], ['payroll', 'Pay information (sensitive)']].map(([k, label]) => (
-              <div key={k} className="row between" style={{ marginBottom: 6 }}><span>{label}</span>
-                <Toggle label={label} checked={zoro.lookups[k]} onChange={(v) => nested('integrations', { zoro: { ...zoro, lookups: { ...zoro.lookups, [k]: v } } })} /></div>
-            ))}
+            <Field label="Zoro MCP server address" hint="Placeholder. Nothing is called.">{(id) => <input id={id} type="text" value={zoro.serverUrl} onChange={(e) => nested('integrations', { zoro: { ...zoro, serverUrl: e.target.value } })} placeholder="https://..." />}</Field>
+            <SettingRow title="Pull new tickets automatically" hint="New tickets in Zoro appear in the review queue."><Toggle label="Pull tickets" checked={zoro.pullTickets} onChange={(v) => nested('integrations', { zoro: { ...zoro, pullTickets: v } })} /></SettingRow>
+            <SettingRow title="Send replies back to the ticket" hint="When a reply is approved, or auto-sent, post it to the ticket in Zoro."><Toggle label="Send replies" checked={zoro.sendReplies} onChange={(v) => nested('integrations', { zoro: { ...zoro, sendReplies: v } })} /></SettingRow>
+            <SettingRow title="When a draft is waiting for review" hint="Optionally also save it inside the Zoro ticket as an internal draft note.">
+              <select aria-label="Draft handling" value={zoro.replyAs} onChange={(e) => nested('integrations', { zoro: { ...zoro, replyAs: e.target.value } })}>
+                <option value="draft_note">Add as an internal draft note</option><option value="none">Keep only in this tool</option>
+              </select>
+            </SettingRow>
           </div>
         )}
-        <SettingRow title={<>Help desk mailbox <Badge tone="amber">Coming soon</Badge></>} hint="The inbox the AI will read, such as Outlook or Gmail.">
-          <select aria-label="Mailbox provider" value={s.integrations.mailbox.provider} onChange={(e) => nested('integrations', { mailbox: { ...s.integrations.mailbox, provider: e.target.value } })}>
-            <option value="none">Not connected</option><option value="outlook">Microsoft Outlook</option><option value="gmail">Gmail</option>
-          </select>
+      </Card>
+
+      <Card title="Reporting" hint="Used for the leadership figures on the Dashboard.">
+        <SettingRow title="Minutes saved per reply" hint="How long one reply takes a person today. Used to estimate time saved.">
+          <input type="number" min={1} max={60} value={s.minutesSavedPerReply} aria-label="Minutes per reply" style={{ width: 90 }} onChange={(e) => set({ minutesSavedPerReply: Math.max(1, Number(e.target.value) || 1) })} />
         </SettingRow>
       </Card>
 

@@ -105,12 +105,17 @@ export function AppProvider({ children }) {
         emails: d.emails.map((e) => {
           if (e.id !== id) return e
           const at = new Date().toISOString()
-          if (kind === 'send') return { ...e, status: 'approved_sent', finalReply: text, history: [...e.history, { at, text: 'Reviewed and sent by a person (simulated)' }] }
+          if (kind === 'send') return { ...e, status: 'approved_sent', finalReply: text, wasEdited: text.trim() !== (e.result.draft || '').trim(), history: [...e.history, { at, text: 'Reviewed and sent by a person (simulated)' }] }
           if (kind === 'discard') return { ...e, status: 'discarded', history: [...e.history, { at, text: 'Closed without sending a reply' }] }
           return e
         }),
       }))
       log('review', kind === 'send' ? 'A reviewer sent a reply (simulated)' : 'A reviewer closed an email without replying')
+    },
+    addNote(id, text) {
+      const note = { id: uid('n'), at: new Date().toISOString(), text }
+      setData((d) => ({ ...d, emails: d.emails.map((e) => (e.id === id ? { ...e, notes: [...(e.notes || []), note] } : e)) }))
+      log('review', 'A case note was added')
     },
     saveDraft(id, text) {
       setData((d) => ({ ...d, emails: d.emails.map((e) => (e.id === id ? { ...e, editedDraft: text } : e)) }))
