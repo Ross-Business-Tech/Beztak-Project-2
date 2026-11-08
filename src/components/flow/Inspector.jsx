@@ -103,7 +103,7 @@ export default function Inspector({ node, onChange, onDelete, onClose, connectio
         <div className="insp-help"><strong>What this block does</strong><p>{def.help}</p></div>
         <div className="field"><label>Block name</label><input type="text" value={node.data.label} placeholder={def.title} onChange={(e) => onChange(node.id, { label: e.target.value })} /></div>
         <Form key={node.id} kind={node.data.kind} config={node.data.config} set={set} />
-        <div className="insp-row"><div><strong>Connections</strong><p className="muted small">{connections === 0 ? 'Nothing is connected to this block yet.' : `${connections} connection${connections === 1 ? '' : 's'} attached. Hover over a line on the canvas to remove just one.`}</p></div>{connections > 0 && <button className="btn small" onClick={() => onDisconnect(node.id)}>Disconnect all</button>}</div>
+        <div className="insp-row"><div><strong>Connections</strong><p className="muted small">{connections === 0 ? 'Nothing is connected to this block yet.' : `${connections} connection${connections === 1 ? '' : 's'} attached. Double-click a line on the canvas to remove just one.`}</p></div>{connections > 0 && <button className="btn small" onClick={() => onDisconnect(node.id)}>Disconnect all</button>}</div>
         {!def.undeletable && <button className="btn danger" style={{ marginTop: 18 }} onClick={() => onDelete(node.id)}>Delete this block</button>}
       </div>
     </aside>

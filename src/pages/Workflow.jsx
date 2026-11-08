@@ -199,14 +199,14 @@ function Editor() {
       <HelpPanel id="workflow" defaultOpen={false} title="How the workflow editor works (steps)" steps={[
         'Every email enters at Email received on the left and follows the connectors you draw. Add blocks from the list on the left: drag one onto the canvas, or select it to place it in the middle.',
         'Connect blocks by dragging from a small circle on the right of one block to the left edge of another. Blocks with several exits (Flagged and Clear, Yes and No) need each exit connected.',
-        'To remove a connection, hover over the line and select Remove connection, or select the line and press Delete. To change where a line goes, drag its end to another block. You can also build with blocks left unconnected and join them later. Unconnected paths are simply held for a person.',
+        'To remove a connection, double-click the line (it lights up when you hover over it), or select it and press Delete. To change where a line goes, drag its end to another block. You can also build with blocks left unconnected and join them later. Unconnected paths are simply held for a person.',
         'Lines keep themselves apart so they do not run on top of each other, and blocks nudge apart if you drop one on another.',
         'Select a block to change its settings in the panel on the right. Each panel starts with a plain explanation of what the block does.',
         'Finish every path at an end block: Email sent, Review queue, Escalate, or Close. Anything left unconnected is held for a person, never lost.',
         'Use Test this workflow to run an example email through your design. The path it took lights up, and the Design check lists mistakes and risks.',
       ]} note="Changes save automatically. This design replaces the old Settings and Flag rules pages: the reply mode is the Email sent block, and flag rules live inside Risk filters." />
 
-      <p className="wf-hint"><strong>Drag</strong> a block from the list onto the canvas. <strong>Connect</strong> the circles. <strong>Select</strong> a block to edit it. <strong>Hover</strong> over a line to light it up and remove it. Scroll or pinch to zoom, drag the background to move around.</p>
+      <p className="wf-hint"><strong>Drag</strong> a block from the list onto the canvas. <strong>Connect</strong> the circles. <strong>Select</strong> a block to edit it. <strong>Hover</strong> over a line to light it up, and <strong>double-click</strong> it to remove it. Scroll or pinch to zoom, drag the background to move around.</p>
 
       {showChecks && (
         <Card title="Design check" hint="Problems and risks in your current design." className="wf-panel">
@@ -255,7 +255,7 @@ function Editor() {
             <ReactFlow
               nodes={shownNodes} edges={shownEdges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onReconnect={onReconnect}
               onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} isValidConnection={isValidConnection}
-              onNodeClick={(_, n) => setSelectedId(n.id)} onPaneClick={() => setSelectedId(null)}
+              onEdgeDoubleClick={(_, e) => { rf.deleteElements({ edges: [{ id: e.id }] }); toast('Connection removed.') }} zoomOnDoubleClick={false} onNodeClick={(_, n) => setSelectedId(n.id)} onPaneClick={() => setSelectedId(null)}
               defaultViewport={{ x: 24, y: 70, zoom: 0.72 }} minZoom={0.2} maxZoom={1.5} deleteKeyCode={['Backspace', 'Delete']}
               colorMode="system" proOptions={{ hideAttribution: true }} connectionRadius={28}
             >
