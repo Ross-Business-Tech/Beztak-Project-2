@@ -1,178 +1,115 @@
-# Delivery plan: from demo to client-ready HR helpdesk assistant
+# Delivery plan: Beztak HR helpdesk assistant (open-source, due Tuesday, Nov 17, 2026)
 
-**Status:** draft for team review. Items marked **[ASSUMPTION]** need confirming with the client or instructor (see "Open questions").
+**Client:** Beztak, a real estate firm in Michigan.
+**Deliverable:** a fully open-source, working product the client can run themselves.
+**Time available:** 7 days from Tuesday, Nov 10. Items marked **[ASSUMPTION]** need confirming (see section 8).
 
-## 1. Where we are today
+This replaces the earlier 20-week plan. With one week, the goal is a **working, honest, self-hostable first release in suggest-only mode**, plus a clear roadmap for everything else. Anything that cannot be finished and tested by Monday is listed as "not in this release" rather than shipped half-built.
 
-A working demo that runs entirely in the browser:
+## 1. What we know
 
-- Visual workflow editor (blocks, presets, team-shared designs).
-- AI that reads a message by meaning, then drafts a reply grounded in uploaded HR documents. A person must approve risky replies.
-- Review queue, activity log, dashboard, test lab, in-app guide.
-- Zoro is treated as the ticketing system, but it is **not connected**. No real email is read or sent.
-- Data lives in each user's own browser. AI calls go through a here.now proxy route.
+- HR requests arrive at a shared email, which is routed into **Zoro** (ticketing). Zoro's internals are **not yet confirmed**. The app already has a placeholder for a "Zoro MCP server address", which suggests Zoro exposes an MCP server, but nothing in the repo or our research confirms what Zoro is, what it can do, or how to authenticate. A web search for "Zoro" returned only Zoho Desk results, which may be a different product or a spelling difference.
+- The client accepts employee text going to an outside AI provider.
+- Hosting and support after handover are undecided, so the product must be **flexible**: easy to run anywhere, with no lock-in to any one vendor.
+- Today's app is a browser-only demo: sample data, no real inbox or ticket connection, data stored in each person's browser, one AI route through here.now.
 
-The demo is the right shape. What's missing is everything around it that makes it safe and useful inside a client's HR operation.
+## 2. Release definition (what "done" means on Tuesday)
 
-## 2. What "plug-and-play" means (definition of done)
+A Beztak IT person can, from the repo alone:
 
-The client can, without our help day to day:
+1. Run the whole product with **one command** (Docker) on any computer or server, or on a cloud host.
+2. Open it, sign in, and see real tickets pulled in from Zoro (or from the fallback path below).
+3. See an AI-written draft reply grounded in Beztak's own uploaded policies, with the policy quotes shown.
+4. Have a person approve or edit the draft, and see the approved reply written back to the ticket as an internal draft note (default) or a public reply (opt-in).
+5. See risky topics (harassment, discrimination, medical, legal, pay disputes, termination) always routed to a person, never auto-answered.
+6. Change the AI provider, the ticketing connection, and the policies from settings or a config file, without editing code.
+7. Read plain-language docs: install, configure, connect, operate, and a privacy and data summary.
+8. Fork, modify and redistribute it under an open-source license.
 
-1. Connect the tool to the place HR requests already arrive (email and/or ticketing).
-2. Load their own policies and handbook.
-3. Choose which requests the AI may answer and which always go to a person.
-4. Have named staff log in and approve replies.
-5. See what the AI did, why, and how often it was right.
-6. Turn it off at any time and lose nothing.
+**Launch mode is suggest-only.** No reply goes to an employee without a person approving it. Auto-send stays in the app but is off by default and documented as "enable only after you have measured accuracy".
 
-Plus: their IT/security team can read a clear answer on where data goes and signs off.
+## 3. Architecture for flexibility
 
-## 3. Guiding decisions
+The front end stays as it is. We add a **small self-hosted server** (the only way to hold secrets, store shared data and call Zoro safely) and put every outside system behind a swappable adapter.
 
-| Decision | Recommendation | Why |
+```
+Employee email --> shared mailbox --> Zoro ticket
+                                        |
+                       [Ticketing adapter] (Zoro, plus fallbacks)
+                                        |
+Browser app <--> Server (API, queue, audit log, SQLite database)
+                                        |
+                       [AI adapter] (any OpenAI-compatible endpoint)
+```
+
+| Piece | Decision | Why |
 |---|---|---|
-| Launch mode | **Suggest-only first**: AI drafts, a person approves every reply. Auto-send only for low-risk topics after the pilot proves accuracy. | Builds trust, limits harm from a wrong answer. |
-| Integration style | **Sit beside** their existing tools (read tickets, write back drafts/notes), do not replace them. | Fastest adoption, smallest change for the client. |
-| Hosting | Keep the static front end. Add a **small back-end service** for the things a static site can't do: receive tickets, store records, sign users in, hold secrets. | The current host cannot run server code or a database. |
-| AI | Keep the model behind a server-side key; add a documented data-handling position (no training on client data, retention limits). | Needed for security review. |
+| Server | Node.js, one container, serves the app and an API | Same language as the app, easy to host anywhere |
+| Storage | SQLite file (swappable to Postgres later) | No extra service to install; one file to back up |
+| Ticketing adapter | Defined interface: list new tickets, read one, add draft note, post reply, set status/tags/assignee. **Zoro adapter first**, driven by whatever Zoro offers (MCP or REST). | Confirmed by Zoro access, not guessed |
+| Fallback inputs | (a) **IMAP mailbox reader**, (b) **CSV/paste import**, (c) a **mock Zoro server** for testing | Works even if Zoro access is blocked; also what the evaluation uses |
+| AI adapter | Any OpenAI-compatible URL + key (OpenRouter, OpenAI, Azure, local Ollama, vLLM); direct Anthropic option | No vendor lock-in; a firm can keep it fully local |
+| Secrets | Environment variables only; never in the repo or the browser | Required for open-source safety |
+| Sign-in | Admin and reviewer accounts stored in the server, passwords hashed; single sign-on documented as the next step | Smallest secure option for a week |
+| Audit log | Every ticket, draft, edit, approval, model and workflow version, append-only | Needed for trust and for IT review |
+| Demo | The current here.now static demo stays as the live showcase | Nothing is lost |
 
-## 4. Workstreams and phases
+**Rule for this public repo:** it holds code and made-up sample data only. Real employee data lives on the client's own server.
 
-### Phase 0: Discovery with the client (1 to 2 weeks)
-Goal: replace assumptions with facts. Nothing is built until this is done.
+## 4. Day-by-day plan
 
-- Run the questions in section 7 with the client's HR lead and IT contact.
-- Collect 200 to 500 **anonymized** past HR requests plus the policies that answered them.
-- Agree the pilot scope: which request types, which team, success measures.
-- Get a named client sponsor and an IT security contact.
+| Day | Work | Output |
+|---|---|---|
+| **Wed Nov 11** | Get Zoro facts (see questions). Choose license. Set up server skeleton, config, Docker, database. Define the ticketing and AI adapter interfaces. | Container runs; app served by the server; decisions recorded |
+| **Thu Nov 12** | Build Zoro adapter (or its fallbacks) and the mock Zoro server. Pull tickets into the queue. Move queue, drafts and settings from browser storage to the server. | Tickets appear in the Review queue from the mock and, if access exists, from real Zoro |
+| **Fri Nov 13** | Write-back: approved reply or draft note posted to the ticket; status, tag, assign blocks made real. Server-side AI proxy with provider setting. Sign-in and the two roles. | Full loop works end to end on the mock |
+| **Sat Nov 14** | Safety: mandatory escalation topics, prompt-injection tests, pause-all switch, rate limits, audit log view. Accuracy evaluation page using made-up past requests. | Safety and evaluation results shown in the app |
+| **Sun Nov 15** | Policy document manager (upload, replace, retire, dates, "which policy backed this answer"). Setup wizard. Privacy and data summary page. | A client admin can set up without code |
+| **Mon Nov 16** | Docs (install, configure, connect Zoro, operate, troubleshoot, security, contributing), license, README, release notes, demo script, one-page overview. Full test pass on desktop and phone. Fix list. | Release candidate and docs |
+| **Tue Nov 17** | Final checks, tag release v1.0.0, pull request into `development`, handoff session. | Delivered |
 
-**Exit:** signed-off pilot scope, integration target chosen, data-sharing terms agreed.
+Check-ins: end of Wed (Zoro answer), end of Fri (go/no-go on the real Zoro connection), end of Mon (release candidate).
 
-### Phase 1: Prove accuracy offline (2 weeks)
-Goal: show the AI is good enough before connecting anything live.
+## 5. Open-source readiness checklist
 
-- Build an **evaluation page** that runs the anonymized past requests through the workflow and compares against what HR actually answered.
-- Report: share correctly answered, share escalated, share wrong or risky, and examples of each.
-- Tune prompts, escalation rules and document grounding until agreed targets are met (propose: no unsafe answer on high-risk topics; escalation recall on risky topics near 100%).
-- Add a "reasons" view so a reviewer sees which policy passage supported each draft.
+- [ ] License chosen and added (`LICENSE`). Proposal: **MIT** (simplest, most permissive) or **Apache-2.0** (adds an explicit patent grant). Beztak or their counsel should confirm. [ASSUMPTION: no preference]
+- [ ] All dependencies reviewed for license compatibility; list in `THIRD-PARTY-NOTICES`.
+- [ ] No secrets, keys, real names, emails or Beztak internal details anywhere in the repo or history (secret scan run).
+- [ ] `README`, `docs/` install and configuration guides, `CONTRIBUTING`, `SECURITY` (how to report a vulnerability), `CODE_OF_CONDUCT`.
+- [ ] `.env.example` listing every setting with safe placeholders.
+- [ ] One-command start (`docker compose up`) tested on a clean machine.
+- [ ] Automated tests for the workflow engine, adapters and safety rules, and a CI check that runs them.
+- [ ] Versioned release with release notes and a changelog.
+- [ ] A short "how to add a ticketing adapter" guide so other systems can be plugged in.
 
-**Exit:** accuracy report the client accepts. This is the strongest sales and trust artifact we will produce.
+Note: `scripts/`, `.github/`, `.claude/` and `admin/` are maintained by Ross IT. Anything we need there (for example a CI test job) will be requested, not edited without approval.
 
-### Phase 2: Real inputs and outputs (3 to 5 weeks)
-Goal: connect to the client's systems in suggest-only mode.
+## 6. Risks (one-week version)
 
-- **Back-end service** (small, hosted by Ross IT or the client) providing: ticket/email intake, storage, authentication, secret handling, scheduled jobs.
-- **Intake connector** for the chosen system ([ASSUMPTION] Zoro tickets, with a second option for a shared HR mailbox in Microsoft 365 or Google). Pull new requests, normalize them into the app's message format.
-- **Output connector:** write the approved reply (or an internal draft note) back to the ticket. In suggest-only mode, never send to the employee directly.
-- **Retry, duplicate and failure handling:** a failed connection must hold items for a person, never drop them.
-- **Connection health** on the Settings page: connected, last sync, errors in plain words.
+| Risk | Likelihood | Response |
+|---|---|---|
+| Zoro is undocumented or access takes days | High | Build to an adapter and a mock; ship IMAP and CSV fallbacks; document exactly what Zoro must provide |
+| One week is too short for all of the above | High | Cut line below; the first four days are the must-haves |
+| Wrong or unsafe AI answer | Medium | Suggest-only, mandatory escalation, quote verification, evaluation page, injection tests |
+| Employee data leaks through the open-source repo | Low if disciplined | Made-up data only, secret scanning, `.env` never committed |
+| Handoff owner unclear | High | Self-hostable design, written runbook, no hidden dependencies on here.now |
+| Legal and privacy questions for HR data (Michigan and any other states where staff live) | Medium | Privacy summary written plainly; recommend Beztak's counsel review before real use. We are not giving legal advice |
 
-**Exit:** a real (test) ticket flows in, gets a draft, is approved by a person, and the reply lands back in the ticketing system.
+**Cut line if time runs short** (in this order, drop from the bottom):
+1. Must ship: server, one-command start, ticket intake (Zoro or fallback), review and approve, write-back, safety rules, audit log, docs, license.
+2. Should ship: sign-in with roles, evaluation page, document manager, setup wizard.
+3. Later: single sign-on, Postgres, email redaction option, more adapters, scheduled reports.
 
-### Phase 3: Accounts, roles and shared records (2 to 3 weeks)
-Goal: replace browser-only storage with a proper shared system.
+## 7. After delivery (roadmap, not in v1.0.0)
 
-- Sign-in using the client's single sign-on if possible ([ASSUMPTION] Microsoft Entra or Google).
-- Roles: **Reviewer** (approve/edit), **Admin** (workflows, documents, connections), **Leadership** (read-only measures).
-- Server-side database for messages, drafts, decisions, edits, approvals, workflow versions.
-- **Audit trail:** who approved what, when, which model and workflow version, which documents were used. Not editable.
-- Workflow changes versioned, with who changed what and the ability to roll back.
+Pilot with one HR team in suggest-only mode; measure edit and escalation rates; add single sign-on, redaction before AI calls, retention controls and delete-on-request; add more ticketing adapters; consider limited auto-send for low-risk topics only after enough measured accuracy; agree a support owner.
 
-**Exit:** two different staff members can work the same queue and every action is traceable.
+## 8. Open questions (blocking ones first)
 
-### Phase 4: Client self-service setup (2 weeks)
-Goal: the "plug-and-play" experience.
-
-- **Client Setup wizard:** 1) Connect your system, 2) Upload policies, 3) Choose topics the AI may handle and topics that always go to a person, 4) Choose approvers, 5) Review the privacy summary, 6) Run a test message, 7) Go live in suggest-only mode.
-- **Document manager:** upload, replace, retire and date policy documents; show which documents each answer relied on; flag documents not updated in a set period.
-- **Safety defaults:** sensitive topics (harassment, discrimination, medical, legal, termination, pay disputes) always escalate; per-sender and volume limits; emergency "pause all AI replies" switch.
-- Plain-language admin guide and a one-page quick start.
-
-**Exit:** a client admin completes setup unaided in under an hour.
-
-### Phase 5: Security, privacy and compliance package (runs alongside Phases 2 to 4)
-- Data map: what is collected, where it goes (including the AI provider), how long it is kept, who can see it.
-- Redaction option so names and ID numbers are masked before text goes to the AI. [ASSUMPTION] Client wants this.
-- Retention and deletion controls (including delete-on-request).
-- Encryption in transit and at rest, secrets only on the server, access logging.
-- Vendor documentation for the AI provider's data terms.
-- Basic penetration/abuse testing: prompt-injection attempts inside emails, attachments with hostile text, oversized inputs.
-- Client IT security questionnaire answered from this package.
-- Legal review of employee-data handling for the client's regions (privacy law, works-council or consultation rules where applicable).
-
-**Exit:** client IT/security and legal sign-off in writing.
-
-### Phase 6: Pilot, then rollout (4 to 8 weeks)
-- **Pilot:** one HR team, suggest-only, limited topics, weekly review of accuracy, edits and escalations.
-- Track: time to first response, reviewer edit rate, escalation rate, employee satisfaction (if available), incidents.
-- **Go/no-go checkpoint** against criteria agreed in Phase 0.
-- **Rollout:** widen topics and teams in steps. Consider limited auto-send for low-risk topics only if edit rate is consistently low.
-- Handover: training session for reviewers, admin training, runbook.
-
-### Phase 7: Operate and support (ongoing)
-- Named owner on each side, support hours, response targets.
-- Monthly accuracy and incident review; model and prompt change control (test against the evaluation set before any change goes live).
-- Cost monitoring for AI usage.
-- Backup, recovery and an exit plan (export all data in standard formats).
-
-## 5. Risks and how we handle them
-
-| Risk | Mitigation |
-|---|---|
-| AI gives a wrong or harmful answer | Suggest-only launch, mandatory escalation topics, verified quotes from documents, evaluation set before changes |
-| Employee data exposed | Redaction, access roles, retention limits, no personal data in this public repo |
-| Prompt injection via an email | Treat message text as untrusted, never let it change workflow rules, test deliberately |
-| Integration breaks silently | Health checks, alerts, hold-for-person fallback |
-| Client policies are outdated or contradictory | Document manager with review dates; AI told to escalate when sources conflict |
-| Scope creep into a replacement HR system | Keep the "sits beside your tools" position in writing |
-| Team capacity (student team, fixed term) | Phase 0 and 1 deliver value alone; later phases can be scoped as a recommended build plan or handed to Ross IT |
-
-## 6. What can start now, inside this repo
-
-These need no client decisions and fit the current static hosting:
-
-1. **Evaluation page** (Phase 1): run a made-up set of past requests, show accuracy and escalation results.
-2. **Client Setup wizard shell** (Phase 4): the guided steps, with connections shown as "coming soon".
-3. **Privacy and data summary page** (Phase 5): plain-language, matching what the app really does today.
-4. **Document manager improvements:** review dates, "which policy backed this answer".
-5. **Pause switch and safety defaults** in the workflow.
-6. **Client-facing one-pager and demo script.**
-
-Everything else (real connectors, accounts, database) depends on the back-end decision and must not use real data in this public repo.
-
-## 7. Open questions
-
-**Client and scope**
-1. Who is the client and who is the sponsor? How many HR staff and employees?
-2. Which request types are in scope for the pilot, and which must never be automated?
-3. What does success look like (faster replies, fewer tickets, cost saved)?
-
-**Systems**
-4. Where do HR requests arrive today: Zoro, a shared mailbox, another tool? Which email platform?
-5. Does Zoro offer an API or webhook we are allowed to use? Who grants access?
-6. Does the client want read-only sync, or reply write-back too?
-7. Do they use single sign-on? Which provider?
-
-**Data and compliance**
-8. Which countries or regions are employees in? Any data residency rule?
-9. Will the client allow employee text to be sent to an outside AI provider? Is redaction required?
-10. Retention period for requests and drafts?
-
-**Delivery**
-11. Is the deliverable a working product, a pilot, or a recommendation with a build plan? What date?
-12. Who hosts and supports it after handover: the client, Ross IT, or the team?
-13. Is there a budget for the back-end service and AI usage?
-14. Does Ross IT have an existing handoff or delivery process we should follow?
-
-## 8. Timeline at a glance (indicative, one small team)
-
-| Weeks | Work |
-|---|---|
-| 1 to 2 | Phase 0 discovery; start items in section 6 |
-| 3 to 4 | Phase 1 evaluation and accuracy report |
-| 5 to 9 | Phase 2 connectors and back-end; Phase 5 starts |
-| 8 to 11 | Phase 3 accounts, roles, audit trail |
-| 10 to 12 | Phase 4 setup wizard and document manager |
-| 12 to 20 | Phase 6 pilot and go/no-go; rollout after |
-
-Sign-off gates: after Phase 0 (scope), Phase 1 (accuracy), Phase 5 (security), and Phase 6 (go/no-go).
+1. **What exactly is Zoro?** Is it a commercial product (and which: Zoho Desk?), or a Beztak or vendor internal tool? A link to its documentation, its API or MCP server address, and a **test or sandbox account** would settle this. Without them we build the adapter and mock only.
+2. **Who can give us Zoro access** (API key or MCP address, test project) and by when? We need it by end of Thursday for a real connection to be tested.
+3. **License:** is MIT acceptable, or does Beztak want Apache-2.0 or another license?
+4. **Where will Beztak run it first** (a company server, a cloud account, a laptop for demo)? If unknown, we deliver Docker and docs and leave the rest.
+5. **Reply handling:** should approved replies post as internal draft notes for HR staff to send from Zoro (safest, our default), or send to the employee directly?
+6. **AI provider:** is OpenRouter acceptable for v1, or does Beztak want to use their own provider account? We keep it configurable either way.
+7. **Who tests on Beztak's side before Tuesday**, and can we have 20 to 50 realistic, anonymized sample requests?
