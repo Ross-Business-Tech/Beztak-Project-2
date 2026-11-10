@@ -20,9 +20,14 @@ export function ZohoCard() {
   const last = t.lastSync
   return (
     <Card title="Connection to Zoho Desk" hint="Where HR requests arrive and where results go. Credentials are set on the server, never in the browser.">
-      <SettingRow title="Server connection" hint={t.adapter === 'none' ? 'No ticketing system is configured on this server. Set TICKETING_ADAPTER=zohodesk and the ZOHO_ variables (see docs/zoho-desk.md).' : t.configured ? 'Zoho Desk credentials are present on the server.' : `Missing on the server: ${t.missing.join(', ')}.`}>
-        {t.adapter === 'none' ? <Badge tone="amber">Not configured</Badge> : t.configured ? <Badge tone="green">Configured</Badge> : <Badge tone="red">Incomplete</Badge>}
+      <SettingRow title="Connection status" hint={t.adapter === 'none' ? 'Not connected. Zoho Desk is optional: without it, bring requests in with Import and evaluate.' : t.configured ? 'The connection details are in place.' : 'Setup is not finished yet. Ask your administrator.'}>
+        {t.adapter === 'none' ? <Badge tone="amber">Not connected</Badge> : t.configured ? <Badge tone="green">Ready</Badge> : <Badge tone="red">Incomplete</Badge>}
       </SettingRow>
+      {!t.configured && (
+        <details className="tech"><summary>Technical details for your administrator</summary>
+          <p className="small muted" style={{ marginTop: 6 }}>{t.adapter === 'none' ? 'No ticketing system is configured on this server. Set TICKETING_ADAPTER=zohodesk and the ZOHO_ variables (see docs/zoho-desk.md).' : `Missing on the server: ${t.missing.join(', ')}.`}</p>
+        </details>
+      )}
       <SettingRow title="Pull new tickets" hint="Checks Zoho Desk every few minutes for new tickets in the HR queue. Turn this off to pause everything.">
         <Toggle label="Pull tickets" checked={z.enabled} onChange={(v) => setZ({ enabled: v }, `Pulling tickets from Zoho Desk turned ${v ? 'on' : 'off'}`)} />
       </SettingRow>
@@ -133,9 +138,14 @@ export function EgnyteCard() {
   const last = st.lastSync
   return (
     <Card title="Egnyte documents" hint="Let the AI answer from a folder in Egnyte. Read-only: nothing in Egnyte is ever changed.">
-      <SettingRow title="Server connection" hint={st.configured ? 'Egnyte credentials are present on the server.' : `Missing on the server: ${st.missing.join(', ')}. See docs/egnyte.md.`}>
-        <Badge tone={st.configured ? 'green' : 'amber'}>{st.configured ? 'Configured' : 'Not configured'}</Badge>
+      <SettingRow title="Connection status" hint={st.configured ? 'The connection details are in place.' : 'Not connected yet. Ask your administrator to finish the Egnyte setup.'}>
+        <Badge tone={st.configured ? 'green' : 'amber'}>{st.configured ? 'Ready' : 'Not connected'}</Badge>
       </SettingRow>
+      {!st.configured && (
+        <details className="tech"><summary>Technical details for your administrator</summary>
+          <p className="small muted" style={{ marginTop: 6 }}>Missing on the server: {st.missing.join(', ')}. See docs/egnyte.md.</p>
+        </details>
+      )}
       <div className="guardrail" role="note"><Icon name="lock" /><div>Link a folder that holds only policies and guides that are fine to quote to employees. The AI reads relevant passages of these files and may quote them in drafted replies. Do not link folders with case files, personal records or pay data.</div></div>
       <div style={{ marginTop: 12 }} />
       <Field label="Folder to use" hint="The full Egnyte path, for example /Shared/HR/Policies. Use Browse to pick it.">

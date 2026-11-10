@@ -8,6 +8,7 @@ export default function Settings() {
   const { settings: s, updateSettings, log, toast, resetAll, storageFull, serverMode, isAdmin, saveError } = useApp()
   const [confirmReset, setConfirmReset] = useState(false)
   const [check, setCheck] = useState(null)
+  const [tab, setTab] = useState('ai')
   const set = (patch, note) => updateSettings(patch, note)
 
   return (
@@ -22,6 +23,14 @@ export default function Settings() {
       {saveError && <div className="sim-banner" role="alert">Your latest changes could not be saved to the server: {saveError}</div>}
       {storageFull && <div className="sim-banner" role="alert">This browser is out of storage, so recent changes may not be saved. Delete some large files in Knowledge files.</div>}
 
+      <div className="tabs settings-tabs" role="tablist" aria-label="Settings sections">
+        {[['ai', 'AI'], ['style', 'Reply style'], ['connections', 'Connections'], ['team', serverMode ? 'Team' : 'Data']].map(([id, label]) => (
+          <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>
+        ))}
+      </div>
+
+      {tab === 'ai' && (
+        <>
       <Card title="AI engine" hint="What reads each message and writes the draft.">
         <div className="mode-cards" role="radiogroup" aria-label="AI engine" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
           {[['ai', 'AI language model', 'Reads for meaning, so it can recognise a sensitive situation even when no trigger word appears. Drafts are grounded in your documents, and every quote is verified.'], ['simulated', 'Simulated (word matching)', 'Free and instant, but only matches the trigger words in your Risk filters. Useful for comparison.']].map(([id, t, d]) => (
@@ -54,6 +63,11 @@ export default function Settings() {
         <div style={{ marginTop: 12 }}><a className="btn" href="#/admin/workflow">Open the Workflow</a></div>
       </Card>
 
+        </>
+      )}
+
+      {tab === 'style' && (
+        <>
       <Card title="Reply style">
         <div className="two-col">
           <Field label="Help desk name">{(id) => <input id={id} type="text" value={s.helpDeskName} onChange={(e) => set({ helpDeskName: e.target.value })} />}</Field>
@@ -67,6 +81,11 @@ export default function Settings() {
         {s.includeFooter && <Field label="Footer text">{(id) => <textarea id={id} rows={2} value={s.footer} onChange={(e) => set({ footer: e.target.value })} />}</Field>}
       </Card>
 
+        </>
+      )}
+
+      {tab === 'connections' && (
+        <>
       {serverMode ? <ZohoCard /> : (
         <Card title="Connection to Zoho Desk" hint="Available when the app runs on its own server.">
           <p>This page is the in-browser demo, so no real tickets are read and nothing is sent. When the app is installed on a server (see the install guide), this section connects to Zoho Desk, shows whether tickets are flowing, and controls what happens when a reply is approved.</p>
@@ -79,6 +98,11 @@ export default function Settings() {
         </Card>
       )}
 
+        </>
+      )}
+
+      {tab === 'team' && (
+        <>
       <Card title="Reporting" hint="Used for the leadership figures on the Dashboard.">
         <SettingRow title="Minutes saved per reply" hint="How long one reply takes a person today. Used to estimate time saved.">
           <input type="number" min={1} max={60} value={s.minutesSavedPerReply} aria-label="Minutes per reply" style={{ width: 90 }} onChange={(e) => set({ minutesSavedPerReply: Math.max(1, Number(e.target.value) || 1) })} />
@@ -94,6 +118,9 @@ export default function Settings() {
         <Card title="Test data">
           <SettingRow title="Reset test data" hint="Brings back the sample emails, documents, rules and settings. Your test emails and uploads are removed."><button className="btn danger" onClick={() => setConfirmReset(true)}>Reset everything</button></SettingRow>
         </Card>
+      )}
+
+        </>
       )}
 
       {confirmReset && (

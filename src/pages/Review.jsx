@@ -1,16 +1,21 @@
 import { useState } from 'react'
 import { useApp } from '../store'
 import { TicketActions } from './Lab'
-import { Badge, Card, HelpPanel, Icon, ConfidenceMeter, Empty, PageHeader, Segmented, SeverityBadge, StatusBadge, Trace, catLabel, fmtDate, timeAgo } from '../components/ui'
+import { Badge, Card, Fold, HelpPanel, Icon, ConfidenceMeter, Empty, PageHeader, Segmented, SeverityBadge, StatusBadge, Trace, catLabel, fmtDate, timeAgo } from '../components/ui'
 
 const FILTERS = [
-  { value: 'open', label: 'Needs action' },
+  { value: 'open', label: 'Needs review' },
   { value: 'flagged', label: 'Flagged' },
   { value: 'done', label: 'Handled' },
   { value: 'all', label: 'All' },
 ]
 const topSeverity = (flags) => ['critical', 'high', 'medium'].find((s) => flags.some((f) => f.severity === s))
 const isOpen = (e) => e.status === 'pending_review' || e.status === 'escalated'
+// Most urgent first, then longest waiting. Handled messages are shown newest first, below anything still open.
+const urgency = (e) => (e.result.priority === 'urgent' || topSeverity(e.result.flags) === 'critical' ? 0 : topSeverity(e.result.flags) === 'high' ? 1 : e.result.flags.length ? 2 : 3)
+const byQueue = (a, b) => (Number(isOpen(b)) - Number(isOpen(a))) || (isOpen(a) ? urgency(a) - urgency(b) || new Date(a.receivedAt) - new Date(b.receivedAt) : new Date(b.receivedAt) - new Date(a.receivedAt))
+const waited = (e) => { const t = timeAgo(e.receivedAt); return t === 'just now' ? 'New' : `Waiting ${t.replace(' ago', '')}` }
+const isLate = (e) => isOpen(e) && Date.now() - new Date(e.receivedAt) > 864e5
 
 export default function Review() {
   const { emails } = useApp()
@@ -18,26 +23,29 @@ export default function Review() {
   const [q, setQ] = useState('')
   const [selId, setSelId] = useState(null)
 
+  const queue = emails.filter(isOpen).sort(byQueue)
   const list = emails.filter((e) => {
     if (filter === 'open' && !isOpen(e)) return false
     if (filter === 'flagged' && e.result.flags.length === 0) return false
     if (filter === 'done' && isOpen(e)) return false
     const t = `${e.subject} ${e.name} ${e.from}`.toLowerCase()
     return t.includes(q.toLowerCase())
-  })
+  }).sort(byQueue)
   const selected = emails.find((e) => e.id === selId) || null
+  // After a case is handled, go straight to the next one that needs a person
+  const next = selected ? queue.filter((e) => e.id !== selected.id)[Math.max(0, queue.findIndex((e) => e.id === selected.id))] || queue.find((e) => e.id !== selected.id) || null : null
 
   return (
     <>
-      <PageHeader title="Review queue" subtitle="Drafts and flagged messages that need a person." />
+      <PageHeader title="Review queue" subtitle="Drafts and flagged messages that need a person. Most urgent and longest-waiting first." />
       {!selected && <HelpPanel id="review" steps={[
-        'Use the filters to see what needs action, what was flagged, or what has already been handled.',
+        'Use the filters to see what needs review, what was flagged, or what has already been handled. The most urgent and longest-waiting messages are at the top.',
         'Select a message to read the original email, why it needs a person, and the AI draft.',
         'Edit the draft as you would any email. Select Save draft to keep your changes. Nothing is sent until you select Send reply.',
         'Use Case notes to record who you spoke to and what was agreed. Notes stay internal and are kept with the case.',
         'High-risk messages show a red notice and require a confirmation before the Send button turns on. Which messages get that treatment is set in the Workflow.',
       ]} />}
-      {selected ? <Detail key={selected.id} email={selected} onBack={() => setSelId(null)} /> : (
+      {selected ? <Detail key={selected.id} email={selected} next={next} onBack={() => setSelId(null)} onNext={(n) => setSelId(n ? n.id : null)} /> : (
         <Card>
           <div className="row between" style={{ marginBottom: 12 }}>
             <Segmented label="Filter" value={filter} onChange={setFilter} options={FILTERS} />
@@ -58,7 +66,7 @@ export default function Review() {
                       {e.result.priority === 'urgent' && <Badge tone="red">Urgent</Badge>}{e.source === 'test' && <Badge tone="blue">Test</Badge>}{e.source === 'import' && <Badge tone="blue">Imported</Badge>}
                     </div>
                   </div>
-                  <span className="muted small" style={{ whiteSpace: 'nowrap', flex: 'none' }}>{timeAgo(e.receivedAt)}</span>
+                  <span className={`queue-wait ${isLate(e) ? 'late' : 'muted'}`}>{isOpen(e) ? waited(e) : timeAgo(e.receivedAt)}</span>
                 </button>
               ))}
             </div>
@@ -69,7 +77,7 @@ export default function Review() {
   )
 }
 
-function Detail({ email, onBack }) {
+function Detail({ email, next, onBack, onNext }) {
   const { resolveEmail, regenerate, saveDraft, addNote, deleteEmail, toast, settings, serverMode } = useApp()
   const [note, setNote] = useState('')
   const [regen, setRegen] = useState(false)
@@ -91,9 +99,9 @@ function Detail({ email, onBack }) {
   return (
     <>
       <button className="btn small" onClick={onBack} style={{ marginBottom: 14 }}>Back to queue</button>
-      <div className="lab-grid">
+      <div className="lab-grid review-grid">
         <div className="stack">
-          <Card title={email.subject} hint={`${email.name} <${email.from}> · ${fmtDate(email.receivedAt)}`}>
+          <Card className="o1" title={email.subject} hint={`${email.name} <${email.from}> · ${fmtDate(email.receivedAt)}`}>
             <div className="meta row" style={{ marginBottom: 10 }}>
               <StatusBadge status={email.status} />
               <Badge>{catLabel(r.category)}</Badge>
@@ -103,7 +111,7 @@ function Detail({ email, onBack }) {
             </div>
             <div className="email-box">{email.body}</div>
           </Card>
-          <Card title="Why it's here"><ul style={{ margin: 0, paddingLeft: 18 }}>{r.reasons.map((x, i) => <li key={i}>{x}</li>)}</ul>
+          <Fold className="o3" title="Why it's here" summary={r.flags.length ? `Flagged: ${r.flags.map((f) => f.name).join(', ')}` : 'Why this needs a person'}><ul style={{ margin: 0, paddingLeft: 18 }}>{r.reasons.map((x, i) => <li key={i}>{x}</li>)}</ul>
             {r.ticketActions?.length > 0 && <TicketActions actions={r.ticketActions} applied={serverMode && email.source === 'zoho'} />}
             {(r.owner || r.priority === 'urgent' || r.alerts?.length > 0) && (
               <p className="small" style={{ marginTop: 10 }}>{r.priority === 'urgent' && <Badge tone="red">Urgent</Badge>} {r.owner && <>Suggested owner: <strong>{r.owner}</strong>. </>}{r.alerts?.length > 0 && <>Alerted: {r.alerts.map((a) => a.role).join(', ')}.</>}</p>
@@ -111,22 +119,22 @@ function Detail({ email, onBack }) {
             {r.flags.map((f) => (
               <div key={f.ruleId} className="row" style={{ marginTop: 10 }}><SeverityBadge severity={f.severity} /><strong>{f.name}</strong> {f.matched.map((m) => <span key={m} className="chip hit">{m}</span>)}{f.by === 'ai' && <Badge tone="blue">Caught by meaning</Badge>}{f.reason && <span className="muted small" style={{ flexBasis: '100%' }}>Why: {f.reason}</span>}</div>
             ))}
-          </Card>
-          <Card title="Sources">
+          </Fold>
+          <Fold className="o4" title="Sources" summary={r.sources.length ? `${r.sources.length} quoted source${r.sources.length === 1 ? '' : 's'}` : 'No supporting document found'}>
             {r.sources.length === 0 ? <p className="muted">No supporting document found.</p> : r.sources.map((s, i) => <div key={i} style={{ marginBottom: 8 }}><strong>{s.name}</strong><div className="quote">{s.snippet}</div></div>)}
-          </Card>
-          <Card title="Case notes" hint="Internal only. Never sent to the employee.">
+          </Fold>
+          <Fold className="o6" title="Case notes" hint="Internal only. Never sent to the employee." summary={(email.notes || []).length ? `${email.notes.length} note${email.notes.length === 1 ? '' : 's'}` : 'No notes yet'}>
             {(email.notes || []).length === 0 ? <p className="muted small" style={{ marginBottom: 10 }}>No notes yet.</p> : (
               <ul className="tl" style={{ marginBottom: 12 }}>{email.notes.map((n) => <li key={n.id}>{n.text}<div className="muted small">{fmtDate(n.at)}</div></li>)}</ul>
             )}
             <textarea rows={3} aria-label="New case note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add a note for the team, for example who you spoke to and what was agreed." />
             <div style={{ marginTop: 8 }}><button className="btn small" disabled={!note.trim()} onClick={() => { addNote(email.id, note.trim()); setNote(''); toast('Note added') }}>Add note</button></div>
-          </Card>
-          <Card title="History"><ul className="tl">{email.history.map((h, i) => <li key={i}>{h.text}<div className="muted small">{fmtDate(h.at)}</div></li>)}</ul></Card>
+          </Fold>
+          <Fold className="o7" title="History" summary={`${email.history.length} event${email.history.length === 1 ? '' : 's'}`}><ul className="tl">{email.history.map((h, i) => <li key={i}>{h.text}<div className="muted small">{fmtDate(h.at)}</div></li>)}</ul></Fold>
         </div>
 
         <div className="stack">
-          <Card title={open ? 'Draft reply' : 'Reply'} actions={<ConfidenceMeter value={r.confidence} />}>
+          <Card className="o2" title={open ? 'Draft reply' : 'Reply'} actions={<ConfidenceMeter value={r.confidence} />}>
             {highRisk && open && <div className="outcome red"><Icon name="flag" /><div><strong>High-risk: please read carefully before sending</strong><p>The AI wrote a cautious starting draft. Rewrite it in your own words if needed. It cannot be sent until you confirm below.</p></div></div>}
             {open ? (
               <div className="compose">
@@ -142,16 +150,17 @@ function Detail({ email, onBack }) {
                 {highRisk && (
                   <label className="confirm-box"><input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} /> I have read this message and edited the reply as needed. It is appropriate to send.</label>
                 )}
-                <div className="modal-actions" style={{ justifyContent: 'flex-start', marginTop: 12 }}>
-                  <button className="btn primary" disabled={!text.trim() || (highRisk && !checked)} onClick={async () => { const r = await resolveEmail(email.id, 'send', text); toast(r.message, r.ok ? 'ok' : 'warn'); if (r.ok) onBack() }}>{sendLabel}</button>
+                <div className="modal-actions action-bar" style={{ justifyContent: 'flex-start', marginTop: 12 }}>
+                  <button className="btn primary" disabled={!text.trim() || (highRisk && !checked)} onClick={async () => { const r = await resolveEmail(email.id, 'send', text); toast(r.message, r.ok ? 'ok' : 'warn'); if (r.ok) onNext(next) }}>{sendLabel}</button>
                   <button className="btn" onClick={async () => { setRegen(true); await regenerate(email.id); setRegen(false); toast('Draft regenerated') }} disabled={regen}>{regen ? 'Rewriting...' : 'Regenerate'}</button>
-                  <button className="btn danger" onClick={async () => { const r = await resolveEmail(email.id, 'discard'); if (r.ok) onBack() }}>Close without reply</button>
+                  <button className="btn danger" onClick={async () => { const r = await resolveEmail(email.id, 'discard'); if (r.ok) onNext(next) }}>Close without reply</button>
                 </div>
+                <p className="muted small" style={{ margin: '6px 0 12px' }}>{next ? <>Next in the queue: <strong>{next.subject}</strong></> : 'This is the last case waiting.'}</p>
               </div>
             ) : email.finalReply ? <div className="draft-box">{email.finalReply}</div> : <p className="muted">Closed without a reply.</p>}
           </Card>
-          <Card title="How it decided"><Trace trace={r.trace} /></Card>
-          <button className="btn small danger" style={{ justifySelf: 'start' }} onClick={async () => { const r = await deleteEmail(email.id); if (r?.ok === false) return; onBack() }}>Delete this record</button>
+          <Fold className="o5" title="How it decided" summary="Step by step"><Trace trace={r.trace} /></Fold>
+          <button className="btn small danger o8" style={{ justifySelf: 'start' }} onClick={async () => { const r = await deleteEmail(email.id); if (r?.ok === false) return; onBack() }}>Delete this record</button>
         </div>
       </div>
     </>

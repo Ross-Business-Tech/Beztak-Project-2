@@ -22,6 +22,8 @@ Decisions made: Zoho Desk is the ticketing system (confirmed by the team, not ye
 
 **Egnyte (added Nov 10, later):** admins can link one Egnyte folder (read-only, set in Settings with a folder browser). The server copies readable PDF, Word, text, Markdown, CSV and HTML files, re-checks hourly, and the AI is given the passages that best match each request instead of just the first files. Tested end to end against a stand-in Egnyte server with real Word and PDF files. Not yet tried against a real Egnyte account; Egnyte tokens may expire after 30 days, so a refresh-token flow is a sensible next step. See `docs/egnyte.md`.
 
+**Usability pass (Nov 10, later):** from a UX review: help boxes are collapsed by default; the menu is grouped Work / Manage / Help and each role opens on its own page (reviewers on the queue, admins on the dashboard); the review queue sorts urgent and longest-waiting first, shows waiting times, and moves to the next case after each decision; on a phone the draft reply sits right after the original email with the other panels folded away and a fixed action bar; the confidence meter has plain-language labels; Settings is split into sections with technical details tucked away; error messages stay until dismissed; tables become cards on a phone; the dashboard no longer shows a misleading "answered automatically" figure when nothing is sent automatically; names are consistent (Knowledge files, Test a document, Needs review).
+
 **Hosting decision:** Render (Docker web service with a persistent disk, owned by Beztak). Vercel does not fit because the app needs a lasting disk and a background timer. See `docs/deploy-render.md` for the plan, costs, checklist and schedule; `render.yaml` is the setup file.
 
 **Not yet done:**

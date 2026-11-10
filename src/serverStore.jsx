@@ -20,9 +20,10 @@ export function ServerProvider({ initial, children }) {
 
   const toast = useCallback((text, tone = 'ok') => {
     const id = uid('t')
-    setToasts((t) => [...t, { id, text, tone }])
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3600)
+    setToasts((t) => [...t, { id, text, tone }].slice(-4))
+    if (tone !== 'warn') setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3600)
   }, [])
+  const dismissToast = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), [])
 
   // keep messages and activity fresh (new tickets arrive on their own). When an Egnyte sync has finished, reload the files too.
   const reloadFilesRef = useRef(null)
@@ -133,6 +134,6 @@ export function ServerProvider({ initial, children }) {
 
   reloadFilesRef.current = actions.reloadFiles
   const rules = useMemo(() => rulesOf(data.workflow), [data.workflow])
-  const value = { ...data, rules, ...actions, toasts, storageFull: false, serverMode: true, user, isAdmin, saveError }
+  const value = { ...data, rules, ...actions, toasts, dismissToast, storageFull: false, serverMode: true, user, isAdmin, saveError }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

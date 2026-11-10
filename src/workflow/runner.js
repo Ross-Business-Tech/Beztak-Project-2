@@ -250,7 +250,7 @@ export function* execute({ email, workflow, settings, history = [] }) {
 
   const decision = end.end
   const reasons = [end.reason]
-  if (ctx.flags.length && decision !== 'sent') reasons.push(`Flagged: ${ctx.flags.map((f) => f.name).join(', ')}.`)
+  if (ctx.flags.length && decision !== 'sent' && !/flagged/i.test(end.reason || '')) reasons.push(`Flagged: ${ctx.flags.map((f) => f.name).join(', ')}.`)
   return {
     category: ctx.category, flags: ctx.flags, confidence: ctx.confidence ?? ctx.certainty ?? 0,
     sources: ctx.sources, draft: ctx.draft || '', decision, reasons, trace, path,

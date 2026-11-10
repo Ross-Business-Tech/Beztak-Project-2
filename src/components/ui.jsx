@@ -43,7 +43,7 @@ export function Icon({ name, size = 18 }) {
 }
 
 /** Plain-language "how to use this page" panel. Remembers if it was collapsed. */
-export function HelpPanel({ id, title = 'How to use this page', steps, note, defaultOpen = true }) {
+export function HelpPanel({ id, title = 'How to use this page', steps, note, defaultOpen = false }) {
   const key = `help-collapsed-${id}`
   const [open, setOpen] = useState(() => { try { const v = localStorage.getItem(key); return v === null ? defaultOpen : v !== '1' } catch { return defaultOpen } })
   const toggle = () => { setOpen(!open); try { localStorage.setItem(key, open ? '1' : '0') } catch { /* ignore */ } }
@@ -172,10 +172,16 @@ export const Empty = ({ title, children }) => (
   <div className="empty"><strong>{title}</strong>{children && <p className="muted">{children}</p>}</div>
 )
 
-export function Toasts({ toasts }) {
+/** Confirmations fade by themselves. Problems (tone "warn") stay until the person dismisses them. */
+export function Toasts({ toasts, onDismiss }) {
   return (
     <div className="toasts" aria-live="polite">
-      {toasts.map((t) => <div key={t.id} className={`toast ${t.tone}`}>{t.text}</div>)}
+      {toasts.map((t) => (
+        <div key={t.id} className={`toast ${t.tone}`} role={t.tone === 'warn' ? 'alert' : undefined}>
+          <span>{t.text}</span>
+          {t.tone === 'warn' && onDismiss && <button type="button" className="toast-x" aria-label="Dismiss this message" onClick={() => onDismiss(t.id)}>×</button>}
+        </div>
+      ))}
     </div>
   )
 }
@@ -208,10 +214,29 @@ export function Trace({ trace }) {
 
 export function ConfidenceMeter({ value }) {
   const tone = value >= 80 ? 'green' : value >= 55 ? 'amber' : 'red'
+  const word = value >= 80 ? 'High: check the quotes' : value >= 55 ? 'Medium: read before sending' : 'Low: edit carefully'
   return (
-    <div className="meter" role="img" aria-label={`Confidence ${value} percent`}>
-      <div className={`meter-fill ${tone}`} style={{ width: `${value}%` }} />
-      <span>{value}%</span>
+    <div className="conf">
+      <div className="meter" role="img" aria-label={`Confidence ${value} percent. ${word}`}>
+        <div className={`meter-fill ${tone}`} style={{ width: `${value}%` }} />
+        <span>{value}%</span>
+      </div>
+      <span className={`conf-word ${tone}`}>{word}</span>
     </div>
+  )
+}
+
+/** A card whose body can be folded away. On a phone it starts closed, so the important part of the page stays near the top. */
+export function Fold({ title, hint, summary, defaultOpen, className = '', children }) {
+  const [open, setOpen] = useState(() => defaultOpen ?? !(typeof window !== 'undefined' && window.matchMedia('(max-width: 1100px)').matches))
+  const sub = open ? hint : summary || hint
+  return (
+    <section className={`card fold ${className}`}>
+      <button type="button" className="fold-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span><h2>{title}</h2>{sub && <span className="muted small fold-sub">{sub}</span>}</span>
+        <span className="help-toggle">{open ? 'Hide' : 'Show'}</span>
+      </button>
+      {open && <div className="fold-body">{children}</div>}
+    </section>
   )
 }

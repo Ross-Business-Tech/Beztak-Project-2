@@ -27,7 +27,7 @@ export default function Guide() {
         <Card title="Test Lab" hint="Where you try things safely.">
           <ul className="plain">
             <li><strong>Test emails.</strong> Write a message, or start from an example, and see exactly what the AI would do and why.</li>
-            <li><strong>Test documents.</strong> Upload a policy or paste text, then ask a question about it to see whether the AI uses it.</li>
+            <li><strong>Test a document.</strong> Upload a policy or paste text, then ask a question about it to see whether the AI uses it.</li>
           </ul>
           <a className="btn" href="#/lab">Open Test Lab</a>
         </Card>

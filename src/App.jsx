@@ -12,8 +12,8 @@ import Guide from './pages/Guide'
 import Import from './pages/Import'
 import { Icon } from './components/ui'
 
-function useHashRoute() {
-  const get = () => window.location.hash.replace(/^#/, '') || '/help'
+function useHashRoute(home) {
+  const get = () => window.location.hash.replace(/^#/, '') || home
   const [route, setRoute] = useState(get)
   useEffect(() => {
     const h = () => { setRoute(get()); window.scrollTo(0, 0) }
@@ -23,20 +23,21 @@ function useHashRoute() {
   return route
 }
 
+// Grouped by what people do: Work (every day), Manage (set-up, admins), Help (learning and trying things safely)
 const NAV = [
-  { group: 'Guide' },
-  { to: '/help', icon: 'book', label: 'Getting started', match: (r) => r === '/help' },
-  { group: 'Test Lab' },
-  { to: '/lab', icon: 'mail', label: 'Test emails', match: (r) => r === '/lab' },
-  { to: '/lab/docs', icon: 'file', label: 'Test documents', match: (r) => r === '/lab/docs' },
-  { group: 'Administration' },
-  { to: '/admin', icon: 'chart', label: 'Dashboard', match: (r) => r === '/admin' },
-  { to: '/admin/workflow', icon: 'workflow', label: 'Workflow', match: (r) => r === '/admin/workflow' || r === '/admin/flags' },
+  { group: 'Work' },
   { to: '/admin/review', icon: 'inbox', label: 'Review queue', badge: true, match: (r) => r === '/admin/review' },
   { to: '/admin/import', icon: 'upload', label: 'Import and evaluate', match: (r) => r === '/admin/import' },
+  { group: 'Manage' },
+  { to: '/admin', icon: 'chart', label: 'Dashboard', match: (r) => r === '/admin' },
+  { to: '/admin/workflow', icon: 'workflow', label: 'Workflow', match: (r) => r === '/admin/workflow' || r === '/admin/flags' },
   { to: '/admin/files', icon: 'folder', label: 'Knowledge files', match: (r) => r === '/admin/files' },
   { to: '/admin/settings', icon: 'gear', label: 'Settings', match: (r) => r === '/admin/settings' },
   { to: '/admin/activity', icon: 'log', label: 'Activity log', match: (r) => r === '/admin/activity' },
+  { group: 'Help' },
+  { to: '/help', icon: 'book', label: 'Getting started', match: (r) => r === '/help' },
+  { to: '/lab', icon: 'mail', label: 'Test emails', match: (r) => r === '/lab' },
+  { to: '/lab/docs', icon: 'file', label: 'Test a document', match: (r) => r === '/lab/docs' },
 ]
 
 function Page({ route }) {
@@ -65,8 +66,9 @@ function StatusBanner({ status }) {
 }
 
 export default function App() {
-  const route = useHashRoute()
-  const { emails, toasts, serverMode, user, signOut, status } = useApp()
+  const { emails, toasts, dismissToast, serverMode, user, signOut, status } = useApp()
+  // Reviewers open on the queue, admins on the dashboard, and visitors to the demo on the guide
+  const route = useHashRoute(serverMode ? (user.role === 'admin' ? '/admin' : '/admin/review') : '/help')
   const [open, setOpen] = useState(false)
   const waiting = emails.filter((e) => e.status === 'pending_review' || e.status === 'escalated').length
   useEffect(() => setOpen(false), [route])
@@ -92,7 +94,7 @@ export default function App() {
         {serverMode ? <StatusBanner status={status} /> : <div className="sim-banner" role="note"><strong>Test environment.</strong> The AI is simulated and no real email is read or sent.</div>}
         <Page route={route} />
       </main>
-      <Toasts toasts={toasts} />
+      <Toasts toasts={toasts} onDismiss={dismissToast} />
     </div>
   )
 }

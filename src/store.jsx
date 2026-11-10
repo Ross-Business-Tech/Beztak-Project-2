@@ -62,9 +62,10 @@ export function AppProvider({ children }) {
 
   const toast = useCallback((text, tone = 'ok') => {
     const id = uid('t')
-    setToasts((t) => [...t, { id, text, tone }])
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200)
+    setToasts((t) => [...t, { id, text, tone }].slice(-4))
+    if (tone !== 'warn') setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200)
   }, [])
+  const dismissToast = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), [])
 
   const log = useCallback((type, text) => {
     setData((d) => ({ ...d, activity: [{ id: uid('a'), at: new Date().toISOString(), type, text }, ...d.activity].slice(0, 300) }))
@@ -170,6 +171,6 @@ export function AppProvider({ children }) {
   }), [toast, log])
 
   const rules = useMemo(() => rulesOf(data.workflow), [data.workflow])
-  const value = { ...data, rules, ...actions, toasts, storageFull }
+  const value = { ...data, rules, ...actions, toasts, dismissToast, storageFull }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
