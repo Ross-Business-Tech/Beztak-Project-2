@@ -1,0 +1,33 @@
+# Render Blueprint: creates the web service and its data disk in one step.
+# Render dashboard > New > Blueprint > pick this repository. Secret values (marked sync: false) are asked for
+# once during creation and are never stored in the repository. See docs/deploy-render.md.
+#
+# This starts WITHOUT a ticketing system: requests come in through "Import and evaluate" in the app.
+# To connect Zoho Desk later, change TICKETING_ADAPTER to zohodesk and add the ZOHO_ values listed at the bottom.
+services:
+  - type: web
+    name: hr-helpdesk-ai
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter              # a paid plan is required for a persistent disk and for staying awake
+    region: ohio               # closest US region to Michigan
+    healthCheckPath: /api/health
+    autoDeploy: false          # deploy deliberately, after testing a new version
+    disk:
+      name: hr-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - { key: DATA_DIR, value: /data }
+      - { key: COOKIE_SECURE, value: "true" }
+      - { key: TRUST_PROXY, value: "true" }
+      - { key: ALLOW_AUTO_SEND, value: "false" }
+      - { key: TICKETING_ADAPTER, value: none }
+      - { key: AI_PROVIDER, value: anthropic }
+      - { key: AI_MODEL, value: claude-haiku-5-5 }
+      - { key: ADMIN_USERNAME, value: admin }
+      - { key: ADMIN_PASSWORD, sync: false }
+      - { key: AI_API_KEY, sync: false }          # your Anthropic API key
+      # --- Egnyte (optional): add EGNYTE_DOMAIN and EGNYTE_ACCESS_TOKEN, then pick the folder in Settings. See docs/egnyte.md ---
+      # --- Zoho Desk (optional, later). Set TICKETING_ADAPTER=zohodesk and add: ---
+      #   ZOHO_REGION=us, ZOHO_ORG_ID, ZOHO_DEPARTMENT_ID, ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN

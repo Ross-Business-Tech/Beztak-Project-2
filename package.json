@@ -9,11 +9,17 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "smoke": "node scripts/smoke-test.cjs",
-    "publish:preview": "node scripts/herenow-publish.mjs preview"
+    "publish:preview": "node scripts/herenow-publish.mjs preview",
+    "build:server": "vite build -c vite.server.config.js",
+    "start": "node dist-server/index.js",
+    "test:server": "vite build -c vite.server.config.js --ssr server/test/e2e.test.js --outDir dist-test && node --test dist-test/"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@xyflow/react": "^12.12.1",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "unpdf": "^1.9.1"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

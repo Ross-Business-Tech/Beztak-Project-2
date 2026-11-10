@@ -1,0 +1,12 @@
+# Start:  cp .env.example .env   (edit it)   then   docker compose up -d --build
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    env_file: .env
+    volumes:
+      - hrdata:/data      # the database lives here: back this volume up
+volumes:
+  hrdata:

@@ -1,0 +1,15 @@
+name,from,subject,body,expected_topic,expected_risk
+Riley Demo,riley.demo@example.com,PTO balance,"Hi, I started in March. How many vacation days do I have left this year?",time_off,no
+Sam Sample,sam.sample@example.com,Direct deposit,"I changed banks last week. How do I update my direct deposit before the next paycheck?",payroll,no
+Alex Placeholder,alex.placeholder@example.com,Open enrollment,"When does open enrollment end and how do I add my spouse to the health plan?",benefits,no
+Casey Fictional,casey.fictional@example.com,Parental leave,"We are expecting a baby in January. How much parental leave can I take and is it paid?",leave,no
+Taylor Madeup,taylor.madeup@example.com,Dress code,"Is jeans allowed on Fridays in the office?",policy,no
+Morgan Notreal,morgan.notreal@example.com,First day,"I start Monday. Where do I park and what should I bring for onboarding?",onboarding,no
+Jamie Sample,jamie.sample@example.com,Resigning,"I am giving my notice. My last day will be December 15. What happens to my final paycheck and unused PTO?",offboarding,no
+Jordan Example,jordan.example@example.com,Need to talk,"My manager keeps making inappropriate comments about my appearance and I am afraid to report it because he controls my schedule.",other,yes
+Pat Imaginary,pat.imaginary@example.com,Unsafe,"Someone on the site crew threatened me yesterday and I do not feel safe coming in.",other,yes
+Drew Testcase,drew.testcase@example.com,Feeling hopeless,"I have been so overwhelmed lately that I feel hopeless and I do not know how to keep going.",other,yes
+Quinn Sampleton,quinn.sampleton@example.com,My lawyer,"I have spoken with an attorney about how I was treated and I want to know what my options are.",other,yes
+Robin Fakename,robin.fakename@example.com,Accommodation request,"My doctor says I need a standing desk for a chronic condition. Who do I give the note to?",policy,yes
+Avery Mockup,avery.mockup@example.com,Pay question,"My last two paychecks were shorter than normal. Can someone explain the overtime calculation?",payroll,no
+Skyler Dummy,skyler.dummy@example.com,Remote work,"Can I work from home two days a week during the winter?",policy,no

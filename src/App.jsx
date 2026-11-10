@@ -1,134 +1,98 @@
-import { useEffect, useRef, useState } from 'react'
-import { SAMPLE_QUESTIONS, askAgent } from './hrAgent.js'
+import { useEffect, useState } from 'react'
+import { useApp } from './store'
+import { Toasts } from './components/ui'
+import Lab from './pages/Lab'
+import Review from './pages/Review'
+import Dashboard from './pages/Dashboard'
+import Files from './pages/Files'
+import Workflow from './pages/Workflow'
+import Settings from './pages/Settings'
+import Activity from './pages/Activity'
+import Guide from './pages/Guide'
+import Import from './pages/Import'
+import { Icon } from './components/ui'
 
-const WELCOME = {
-  from: 'bot',
-  text: 'Hi, I’m the HRITT assistant. I answer common HR questions from the sample employee handbook. Anything sensitive goes straight to a human HR partner.',
+function useHashRoute() {
+  const get = () => window.location.hash.replace(/^#/, '') || '/help'
+  const [route, setRoute] = useState(get)
+  useEffect(() => {
+    const h = () => { setRoute(get()); window.scrollTo(0, 0) }
+    window.addEventListener('hashchange', h)
+    return () => window.removeEventListener('hashchange', h)
+  }, [])
+  return route
 }
 
-const TIME = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+const NAV = [
+  { group: 'Guide' },
+  { to: '/help', icon: 'book', label: 'Getting started', match: (r) => r === '/help' },
+  { group: 'Test Lab' },
+  { to: '/lab', icon: 'mail', label: 'Test emails', match: (r) => r === '/lab' },
+  { to: '/lab/docs', icon: 'file', label: 'Test documents', match: (r) => r === '/lab/docs' },
+  { group: 'Administration' },
+  { to: '/admin', icon: 'chart', label: 'Dashboard', match: (r) => r === '/admin' },
+  { to: '/admin/workflow', icon: 'workflow', label: 'Workflow', match: (r) => r === '/admin/workflow' || r === '/admin/flags' },
+  { to: '/admin/review', icon: 'inbox', label: 'Review queue', badge: true, match: (r) => r === '/admin/review' },
+  { to: '/admin/import', icon: 'upload', label: 'Import and evaluate', match: (r) => r === '/admin/import' },
+  { to: '/admin/files', icon: 'folder', label: 'Knowledge files', match: (r) => r === '/admin/files' },
+  { to: '/admin/settings', icon: 'gear', label: 'Settings', match: (r) => r === '/admin/settings' },
+  { to: '/admin/activity', icon: 'log', label: 'Activity log', match: (r) => r === '/admin/activity' },
+]
+
+function Page({ route }) {
+  if (route.startsWith('/lab')) return <Lab route={route} />
+  if (route === '/help') return <Guide />
+  switch (route) {
+    case '/admin': return <Dashboard />
+    case '/admin/review': return <Review />
+    case '/admin/import': return <Import />
+    case '/admin/files': return <Files />
+    case '/admin/flags':
+    case '/admin/workflow': return <Workflow />
+    case '/admin/settings': return <Settings />
+    case '/admin/activity': return <Activity />
+    default: return <Guide />
+  }
+}
+
+function StatusBanner({ status }) {
+  const t = status?.ticketing
+  if (t?.enabled && t.lastSync && !t.lastSync.ok) return <div className="sim-banner" role="alert"><strong>Zoho Desk problem.</strong> The last check for new tickets failed: {t.lastSync.error} <a href="#/admin/settings">Open Settings</a></div>
+  const eg = status?.egnyte
+  if (eg?.enabled && eg.lastSync && !eg.lastSync.ok) return <div className="sim-banner" role="alert"><strong>Egnyte problem.</strong> The last sync failed, so the AI is using the documents it copied earlier: {eg.lastSync.error} <a href="#/admin/settings">Open Settings</a></div>
+  if (!status?.ai?.configured) return <div className="sim-banner" role="note"><strong>No AI provider is set on this server.</strong> Replies use the simple built-in writer until an administrator adds one (see the install guide).</div>
+  return null
+}
 
 export default function App() {
-  const [messages, setMessages] = useState([WELCOME])
-  const [input, setInput] = useState('')
-  const [agent, setAgent] = useState({ topic: null, misses: 0 })
-  const [tickets, setTickets] = useState([])
-  const logRef = useRef(null)
-
-  useEffect(() => {
-    const el = logRef.current
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-  }, [messages])
-
-  function send(text) {
-    const question = text.trim()
-    if (!question) return
-    const result = askAgent(question, agent)
-    setAgent({ topic: result.topic, misses: result.misses })
-    setMessages((m) => [
-      ...m,
-      { from: 'user', text: question },
-      { from: 'bot', text: result.reply, source: result.source, flagged: result.escalate },
-    ])
-    if (result.escalate) {
-      setTickets((t) => [
-        {
-          id: `HR-${1042 + t.length}`,
-          question,
-          reasons: result.reasons.join(', '),
-          urgency: result.urgency,
-          time: TIME(new Date()),
-        },
-        ...t,
-      ])
-    }
-    setInput('')
-  }
+  const route = useHashRoute()
+  const { emails, toasts, serverMode, user, signOut, status } = useApp()
+  const [open, setOpen] = useState(false)
+  const waiting = emails.filter((e) => e.status === 'pending_review' || e.status === 'escalated').length
+  useEffect(() => setOpen(false), [route])
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand">
-          <span className="logo" aria-hidden="true">H</span>
-          <div>
-            <strong>HRITT</strong>
-            <span className="brand-sub">HR Internal Ticketing Tool</span>
-          </div>
-        </div>
-        <span className="pill">Demo · sample data</span>
-      </header>
-
-      <main className="hero">
-        <div className="intro">
-          <h1>Get HR answers fast</h1>
-          <p>Ask about leave, pay, benefits or policy. Sensitive topics go straight to a person.</p>
-        </div>
-
-        <div className="layout">
-          <section className="card chat" aria-label="HR assistant">
-            <div className="log" ref={logRef} aria-live="polite">
-              {messages.map((m, i) => (
-                <div key={i} className={`msg ${m.from}`}>
-                  <p>{m.text}</p>
-                  {m.source && <small className="meta">Source: {m.source}</small>}
-                  {m.flagged && <small className="meta flag">Flagged for human review</small>}
-                </div>
-              ))}
-            </div>
-
-            <div className="chips">
-              {SAMPLE_QUESTIONS.map((q) => (
-                <button key={q} type="button" className="chip" onClick={() => send(q)}>
-                  {q}
-                </button>
-              ))}
-            </div>
-
-            <form
-              className="composer"
-              onSubmit={(e) => {
-                e.preventDefault()
-                send(input)
-              }}
-            >
-              <label htmlFor="question" className="sr-only">Your question</label>
-              <input
-                id="question"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Type your HR question…"
-                autoComplete="off"
-              />
-              <button type="submit" className="primary" disabled={!input.trim()}>
-                Send
-              </button>
-            </form>
-          </section>
-
-          <aside className="card queue" aria-label="HR review queue">
-            <h2>HR review queue</h2>
-            {tickets.length === 0 ? (
-              <p className="muted">Nothing flagged yet. Sensitive or unresolved questions appear here for an HR partner.</p>
-            ) : (
-              <ul>
-                {tickets.map((t) => (
-                  <li key={t.id} className="ticket">
-                    <div className="ticket-top">
-                      <strong>{t.id}</strong>
-                      <span className={`badge ${t.urgency.toLowerCase()}`}>{t.urgency}</span>
-                    </div>
-                    <p className="ticket-q">“{t.question}”</p>
-                    <small className="meta">{t.reasons} · {t.time} · Open</small>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="fine">Demo only: tickets stay in this browser tab and are not sent to HR.</p>
-          </aside>
-        </div>
-
-        <footer className="fine">Sample handbook content for demonstration. Not HR advice.</footer>
+    <div className="shell">
+      <div className="topbar"><button onClick={() => setOpen(true)} aria-label="Open menu"><Icon name="menu" size={22} /></button> HR Help Desk AI</div>
+      {open && <div className="scrim" onClick={() => setOpen(false)} />}
+      <aside className={`sidebar ${open ? 'open' : ''}`}>
+        <div className="brand"><div className="brand-mark" aria-hidden>HR</div>HR Help Desk AI</div>
+        <nav className="nav" aria-label="Main">
+          {NAV.map((n) => n.group ? <div key={n.group} className="nav-group">{n.group}</div> : (
+            <a key={n.to} href={`#${n.to}`} className={n.match(route) ? 'active' : ''} aria-current={n.match(route) ? 'page' : undefined}>
+              <Icon name={n.icon} />{n.label}{n.badge && waiting > 0 && <span className="count">{waiting}</span>}
+            </a>
+          ))}
+        </nav>
+        {serverMode
+          ? <div className="side-note">Signed in as <strong>{user.username}</strong> ({user.role}).<br /><button className="btn small" style={{ marginTop: 8 }} onClick={signOut}>Sign out</button></div>
+          : <div className="side-note">Test environment. Simulated AI.</div>}
+      </aside>
+      <main className="main">
+        {serverMode ? <StatusBanner status={status} /> : <div className="sim-banner" role="note"><strong>Test environment.</strong> The AI is simulated and no real email is read or sent.</div>}
+        <Page route={route} />
       </main>
+      <Toasts toasts={toasts} />
     </div>
   )
 }
