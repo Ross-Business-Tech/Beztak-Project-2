@@ -157,12 +157,14 @@ export function askAgent(question, state) {
   } else if (topic) {
     reply = followUp ? `Following up on ${topic.title.toLowerCase()}: ${topic.answer}` : topic.answer
     source = topic.section
+  } else if (wantsHuman) {
+    reply = 'Of course. I’ve passed your question to an HR partner, who will reply within one business day.'
   } else {
     reply =
       'I couldn’t find that in the sample handbook. Try asking about PTO, sick leave, payroll, benefits, remote work, expenses, learning budget or performance reviews.'
   }
 
-  if (wantsHuman && !flags.length) reply += ' I’ve also passed your question to an HR partner, who will reply within one business day.'
+  if (wantsHuman && !flags.length && topic) reply += ' I’ve also passed your question to an HR partner, who will reply within one business day.'
   if (!topic && misses >= 2 && !flags.length) reply += ' Since I’ve missed twice, I’ve sent this to an HR partner too.'
 
   return {
