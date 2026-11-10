@@ -92,7 +92,7 @@ export function sanitizeSettings(raw) {
     signature: str(raw.signature, d.signature, 400), footer: str(raw.footer, d.footer, 500), includeFooter: bool(raw.includeFooter, d.includeFooter),
     minutesSavedPerReply: Math.max(1, Math.min(60, Math.round(Number(raw.minutesSavedPerReply)) || d.minutesSavedPerReply)),
     ai: { engine: oneOf(raw.ai?.engine, ['ai', 'simulated'], d.ai.engine), model },
-    integrations: { zoho: { enabled: bool(z.enabled, false), applyTicketActions: bool(z.applyTicketActions, true), noteDraftOnArrival: bool(z.noteDraftOnArrival, true), onApprove: oneOf(z.onApprove, ['internal_note', 'send_reply', 'none'], 'internal_note') } },
+    integrations: { egnyte: d.integrations.egnyte, zoho: { enabled: bool(z.enabled, false), applyTicketActions: bool(z.applyTicketActions, true), noteDraftOnArrival: bool(z.noteDraftOnArrival, true), onApprove: oneOf(z.onApprove, ['internal_note', 'send_reply', 'none'], 'internal_note') } },
   }
 }
 

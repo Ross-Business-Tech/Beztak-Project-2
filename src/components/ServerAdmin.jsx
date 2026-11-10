@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useApp } from '../store'
 import { api } from '../serverApi'
-import { Badge, Card, Field, SettingRow, Toggle } from './ui'
+import { Badge, Card, Field, Icon, Modal, SettingRow, Toggle } from './ui'
 
 const when = (iso) => (iso ? new Date(iso).toLocaleString() : 'never')
 
@@ -106,6 +106,91 @@ export function PasswordCard() {
         </div>
         <button className="btn" type="submit">Change password</button>
       </form>
+    </Card>
+  )
+}
+
+export function EgnyteCard() {
+  const { settings: s, updateSettings, status, reloadFiles, watchEgnyte, isAdmin, toast } = useApp()
+  const cfg = s.integrations.egnyte
+  const st = status.egnyte
+  const [draft, setDraft] = useState(cfg.folderPath)
+  const [busy, setBusy] = useState('')
+  const [result, setResult] = useState(null)
+  const [pick, setPick] = useState(null) // { path, folders, files, error, loading }
+  const [confirm, setConfirm] = useState(false)
+  const set = (patch, note) => { updateSettings({ integrations: { ...s.integrations, egnyte: { ...cfg, ...patch } } }, note); watchEgnyte() }
+
+  async function browse(path) {
+    setPick((p) => ({ ...(p || {}), path, loading: true, error: '' }))
+    try { const r = await api('GET', `/api/egnyte/folders?path=${encodeURIComponent(path)}`); setPick({ ...r, loading: false, error: '' }) } catch (e) { setPick((p) => ({ ...(p || {}), path, folders: [], loading: false, error: e.message })) }
+  }
+  async function run(kind) {
+    setBusy(kind); setResult(null)
+    try { setResult(await api('POST', `/api/egnyte/${kind}`, {})); if (kind === 'sync') await reloadFiles() } catch (e) { setResult({ ok: false, error: e.message }) } finally { setBusy('') }
+  }
+  const commit = (path) => { setDraft(path); set({ folderPath: path }, `Egnyte folder set to ${path}`); setPick(null) }
+  const last = st.lastSync
+  return (
+    <Card title="Egnyte documents" hint="Let the AI answer from a folder in Egnyte. Read-only: nothing in Egnyte is ever changed.">
+      <SettingRow title="Server connection" hint={st.configured ? 'Egnyte credentials are present on the server.' : `Missing on the server: ${st.missing.join(', ')}. See docs/egnyte.md.`}>
+        <Badge tone={st.configured ? 'green' : 'amber'}>{st.configured ? 'Configured' : 'Not configured'}</Badge>
+      </SettingRow>
+      <div className="guardrail" role="note"><Icon name="lock" /><div>Link a folder that holds only policies and guides that are fine to quote to employees. The AI reads relevant passages of these files and may quote them in drafted replies. Do not link folders with case files, personal records or pay data.</div></div>
+      <div style={{ marginTop: 12 }} />
+      <Field label="Folder to use" hint="The full Egnyte path, for example /Shared/HR/Policies. Use Browse to pick it.">
+        {(id) => (
+          <div className="row">
+            <input id={id} type="text" className="grow" value={draft} placeholder="/Shared/HR/Policies" onChange={(e) => setDraft(e.target.value)} disabled={!isAdmin} />
+            <button className="btn" disabled={!isAdmin || !st.configured} onClick={() => browse(draft || '/')}>Browse</button>
+            <button className="btn" disabled={!isAdmin || draft === cfg.folderPath} onClick={() => commit(draft.trim())}>Save folder</button>
+          </div>
+        )}
+      </Field>
+      <SettingRow title="Use these documents" hint={cfg.folderPath ? `Copies readable files from ${cfg.folderPath} and keeps them up to date (checked every ${st.syncMinutes} minutes).` : 'Choose and save a folder first.'}>
+        <Toggle label="Use Egnyte documents" checked={cfg.enabled} onChange={(v) => { if (v && !cfg.folderPath) { toast('Choose and save a folder first.', 'warn'); return } set({ enabled: v }, `Egnyte documents turned ${v ? 'on' : 'off'}`) }} />
+      </SettingRow>
+      <SettingRow title="Include sub-folders" hint="Reads folders inside the chosen folder too (up to 6 levels deep).">
+        <Toggle label="Include sub-folders" checked={cfg.includeSubfolders} onChange={(v) => set({ includeSubfolders: v })} />
+      </SettingRow>
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="btn" disabled={!isAdmin || busy} onClick={() => run('test')}>{busy === 'test' ? 'Testing...' : 'Test connection'}</button>
+        <button className="btn" disabled={!isAdmin || busy || !cfg.enabled} onClick={() => run('sync')}>{busy === 'sync' ? 'Syncing...' : 'Sync now'}</button>
+        <button className="btn danger" disabled={!isAdmin || busy || !st.fileCount} onClick={() => setConfirm(true)}>Remove synced copies</button>
+        {result && (result.detail !== undefined ? <span className="small"><Badge tone={result.ok ? 'green' : 'red'}>{result.ok ? 'Connected' : 'Problem'}</Badge> {result.detail}</span>
+          : <span className="small"><Badge tone={result.ok ? 'green' : 'red'}>{result.ok ? 'Done' : 'Problem'}</Badge> {result.ok ? (result.note || `${result.count} file${result.count === 1 ? '' : 's'} ready.`) : result.error}</span>)}
+      </div>
+      {cfg.enabled && <p className="muted small" style={{ marginTop: 10 }}>{st.fileCount} file{st.fileCount === 1 ? '' : 's'} in use. Last sync: {when(last?.at)}{last && !last.ok ? <>. <strong style={{ color: 'var(--red)' }}>Failed: {last.error}</strong></> : ''}{last?.truncated ? '. Stopped at the file limit.' : ''}</p>}
+      {last?.skipped?.length > 0 && (
+        <details style={{ marginTop: 8 }}><summary className="small">{last.skipped.length} file{last.skipped.length === 1 ? '' : 's'} not used</summary>
+          <ul className="small muted" style={{ paddingLeft: 18, marginTop: 6 }}>{last.skipped.map((x, i) => <li key={i}><strong>{x.path}</strong>: {x.reason}</li>)}</ul>
+        </details>
+      )}
+
+      {pick && (
+        <Modal title="Choose a folder" onClose={() => setPick(null)}>
+          <p className="small" style={{ marginBottom: 8 }}><strong>{pick.path}</strong>{pick.files !== undefined && <span className="muted"> · {pick.files} file{pick.files === 1 ? '' : 's'} directly inside</span>}</p>
+          {pick.error && <div className="outcome red" role="alert"><div>{pick.error}</div></div>}
+          <div className="list" style={{ maxHeight: 280, overflow: 'auto' }}>
+            {pick.path !== '/' && <button className="item" onClick={() => browse(pick.path.replace(/\/[^/]+$/, '') || '/')}><div className="body">.. (up one level)</div></button>}
+            {(pick.folders || []).map((f) => <button key={f.path} className="item" onClick={() => browse(f.path)}><div className="body"><div className="cell-title">{f.name}</div></div></button>)}
+            {!pick.loading && !pick.error && (pick.folders || []).length === 0 && <p className="muted small" style={{ padding: 8 }}>No sub-folders here.</p>}
+          </div>
+          <div className="modal-actions">
+            <button className="btn" onClick={() => setPick(null)}>Cancel</button>
+            <button className="btn primary" disabled={pick.loading || pick.path === '/'} onClick={() => commit(pick.path)}>Use this folder</button>
+          </div>
+        </Modal>
+      )}
+      {confirm && (
+        <Modal title="Remove the synced copies?" onClose={() => setConfirm(false)}>
+          <p>This deletes the copies of Egnyte documents stored in this app. Nothing in Egnyte is touched. They come back at the next sync if the link is still on.</p>
+          <div className="modal-actions">
+            <button className="btn" onClick={() => setConfirm(false)}>Cancel</button>
+            <button className="btn primary" style={{ background: 'var(--red)', borderColor: 'var(--red)', color: '#fff' }} onClick={async () => { setConfirm(false); await api('DELETE', '/api/egnyte/files'); await reloadFiles(); toast('Synced copies removed') }}>Remove</button>
+          </div>
+        </Modal>
+      )}
     </Card>
   )
 }

@@ -58,6 +58,8 @@ function Page({ route }) {
 function StatusBanner({ status }) {
   const t = status?.ticketing
   if (t?.enabled && t.lastSync && !t.lastSync.ok) return <div className="sim-banner" role="alert"><strong>Zoho Desk problem.</strong> The last check for new tickets failed: {t.lastSync.error} <a href="#/admin/settings">Open Settings</a></div>
+  const eg = status?.egnyte
+  if (eg?.enabled && eg.lastSync && !eg.lastSync.ok) return <div className="sim-banner" role="alert"><strong>Egnyte problem.</strong> The last sync failed, so the AI is using the documents it copied earlier: {eg.lastSync.error} <a href="#/admin/settings">Open Settings</a></div>
   if (!status?.ai?.configured) return <div className="sim-banner" role="note"><strong>No AI provider is set on this server.</strong> Replies use the simple built-in writer until an administrator adds one (see the install guide).</div>
   return null
 }

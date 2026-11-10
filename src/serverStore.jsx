@@ -16,6 +16,7 @@ export function ServerProvider({ initial, children }) {
   const isAdmin = user.role === 'admin'
   const dataRef = useRef(data); dataRef.current = data
   const timers = useRef({})
+  const seenEgnyteSync = useRef(initial.status?.egnyte?.lastSync?.at || '')
 
   const toast = useCallback((text, tone = 'ok') => {
     const id = uid('t')
@@ -23,11 +24,17 @@ export function ServerProvider({ initial, children }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3600)
   }, [])
 
-  // keep messages and activity fresh (new tickets arrive on their own)
+  // keep messages and activity fresh (new tickets arrive on their own). When an Egnyte sync has finished, reload the files too.
+  const reloadFilesRef = useRef(null)
   useEffect(() => {
     const tick = async () => {
       if (document.hidden) return
-      try { const r = await api('GET', '/api/emails'); setData((d) => ({ ...d, emails: r.emails, activity: r.activity, status: r.status })) } catch { /* shown next time */ }
+      try {
+        const r = await api('GET', '/api/emails')
+        setData((d) => ({ ...d, emails: r.emails, activity: r.activity, status: r.status }))
+        const at = r.status?.egnyte?.lastSync?.at || ''
+        if (at !== seenEgnyteSync.current) { seenEgnyteSync.current = at; reloadFilesRef.current?.() }
+      } catch { /* shown next time */ }
     }
     const t = setInterval(tick, POLL_MS)
     document.addEventListener('visibilitychange', tick)
@@ -36,7 +43,9 @@ export function ServerProvider({ initial, children }) {
 
   const saveNow = useCallback(async (key) => {
     clearTimeout(timers.current[key]); delete timers.current[key]
-    try { await api('PUT', `/api/config/${key}`, { value: dataRef.current[key] }); setSaveError('') } catch (e) { setSaveError(e.message) }
+    // Documents copied from Egnyte are owned by the sync; only their on/off switch goes back to the server.
+    const value = key === 'files' ? dataRef.current.files.map((f) => (f.source === 'egnyte' ? { id: f.id, source: 'egnyte', active: f.active } : f)) : dataRef.current[key]
+    try { await api('PUT', `/api/config/${key}`, { value }); setSaveError('') } catch (e) { setSaveError(e.message) }
   }, [])
   const save = useCallback((key) => {
     clearTimeout(timers.current[key])
@@ -101,11 +110,28 @@ export function ServerProvider({ initial, children }) {
     },
     async clearTestEmails() { try { await api('DELETE', '/api/emails/tests'); setData((d) => ({ ...d, emails: d.emails.filter((e) => e.source !== 'test') })) } catch (e) { fail(e) } },
     resetAll() { toast('Resetting is not available on a live server.', 'warn') },
+    async reloadFiles() {
+      try {
+        await flush()
+        const r = await api('GET', '/api/files'); const st = await api('GET', '/api/emails')
+        seenEgnyteSync.current = st.status?.egnyte?.lastSync?.at || ''
+        setData((d) => ({ ...d, files: r.files, status: st.status }))
+      } catch (e) { fail(e) }
+    },
+    /** After the Egnyte link changes, a sync starts on the server. Check back until it has finished. */
+    watchEgnyte() {
+      let tries = 0
+      const t = setInterval(async () => {
+        tries += 1
+        try { const st = await api('GET', '/api/emails'); const at = st.status?.egnyte?.lastSync?.at || ''; setData((d) => ({ ...d, status: st.status })); if (at !== seenEgnyteSync.current || tries > 15) { clearInterval(t); if (at !== seenEgnyteSync.current) { seenEgnyteSync.current = at; reloadFilesRef.current?.() } } } catch { clearInterval(t) }
+      }, 2000)
+    },
     async refresh() { const r = await api('GET', '/api/emails'); setData((d) => ({ ...d, emails: r.emails, activity: r.activity, status: r.status })) },
     async signOut() { try { await api('POST', '/api/logout', {}) } finally { window.dispatchEvent(new Event('hr-signed-out')) } },
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [toast, log, save, flush, isAdmin]) 
 
+  reloadFilesRef.current = actions.reloadFiles
   const rules = useMemo(() => rulesOf(data.workflow), [data.workflow])
   const value = { ...data, rules, ...actions, toasts, storageFull: false, serverMode: true, user, isAdmin, saveError }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

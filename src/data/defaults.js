@@ -38,6 +38,8 @@ export const DEFAULT_SETTINGS = {
     //  noteDraftOnArrival: save the AI draft as a private note on the ticket (never sent to the employee)
     //  onApprove: what happens when a person approves a reply: 'internal_note' (default), 'send_reply', or 'none'
     zoho: { enabled: false, applyTicketActions: true, noteDraftOnArrival: true, onApprove: 'internal_note' },
+    // Egnyte: a folder of documents the AI may answer from (read-only, live server only)
+    egnyte: { enabled: false, folderPath: '', includeSubfolders: true },
   },
 }
 

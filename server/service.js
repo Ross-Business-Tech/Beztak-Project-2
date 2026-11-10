@@ -7,6 +7,9 @@ import { makeDefaultWorkflow } from '../src/workflow/defaults'
 import { createAdapter } from './adapters/index.js'
 import { aiConfigured, makeTransport } from './ai.js'
 import { summarizeResult } from '../src/workflow/evaluate'
+import { createEgnyteClient, normalizeFolderPath } from './egnyte.js'
+import { SUPPORTED, extOf, extractFileText } from './extract.js'
+import { createHash } from 'node:crypto'
 import { clip, nowIso, uid } from './util.js'
 
 const MAX_BODY = 20000
@@ -16,30 +19,108 @@ export class HttpError extends Error { constructor(status, message) { super(mess
 export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = false } = {}) {
   setTransport(makeTransport(cfg.ai, fetchImpl))
   const adapter = createAdapter(cfg)
+  const egnyte = cfg.egnyte.baseUrl || cfg.egnyte.token ? createEgnyteClient(cfg.egnyte, fetchImpl) : null
   let syncing = false
+  let egSyncing = false
   let timer = null
+  let egTimer = null
 
   // ---- stored documents ----
   const getSettings = () => {
     const d = db.kvGet('settings', {})
-    return { ...DEFAULT_SETTINGS, ...d, ai: { ...DEFAULT_SETTINGS.ai, model: cfg.ai.defaultModel, ...(d.ai || {}) }, integrations: { ...DEFAULT_SETTINGS.integrations, ...(d.integrations || {}), zoho: { ...DEFAULT_SETTINGS.integrations.zoho, ...(d.integrations?.zoho || {}) } } }
+    return { ...DEFAULT_SETTINGS, ...d, ai: { ...DEFAULT_SETTINGS.ai, model: cfg.ai.defaultModel, ...(d.ai || {}) }, integrations: { ...DEFAULT_SETTINGS.integrations, ...(d.integrations || {}), zoho: { ...DEFAULT_SETTINGS.integrations.zoho, ...(d.integrations?.zoho || {}) }, egnyte: { ...DEFAULT_SETTINGS.integrations.egnyte, ...(d.integrations?.egnyte || {}) } } }
   }
   const getWorkflow = () => db.kvGet('workflow') || makeDefaultWorkflow()
-  const getFiles = () => db.kvGet('files') || (seedSampleFiles ? SAMPLE_FILES : [])
+  // Knowledge files = the ones people uploaded + (when Egnyte is switched on) copies synced from the linked Egnyte folder.
+  const manualFiles = () => db.kvGet('files') || (seedSampleFiles ? SAMPLE_FILES : [])
+  const egnyteFiles = () => db.kvGet('egnyte_files', [])
+  const getFiles = () => [...manualFiles(), ...(getSettings().integrations.egnyte.enabled ? egnyteFiles() : [])]
   const log = (type, text, actor = '') => db.addActivity({ id: uid('a'), at: nowIso(), type, actor, text })
 
   function putConfig(key, value, actor) {
     if (key === 'settings') {
       if (!value || typeof value !== 'object' || Array.isArray(value)) throw new HttpError(400, 'Settings must be an object.')
+      const eg = value.integrations?.egnyte
+      if (eg) {
+        let folderPath
+        try { folderPath = normalizeFolderPath(eg.folderPath) } catch (e) { throw new HttpError(400, e.message) }
+        value = { ...value, integrations: { ...value.integrations, egnyte: { enabled: Boolean(eg.enabled), folderPath, includeSubfolders: eg.includeSubfolders !== false } } }
+        const before = getSettings().integrations.egnyte
+        const after = value.integrations.egnyte
+        if (after.enabled && after.folderPath && (!before.enabled || before.folderPath !== after.folderPath || before.includeSubfolders !== after.includeSubfolders)) setTimeout(() => egnyteSync({ force: true }).catch(() => {}), 50)
+      }
     } else if (key === 'workflow') {
       if (!value || !Array.isArray(value.nodes) || !Array.isArray(value.edges)) throw new HttpError(400, 'A workflow needs nodes and edges.')
     } else if (key === 'files') {
       if (!Array.isArray(value) || value.length > 500) throw new HttpError(400, 'Files must be a list (up to 500).')
+      // Files synced from Egnyte belong to the sync: the browser may only switch them on or off.
+      const active = new Map(value.filter((f) => f?.source === 'egnyte').map((f) => [f.id, Boolean(f.active)]))
+      if (active.size) db.kvSet('egnyte_files', egnyteFiles().map((f) => (active.has(f.id) ? { ...f, active: active.get(f.id) } : f)))
+      value = value.filter((f) => f?.source !== 'egnyte')
       if (JSON.stringify(value).length > 30_000_000) throw new HttpError(413, 'The knowledge files are too large (30 MB maximum).')
     } else throw new HttpError(404, 'Unknown setting.')
     db.kvSet(key, value)
     return value
   }
+
+  // ---- Egnyte: copy the readable files of one linked folder, read-only ----
+  const TOTAL_TEXT_LIMIT = 12_000_000
+  const egId = (path) => `eg_${createHash('sha1').update(path).digest('hex').slice(0, 12)}`
+
+  async function egnyteSync({ force = false } = {}) {
+    const s = getSettings().integrations.egnyte
+    const out = { at: nowIso(), ok: true, count: 0, skipped: [], truncated: false, error: '' }
+    if (!egnyte?.configured) return { ...out, ok: false, error: `Egnyte is not configured on this server. Missing: ${(egnyte?.missing || ['EGNYTE_DOMAIN', 'EGNYTE_ACCESS_TOKEN']).join(', ')}.` }
+    if (!s.enabled || !s.folderPath) return { ...out, skipped: [], note: 'Egnyte is switched off or no folder is chosen.' }
+    if (egSyncing) return { ...out, note: 'A sync is already running.' }
+    egSyncing = true
+    try {
+      const prev = new Map(egnyteFiles().map((f) => [f.path, f]))
+      const found = []
+      const queue = [{ path: s.folderPath, depth: 0 }]
+      while (queue.length && !out.truncated) {
+        const { path, depth } = queue.shift()
+        let r
+        try { r = await egnyte.list(path) } catch (e) { if (depth === 0) throw e; out.skipped.push({ path, reason: e.message }); continue }
+        for (const f of r.files) { if (found.length >= cfg.egnyte.maxFiles) { out.truncated = true; break } found.push(f) }
+        if (s.includeSubfolders && depth < 6) r.folders.forEach((d) => queue.push({ path: d.path, depth: depth + 1 }))
+      }
+      const next = []; let total = 0
+      for (const f of found) {
+        if (!SUPPORTED.includes(extOf(f.name))) { out.skipped.push({ path: f.path, reason: 'File type not supported (use PDF, Word, text, Markdown, CSV or HTML).' }); continue }
+        if (f.size > cfg.egnyte.maxFileBytes) { out.skipped.push({ path: f.path, reason: `Larger than ${Math.round(cfg.egnyte.maxFileBytes / 1048576)} MB.` }); continue }
+        const old = prev.get(f.path)
+        try {
+          let entry
+          if (old && !force && old.checksum === f.checksum && old.egSize === f.size) entry = old
+          else {
+            const text = await extractFileText(f.name, await egnyte.download(f.path, cfg.egnyte.maxFileBytes))
+            if (text.length < 20) { out.skipped.push({ path: f.path, reason: 'No readable text found (a scanned image PDF?).' }); continue }
+            entry = { id: egId(f.path), name: f.name, folder: 'Egnyte', description: `Egnyte: ${f.path}`, source: 'egnyte', path: f.path, size: text.length, egSize: f.size, content: text, extracted: true, checksum: f.checksum, modified: f.modified, active: old ? old.active : true, test: false, syncedAt: nowIso() }
+          }
+          if (total + entry.content.length > TOTAL_TEXT_LIMIT) { out.skipped.push({ path: f.path, reason: 'Over the total size limit for synced text.' }); continue }
+          total += entry.content.length
+          next.push(entry)
+        } catch (e) { out.skipped.push({ path: f.path, reason: e.message }) }
+      }
+      db.kvSet('egnyte_files', next)
+      out.count = next.length
+      log('system', `Egnyte sync: ${next.length} file${next.length === 1 ? '' : 's'} from ${s.folderPath}${out.skipped.length ? `, ${out.skipped.length} skipped` : ''}`, 'system')
+    } catch (e) { out.ok = false; out.error = e.message; log('system', `Egnyte sync failed: ${e.message}`, 'system') }
+    finally { egSyncing = false; out.skipped = out.skipped.slice(0, 50); db.kvSet('egnyte_state', out) }
+    return out
+  }
+  async function egnyteFolders(path) {
+    if (!egnyte?.configured) throw new HttpError(503, `Egnyte is not configured on this server. Missing: ${(egnyte?.missing || ['EGNYTE_DOMAIN', 'EGNYTE_ACCESS_TOKEN']).join(', ')}.`)
+    let p
+    try { p = normalizeFolderPath(path) || '/' } catch (e) { throw new HttpError(400, e.message) }
+    try { const r = await egnyte.list(p); return { path: p, folders: r.folders, files: r.files.length } } catch (e) { throw new HttpError(e.status === 401 ? 401 : 502, e.message) }
+  }
+  async function testEgnyte() {
+    if (!egnyte?.configured) return { ok: false, detail: `Missing settings: ${(egnyte?.missing || ['EGNYTE_DOMAIN', 'EGNYTE_ACCESS_TOKEN']).join(', ')}.` }
+    try { return await egnyte.health() } catch (e) { return { ok: false, detail: e.message } }
+  }
+  function purgeEgnyte(actor) { db.kvSet('egnyte_files', []); db.kvSet('egnyte_state', null); log('system', `${actor} removed the synced Egnyte copies`, actor) }
 
   // ---- running one message through the workflow ----
   async function processEmail(email, { exclude } = {}) {
@@ -204,6 +285,7 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
       ticketing: { adapter: cfg.ticketing.adapter, configured: Boolean(adapter?.configured), missing: adapter?.missing || [], enabled: s.integrations.zoho.enabled, pollSeconds: cfg.ticketing.pollSeconds, lastSync: db.kvGet('last_sync') },
       ai: { configured: aiConfigured(cfg.ai), provider: new URL(cfg.ai.baseUrl).host, kind: cfg.ai.provider, model: getSettings().ai.model },
       allowAutoSend: cfg.allowAutoSend,
+      egnyte: { configured: Boolean(egnyte?.configured), missing: egnyte?.missing || ['EGNYTE_DOMAIN', 'EGNYTE_ACCESS_TOKEN'], enabled: s.integrations.egnyte.enabled, folderPath: s.integrations.egnyte.folderPath, syncMinutes: cfg.egnyte.syncMinutes, lastSync: db.kvGet('egnyte_state'), fileCount: s.integrations.egnyte.enabled ? egnyteFiles().length : 0 },
     }
   }
   async function testTicketing() {
@@ -213,13 +295,20 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
   }
 
   function start() {
-    if (!adapter || timer) return
-    const tick = () => ingestOnce().catch((e) => console.error('sync error', e.message))
-    setTimeout(tick, 5000)
-    timer = setInterval(tick, cfg.ticketing.pollSeconds * 1000)
-    timer.unref?.()
+    if (adapter && !timer) {
+      const tick = () => ingestOnce().catch((e) => console.error('sync error', e.message))
+      setTimeout(tick, 5000).unref?.()
+      timer = setInterval(tick, cfg.ticketing.pollSeconds * 1000)
+      timer.unref?.()
+    }
+    if (egnyte && !egTimer) {
+      const tick = () => egnyteSync().catch((e) => console.error('egnyte error', e.message))
+      setTimeout(tick, 10_000).unref?.()
+      egTimer = setInterval(tick, cfg.egnyte.syncMinutes * 60_000)
+      egTimer.unref?.()
+    }
   }
-  const stop = () => { if (timer) clearInterval(timer); timer = null }
+  const stop = () => { if (timer) clearInterval(timer); if (egTimer) clearInterval(egTimer); timer = null; egTimer = null }
 
-  return { adapter, getSettings, getWorkflow, getFiles, putConfig, log, processEmail, ingestOnce, testEmail, importRequest, evaluateRequest, saveEvalRun, resolve, addNote, saveDraft, regenerate, deleteEmail, status, testTicketing, start, stop }
+  return { adapter, getSettings, getWorkflow, getFiles, putConfig, log, processEmail, ingestOnce, testEmail, importRequest, evaluateRequest, saveEvalRun, resolve, addNote, saveDraft, regenerate, deleteEmail, status, testTicketing, egnyteSync, egnyteFolders, testEgnyte, purgeEgnyte, start, stop }
 }

@@ -7,6 +7,7 @@ Built for Beztak. MIT licensed: use it, change it, host it yourself.
 ## What it does
 
 - **Import and evaluate:** paste or upload a spreadsheet of requests, add them to the review queue, or run an accuracy check that scores the assistant against your own expected answers.
+- **Egnyte folder:** link one Egnyte folder (read-only). The app copies its PDF, Word and text files, keeps them up to date, and the AI answers from the passages that match each request. See [docs/egnyte.md](docs/egnyte.md).
 - Optionally pulls new tickets from **Zoho Desk** every few minutes (not required).
 - Claude (Haiku 5.5 by default, through Anthropic's API with your own key) reads each message by meaning and drafts a reply grounded in your documents. Every quoted policy passage is checked against the document.
 - A visual **workflow editor** decides what is flagged, escalated, tagged, assigned or sent for review. The AI only reads and drafts; the workflow decides.
@@ -64,6 +65,7 @@ How to add another ticketing system: [docs/extending.md](docs/extending.md).
 - Without a ticketing connector, requests come in through **Import and evaluate**, and approved replies are recorded in the app (people send them from their own email or help desk).
 - Zoho Desk is the only ticketing connector. It was tested against a stand-in Zoho server, **not yet against a real Zoho Desk portal**. Run "Test connection" in Settings and try a few test tickets before relying on it.
 - The Claude connection was tested against a stand-in for Anthropic's API. Use **Settings > Check the AI connection** with your real key before relying on it.
+- Egnyte: one folder, read-only, and the access token may expire (Egnyte's current docs say after 30 days), so someone must replace it when Settings reports a failed sync. Scanned PDFs (images with no text) cannot be read. The Egnyte connection was tested against a stand-in, not a real Egnyte account.
 - Only the first message of a ticket is read. Later replies from the employee are not reprocessed.
 - Attachments are not read.
 - Alerts ("Alert HR Director") are recorded in the activity log. They are not emailed yet.

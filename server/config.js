@@ -6,6 +6,8 @@ const int = (v, d) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n
 // Zoho runs separate data centres. Pick the one your Zoho Desk account lives in (check the web address you sign in at).
 const ZOHO_DOMAINS = { us: 'com', com: 'com', eu: 'eu', in: 'in', au: 'com.au', jp: 'jp', ca: 'zohocloud.ca', sa: 'zoho.sa', uk: 'zoho.uk', cn: 'com.cn' }
 
+const egnyteDomain = (v) => String(v || '').trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '').replace(/\.egnyte\.com$/i, '')
+
 export function loadConfig(e = env) {
   const region = String(e.ZOHO_REGION || 'us').toLowerCase()
   const tld = ZOHO_DOMAINS[region] || region
@@ -39,6 +41,19 @@ export function loadConfig(e = env) {
       intakeStatuses: e.INTAKE_STATUSES || 'Open',
       departmentId: e.ZOHO_DEPARTMENT_ID || '',
     },
+    // Egnyte (optional): a folder of documents the AI may answer from. Read-only.
+    egnyte: (() => {
+      const domain = egnyteDomain(e.EGNYTE_DOMAIN)
+      return {
+        domain,
+        baseUrl: (e.EGNYTE_URL || (domain ? `https://${domain}.egnyte.com` : '')).replace(/\/+$/, ''),
+        token: e.EGNYTE_ACCESS_TOKEN || '',
+        syncMinutes: Math.max(5, int(e.EGNYTE_SYNC_MINUTES, 60)),
+        maxFiles: Math.min(1000, Math.max(1, int(e.EGNYTE_MAX_FILES, 200))),
+        maxFileBytes: Math.min(25, Math.max(1, int(e.EGNYTE_MAX_FILE_MB, 5))) * 1024 * 1024,
+        delayMs: Math.max(0, int(e.EGNYTE_REQUEST_DELAY_MS, 300)), // Egnyte limits requests per second
+      }
+    })(),
     zoho: {
       region,
       deskUrl: (e.ZOHO_DESK_URL || `https://desk.${zohoRoot}`).replace(/\/+$/, ''),

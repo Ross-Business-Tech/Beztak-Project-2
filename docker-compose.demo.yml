@@ -1,4 +1,4 @@
-# Try everything without a Zoho account: adds a pretend Zoho Desk with made-up tickets.
+# Try everything without a Zoho or Egnyte account: adds a pretend Zoho Desk (made-up tickets) and a pretend Egnyte (made-up policy files, folder /Shared/HR).
 #   docker compose -f docker-compose.yml -f docker-compose.demo.yml up --build
 services:
   mock-zoho:
@@ -6,8 +6,11 @@ services:
     command: ["node", "mock-zoho.js"]
     environment:
       ZOHO_ORG_ID: demo-org
+  mock-egnyte:
+    build: .
+    command: ["node", "mock-egnyte.js"]
   app:
-    depends_on: [mock-zoho]
+    depends_on: [mock-zoho, mock-egnyte]
     environment:
       TICKETING_ADAPTER: zohodesk
       ZOHO_DESK_URL: http://mock-zoho:8787
@@ -19,3 +22,6 @@ services:
       BACKFILL_DAYS: "1"
       POLL_SECONDS: "30"
       SEED_SAMPLE_FILES: "true"
+      EGNYTE_URL: http://mock-egnyte:8788
+      EGNYTE_ACCESS_TOKEN: eg-token
+      EGNYTE_REQUEST_DELAY_MS: "0"

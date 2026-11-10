@@ -75,6 +75,11 @@ export function createApp(cfg, { fetchImpl = fetch, seedSampleFiles = false, log
   route('DELETE', '/api/emails/:id', 'admin', (ctx) => { svc.deleteEmail(ctx.params.id, ctx.user.username); return { ok: true } })
   route('POST', '/api/log', 'any', (ctx) => { svc.log(String(ctx.body.type || 'system').slice(0, 20), String(ctx.body.text || '').slice(0, 500), ctx.user.username); return { ok: true } })
 
+  route('GET', '/api/files', 'any', () => ({ files: svc.getFiles() }))
+  route('GET', '/api/egnyte/folders', 'admin', (ctx) => svc.egnyteFolders(new URL(ctx.req.url, 'http://x').searchParams.get('path') || '/'))
+  route('POST', '/api/egnyte/test', 'admin', () => svc.testEgnyte())
+  route('POST', '/api/egnyte/sync', 'admin', (ctx) => svc.egnyteSync({ force: ctx.body.force === true }))
+  route('DELETE', '/api/egnyte/files', 'admin', (ctx) => { svc.purgeEgnyte(ctx.user.username); return { ok: true } })
   route('GET', '/api/integrations/status', 'any', () => svc.status())
   route('POST', '/api/integrations/test', 'admin', () => svc.testTicketing())
   route('POST', '/api/integrations/sync', 'admin', () => svc.ingestOnce())

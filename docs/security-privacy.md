@@ -7,7 +7,7 @@ Plain-language answers for your IT, security and legal contacts. This is documen
 | Data | Where | Kept until |
 |---|---|---|
 | Ticket text (sender name, email, subject, body), AI drafts, reviewer edits, case notes, decisions | SQLite file on your server | You delete it (no automatic expiry in v1) |
-| Your policy documents | same | You delete them |
+| Your policy documents, including copies of files synced from a linked Egnyte folder | same | You delete them (Settings > Egnyte documents > Remove synced copies, or turn the link off) |
 | Accounts (username, salted password hash) | same | You remove them |
 | Activity log (who did what, when) | same | Not editable from the app |
 | Zoho and AI credentials | Environment variables on your server only | n/a |
@@ -19,6 +19,15 @@ No data is sent to the app's authors or to any analytics service. The app makes 
 For each request, the AI provider receives: the sender's name and email address, the subject and body, the risk-rule descriptions, and the policy documents (truncated). It does **not** receive anything else from your systems. Employees' records are never looked up. Check Anthropic's current commercial terms on data retention and training for API use, and decide whether they meet Beztak's policy.
 
 Options to reduce exposure: confirm the provider's retention terms, use a provider inside your own cloud account, or run a local model (`AI_PROVIDER=openai` with `AI_BASE_URL` pointing at it). For accuracy checks, anonymize the requests first. Masking names and email addresses before the AI call is on the roadmap and is **not** in v1.
+
+## Egnyte
+
+If you link an Egnyte folder, the app reads it with a token for one Egnyte user and **only reads** (list and download). It stores a text copy of each readable file, refreshed every hour, so what the AI can see is exactly what that user can see in the chosen folder. Parts of these documents are sent to the AI provider with each request and can be quoted in drafted replies and shown to reviewers.
+
+- Use a dedicated Egnyte user with view-only access to a folder holding only employee-appropriate policies and guides. Do not link folders with case files, personal data or pay data.
+- The token is kept in the server's environment, never in the browser or the database, and Egnyte says tokens can expire (after 30 days in its current documentation). Rotate it when staff who knew it leave.
+- Anyone who can edit the linked folder in Egnyte can change what the AI says. Treat edit rights on that folder like edit rights on your policies. The AI is told to treat document text as reference material and not to follow instructions written inside it, but that is a mitigation, not a guarantee.
+- Files in unsupported formats, over the size limit, or beyond the file limit are skipped and listed in Settings.
 
 ## Access control
 

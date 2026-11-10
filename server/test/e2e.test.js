@@ -3,6 +3,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { createMockZoho } from '../mock-zoho.js'
+import { createMockEgnyte } from '../mock-egnyte.js'
 import { loadConfig } from '../config.js'
 import { createApp } from '../app.js'
 
@@ -13,7 +14,7 @@ function fakeAI() {
   const calls = []
   const server = createServer((req, res) => {
     let b = ''; req.on('data', (c) => { b += c }); req.on('end', () => {
-      const body = JSON.parse(b); calls.push({ auth: req.headers.authorization, model: body.model })
+      const body = JSON.parse(b); calls.push({ auth: req.headers.authorization, model: body.model, user: String(body.messages[1]?.content || '') })
       const sys = body.messages[0].content
       const reply = sys.includes('triage assistant')
         ? { category: 'time_off', flags: [], certainty: 90 }
@@ -214,4 +215,84 @@ test('requests can be imported and evaluated with no ticketing system at all', a
     assert.equal(ok.status, 200); assert.match(ok.json.history.at(-1).text, /recorded here/)
     assert.equal(t.zoho.log.length, 0)
   } finally { t.stop() }
+})
+
+test('a linked Egnyte folder becomes knowledge the AI answers from', async () => {
+  const eg = createMockEgnyte(); const egPort = await listen(eg.server)
+  const t = await setup({ TICKETING_ADAPTER: 'none', EGNYTE_URL: `http://127.0.0.1:${egPort}`, EGNYTE_ACCESS_TOKEN: 'eg-token', EGNYTE_REQUEST_DELAY_MS: '0' })
+  try {
+    await t.api('POST', '/api/login', { username: 'admin', password: 'correct-horse-battery' })
+    await t.api('POST', '/api/users', { username: 'rev1', password: 'a-long-password-1', role: 'reviewer' })
+    assert.equal((await t.api('POST', '/api/egnyte/test')).json.ok, true)
+    const browse = await t.api('GET', '/api/egnyte/folders?path=/Shared')
+    assert.deepEqual(browse.json.folders.map((f) => f.path), ['/Shared/HR'])
+    assert.equal((await t.api('GET', '/api/egnyte/folders?path=/Shared/../etc')).status, 400)
+
+    const settings = (await t.api('GET', '/api/state')).json.settings
+    const withEg = (eg2) => ({ ...settings, integrations: { ...settings.integrations, egnyte: eg2 } })
+    assert.equal((await t.api('PUT', '/api/config/settings', { value: withEg({ enabled: true, folderPath: '/Shared/../etc', includeSubfolders: true }) })).status, 400, 'bad paths are refused')
+    assert.equal((await t.api('PUT', '/api/config/settings', { value: withEg({ enabled: true, folderPath: '/Shared/HR', includeSubfolders: true }) })).status, 200)
+    for (let i = 0; i < 60 && !(await t.api('GET', '/api/integrations/status')).json.egnyte.lastSync; i++) await new Promise((r) => setTimeout(r, 50))
+
+    let st = (await t.api('GET', '/api/state')).json
+    const synced = st.files.filter((f) => f.source === 'egnyte')
+    assert.deepEqual(synced.map((f) => f.name).sort(), ['benefits.docx', 'handbook.pdf', 'old-notes.txt', 'pto-policy.txt'])
+    assert.match(synced.find((f) => f.name === 'benefits.docx').content, /Dental and vision coverage/)
+    assert.match(synced.find((f) => f.name === 'benefits.docx').content, /R&D staff/, 'entities decoded')
+    assert.match(synced.find((f) => f.name === 'handbook.pdf').content, /up to 5 sick days/)
+    assert.ok(st.status.egnyte.lastSync.skipped.some((x) => /photo\.png/.test(x.path)), 'unsupported files are reported, not hidden')
+    assert.equal(st.status.egnyte.fileCount, 4)
+
+    // the AI is given the matching document for the question
+    await t.api('POST', '/api/emails/test', { name: 'Tester', from: 't@example.com', subject: 'Vacation', body: 'How many vacation days do I get each year?' })
+    const prompt = t.ai.calls.at(-1).user
+    assert.match(prompt, /name="pto-policy\.txt"/); assert.match(prompt, /15 vacation days per year/)
+
+    // unchanged files are not downloaded again; a changed one is
+    const before = eg.state.downloads.length
+    assert.equal((await t.api('POST', '/api/egnyte/sync', {})).json.count, 4)
+    assert.equal(eg.state.downloads.length, before, 'nothing re-downloaded')
+    eg.files['/Shared/HR/pto-policy.txt'] = { body: Buffer.from('Vacation policy\n\nFull-time employees now receive 20 vacation days per year.'), cs: 'a2' }
+    await t.api('POST', '/api/egnyte/sync', {})
+    assert.deepEqual(eg.state.downloads.slice(before), ['/Shared/HR/pto-policy.txt'])
+    assert.match((await t.api('GET', '/api/files')).json.files.find((f) => f.name === 'pto-policy.txt').content, /20 vacation days/)
+
+    // the browser can switch a synced file off but cannot rewrite it
+    const all = (await t.api('GET', '/api/files')).json.files
+    const tamper = all.map((f) => (f.name === 'old-notes.txt' ? { id: f.id, source: 'egnyte', active: false, content: 'TAMPERED' } : f))
+    assert.equal((await t.api('PUT', '/api/config/files', { value: tamper })).status, 200)
+    const after = (await t.api('GET', '/api/files')).json.files.find((f) => f.name === 'old-notes.txt')
+    assert.equal(after.active, false); assert.match(after.content, /retired parking policy/)
+
+    // sync is admin only
+    await t.api('POST', '/api/login', { username: 'rev1', password: 'a-long-password-1' })
+    assert.equal((await t.api('POST', '/api/egnyte/sync', {})).status, 403)
+    await t.api('POST', '/api/login', { username: 'admin', password: 'correct-horse-battery' })
+
+    // an expired token fails clearly and keeps what was already copied
+    eg.state.unauthorized = true
+    const bad = await t.api('POST', '/api/egnyte/sync', {})
+    assert.equal(bad.json.ok, false); assert.match(bad.json.error, /expired/)
+    assert.equal((await t.api('GET', '/api/files')).json.files.filter((f) => f.source === 'egnyte').length, 4)
+    eg.state.unauthorized = false
+
+    // switching it off hides the files from the AI; removing deletes the copies
+    const s2 = (await t.api('GET', '/api/state')).json.settings
+    await t.api('PUT', '/api/config/settings', { value: { ...s2, integrations: { ...s2.integrations, egnyte: { ...s2.integrations.egnyte, enabled: false } } } })
+    assert.equal((await t.api('GET', '/api/files')).json.files.filter((f) => f.source === 'egnyte').length, 0)
+    assert.equal((await t.api('DELETE', '/api/egnyte/files')).status, 200)
+  } finally { t.stop(); eg.server.close() }
+})
+
+test('a big library is trimmed to the passages that match the question', async () => {
+  const { selectDocs } = await import('../../src/engine/ai.js')
+  const filler = (n) => Array.from({ length: n }, (_, i) => `Paragraph ${i} about parking, badges, printers and lunch rooms.`).join('\n\n')
+  const files = [
+    { id: 'a', name: 'long.txt', active: true, content: `${filler(400)}\n\nBereavement leave grants three paid days for a close family member.\n\n${filler(400)}` },
+    { id: 'b', name: 'off.txt', active: false, content: 'Bereavement leave secret' },
+  ]
+  const out = selectDocs(files, 'How many bereavement days do I get?', 2000)
+  assert.equal(out.length, 1)
+  assert.ok(out[0].text.length <= 2000)
+  assert.match(out[0].text, /three paid days/, 'the best-matching paragraph is kept')
 })

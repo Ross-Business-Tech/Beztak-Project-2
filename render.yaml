@@ -28,5 +28,6 @@ services:
       - { key: ADMIN_USERNAME, value: admin }
       - { key: ADMIN_PASSWORD, sync: false }
       - { key: AI_API_KEY, sync: false }          # your Anthropic API key
+      # --- Egnyte (optional): add EGNYTE_DOMAIN and EGNYTE_ACCESS_TOKEN, then pick the folder in Settings. See docs/egnyte.md ---
       # --- Zoho Desk (optional, later). Set TICKETING_ADAPTER=zohodesk and add: ---
       #   ZOHO_REGION=us, ZOHO_ORG_ID, ZOHO_DEPARTMENT_ID, ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN

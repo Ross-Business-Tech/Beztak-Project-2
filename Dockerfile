@@ -11,7 +11,7 @@ ENV NODE_ENV=production PORT=8080 DATA_DIR=/data STATIC_DIR=/app/dist
 WORKDIR /app
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/dist-server ./dist-server
-COPY server/mock-zoho.js ./mock-zoho.js
+COPY server/mock-zoho.js server/mock-egnyte.js ./
 RUN apk add --no-cache su-exec && mkdir -p /data
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

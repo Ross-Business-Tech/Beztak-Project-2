@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../store'
 import { DEFAULT_MODEL, testConnection } from '../engine/ai'
 import { Badge, Card, HelpPanel, Icon, Field, Modal, PageHeader, Segmented, SettingRow, Toggle } from '../components/ui'
-import { PasswordCard, TeamCard, ZohoCard } from '../components/ServerAdmin'
+import { EgnyteCard, PasswordCard, TeamCard, ZohoCard } from '../components/ServerAdmin'
 
 export default function Settings() {
   const { settings: s, updateSettings, log, toast, resetAll, storageFull, serverMode, isAdmin, saveError } = useApp()
@@ -70,6 +70,12 @@ export default function Settings() {
       {serverMode ? <ZohoCard /> : (
         <Card title="Connection to Zoho Desk" hint="Available when the app runs on its own server.">
           <p>This page is the in-browser demo, so no real tickets are read and nothing is sent. When the app is installed on a server (see the install guide), this section connects to Zoho Desk, shows whether tickets are flowing, and controls what happens when a reply is approved.</p>
+        </Card>
+      )}
+
+      {serverMode ? <EgnyteCard /> : (
+        <Card title="Egnyte documents" hint="Available when the app runs on its own server.">
+          <p>On the installed version you can link an Egnyte folder here. The app copies its policies and guides (PDF, Word, text) and keeps them up to date, and the AI answers from them. Nothing in Egnyte is ever changed.</p>
         </Card>
       )}
 

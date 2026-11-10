@@ -43,6 +43,7 @@ All settings are environment variables. See `.env.example` for the full annotate
 | `ZOHO_*` | Zoho Desk connection (see zoho-desk.md) |
 | `POLL_SECONDS` | How often to check for new tickets (minimum 30; default 300) |
 | `ALLOW_AUTO_SEND` | Safety switch. Leave `false` unless you have measured accuracy and want some replies sent automatically |
+| `EGNYTE_DOMAIN`, `EGNYTE_ACCESS_TOKEN` | Optional: lets admins link an Egnyte folder of policies (see [egnyte.md](egnyte.md)) |
 | `COOKIE_SECURE` | `true` when served over HTTPS |
 
 Changing a variable needs a restart: `docker compose up -d`.

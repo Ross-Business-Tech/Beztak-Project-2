@@ -20,6 +20,8 @@ Decisions made: Zoho Desk is the ticketing system (confirmed by the team, not ye
 
 **Update (Nov 10, later): no Zoho access, Claude Haiku.** Beztak has not given us Zoho access, so delivery no longer depends on it. Changes: (1) the AI is Claude Haiku 5.5 (`claude-haiku-5-5`) through the official Anthropic SDK with the team's own key, roughly a dollar or two a month at about 500 requests; other providers remain optional; (2) a new **Import and evaluate** page lets people paste or upload a spreadsheet of requests, add them to the review queue, or run an **accuracy check** that scores the assistant against expected topics and risks (a sample file with made-up requests is included); (3) the Render setup starts without Zoho. Zoho Desk stays in the code as an optional connector, untested against a real portal.
 
+**Egnyte (added Nov 10, later):** admins can link one Egnyte folder (read-only, set in Settings with a folder browser). The server copies readable PDF, Word, text, Markdown, CSV and HTML files, re-checks hourly, and the AI is given the passages that best match each request instead of just the first files. Tested end to end against a stand-in Egnyte server with real Word and PDF files. Not yet tried against a real Egnyte account; Egnyte tokens may expire after 30 days, so a refresh-token flow is a sensible next step. See `docs/egnyte.md`.
+
 **Hosting decision:** Render (Docker web service with a persistent disk, owned by Beztak). Vercel does not fit because the app needs a lasting disk and a background timer. See `docs/deploy-render.md` for the plan, costs, checklist and schedule; `render.yaml` is the setup file.
 
 **Not yet done:**
