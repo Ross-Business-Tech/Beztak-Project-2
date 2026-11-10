@@ -4,7 +4,7 @@ import { Badge, Card, HelpPanel, Empty, PageHeader, SeverityBadge, StatusBadge, 
 
 
 export default function Dashboard() {
-  const { emails, settings, rules, files, activity, workflow } = useApp()
+  const { emails, settings, rules, files, activity, workflow, serverMode } = useApp()
   const autoSends = workflow.nodes.some((n) => n.data.kind === 'email_out' && !n.data.config.requireApproval)
   const week = emails.filter((e) => Date.now() - new Date(e.receivedAt) < 7 * 864e5)
   const auto = week.filter((e) => e.status === 'auto_sent').length
@@ -23,16 +23,18 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHeader title="Admin dashboard" subtitle="Last 7 days. Sample data until Zoro is connected." />
+      <PageHeader title="Admin dashboard" subtitle={serverMode ? 'Last 7 days.' : 'Last 7 days. Sample data until Zoho Desk is connected.'} />
       <HelpPanel id="dash" steps={[
-        'The four figures at the top summarise the last seven days. "Answered automatically" is the share sent without a person. "Time saved" multiplies replies by the minutes set in Settings. "Drafts sent without edits" shows answer quality: the higher it is, the less reviewers rewrite.',
+        'The four figures at the top summarise the last seven days. "Waiting for review" is how many messages need a person right now. "Time saved" multiplies replies by the minutes set in Settings. "Drafts sent without edits" shows answer quality: the higher it is, the less reviewers rewrite.',
         'Current setup shows how many blocks your workflow has and whether anything sends automatically. Select Change to open the Workflow.',
-        'Needs attention lists drafts and flagged messages waiting for a person. Select Open queue to work through them.',
+        'Waiting for review lists drafts and flagged messages waiting for a person. Select Open queue to work through them.',
         'The two charts show what employees ask about and which flag rules are triggered most.',
       ]} note="Figures here include sample data and any test emails you have sent." />
       <div className="tiles">
         <div className="tile"><div className="num">{week.length}</div><div className="lbl">Emails received</div></div>
-        <div className="tile"><div className="num">{week.length ? Math.round((auto / week.length) * 100) : 0}%</div><div className="lbl">Answered automatically</div></div>
+        {autoSends || auto > 0
+          ? <div className="tile"><div className="num">{week.length ? Math.round((auto / week.length) * 100) : 0}%</div><div className="lbl">Sent without a person (only where the workflow allows it)</div></div>
+          : <div className="tile"><div className="num">{open.length}</div><div className="lbl">Waiting for review{open.length ? ` (oldest ${timeAgo([...open].sort((a, b) => new Date(a.receivedAt) - new Date(b.receivedAt))[0].receivedAt).replace(' ago', '')})` : ''}</div></div>}
         <div className="tile"><div className="num">{hoursSaved.toFixed(1)} h</div><div className="lbl">Estimated time saved ({replied} replies at {settings.minutesSavedPerReply} min)</div></div>
         <div className="tile"><div className="num">{qualityPct === null ? 'n/a' : `${qualityPct}%`}</div><div className="lbl">AI drafts sent without edits ({reviewed.length} reviewed)</div></div>
       </div>
@@ -44,10 +46,10 @@ export default function Dashboard() {
             <div className="row between"><span>Automatic sending</span><Badge tone={autoSends ? 'amber' : 'blue'}>{autoSends ? 'On for some paths' : 'Off: a person approves'}</Badge></div>
             <div className="row between"><span>Risk rules watching</span><strong>{rules.length}</strong></div>
             <div className="row between"><span>Documents the AI can read</span><strong>{activeFiles} of {files.length}</strong></div>
-            <div className="row between"><span>Zoro (tickets)</span><Badge>{settings.integrations.zoro.enabled ? 'Simulated' : 'Not connected'}</Badge></div>
+            <div className="row between"><span>Zoho Desk (tickets)</span><Badge>{settings.integrations.zoho.enabled ? (serverMode ? 'Connected' : 'Simulated') : 'Not connected'}</Badge></div>
           </div>
         </Card>
-        <Card title={`Needs attention (${open.length})`} actions={<a className="btn small" href="#/admin/review">Open queue</a>}>
+        <Card title={`Waiting for review (${open.length})`} actions={<a className="btn small" href="#/admin/review">Open queue</a>}>
           {open.length === 0 ? <Empty title="All caught up" /> : (
             <div className="list">
               {open.slice(0, 5).map((e) => (

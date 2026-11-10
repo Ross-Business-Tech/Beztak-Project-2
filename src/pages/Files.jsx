@@ -14,7 +14,8 @@ export default function Files() {
 
   const list = files.filter((f) => (folder === 'All' || f.folder === folder) && f.name.toLowerCase().includes(q.toLowerCase()))
   const readable = files.filter((f) => f.active && f.content).length
-  const folders = ['All', ...FILE_FOLDERS]
+  const fromEgnyte = files.filter((f) => f.source === 'egnyte').length
+  const folders = ['All', ...FILE_FOLDERS, ...(fromEgnyte ? ['Egnyte'] : [])]
 
   return (
     <>
@@ -30,7 +31,7 @@ export default function Files() {
       <div className="tiles" style={{ gridTemplateColumns: 'repeat(3, minmax(0,1fr))' }}>
         <div className="tile"><div className="num">{files.length}</div><div className="lbl">Total files</div></div>
         <div className="tile"><div className="num">{readable}</div><div className="lbl">In use by the AI</div></div>
-        <div className="tile"><div className="num">{files.filter((f) => f.test).length}</div><div className="lbl">Test files</div></div>
+        <div className="tile"><div className="num">{fromEgnyte || files.filter((f) => f.test).length}</div><div className="lbl">{fromEgnyte ? 'From Egnyte' : 'Test files'}</div></div>
       </div>
       <Card>
         <div className="row between" style={{ marginBottom: 12 }}>
@@ -39,25 +40,26 @@ export default function Files() {
         </div>
         {list.length === 0 ? <Empty title="No files">Upload a policy, FAQ or guide to get started.</Empty> : (
           <div className="table-wrap">
-            <table>
+            <table className="stack-sm">
               <thead><tr><th>Name</th><th>Folder</th><th>Size</th><th>AI can use</th><th aria-label="Actions" /></tr></thead>
               <tbody>
                 {list.map((f) => (
                   <tr key={f.id}>
-                    <td>
-                      <div className="cell-title">{f.name} {f.test && <Badge tone="blue">Test</Badge>}{!f.extracted && <Badge tone="amber">Not readable yet</Badge>}</div>
+                    <td data-label="Name">
+                      <div className="cell-title">{f.name} {f.test && <Badge tone="blue">Test</Badge>}{f.source === 'egnyte' && <Badge tone="blue">Egnyte</Badge>}{!f.extracted && <Badge tone="amber">Not readable yet</Badge>}</div>
                       <div className="muted small">{f.description || 'No description'}</div>
                     </td>
-                    <td>
+                    <td data-label="Folder">
+                      {f.source === 'egnyte' ? <span className="muted">Egnyte</span> : (
                       <select aria-label={`Folder for ${f.name}`} value={f.folder} onChange={(e) => updateFile(f.id, { folder: e.target.value })} style={{ minWidth: 110 }}>
                         {FILE_FOLDERS.map((x) => <option key={x}>{x}</option>)}
-                      </select>
+                      </select>)}
                     </td>
-                    <td className="muted" style={{ whiteSpace: 'nowrap' }}>{fmtSize(f.size)}</td>
-                    <td><Toggle label={`Let the AI use ${f.name}`} checked={f.active} onChange={(v) => { updateFile(f.id, { active: v }); log('file', `"${f.name}" ${v ? 'turned on' : 'turned off'} for the AI`) }} /></td>
-                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <td className="muted" data-label="Size" style={{ whiteSpace: 'nowrap' }}>{fmtSize(f.size)}</td>
+                    <td data-label="AI can use"><Toggle label={`Let the AI use ${f.name}`} checked={f.active} onChange={(v) => { updateFile(f.id, { active: v }); log('file', `"${f.name}" ${v ? 'turned on' : 'turned off'} for the AI`) }} /></td>
+                    <td className="actions" style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                       <button className="btn small" onClick={() => setView(f)} disabled={!f.content}>View</button>{' '}
-                      <button className="btn small danger" onClick={() => setConfirm(f)}>Delete</button>
+                      {f.source === 'egnyte' ? <span className="muted small" title="Managed by the Egnyte link in Settings">Synced</span> : <button className="btn small danger" onClick={() => setConfirm(f)}>Delete</button>}
                     </td>
                   </tr>
                 ))}

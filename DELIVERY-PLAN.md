@@ -6,6 +6,35 @@
 
 This replaces the earlier 20-week plan. With one week, the goal is a **working, honest, self-hostable first release in suggest-only mode**, plus a clear roadmap for everything else. Anything that cannot be finished and tested by Monday is listed as "not in this release" rather than shipped half-built.
 
+## 0. Progress (updated Tue Nov 10, 2026)
+
+Decisions made: Zoho Desk is the ticketing system (confirmed by the team, not yet by Beztak's admin); launch is suggest-only; reply handling defaults to a private note on the ticket; MIT license (to confirm with Beztak); build for flexibility (any OpenAI-compatible AI, adapter design for ticketing); about 500 tickets a month.
+
+**Built and tested (branch `Brendan`):**
+- Self-hosted server (one container, SQLite, no other services): sign-in with admin and reviewer roles, shared settings/workflow/documents, activity log.
+- Zoho Desk connector (read tickets, private notes, status, tags, assign, optional email reply) plus a stand-in Zoho server for testing and demos.
+- Provider-neutral AI connection with the key kept on the server.
+- Safety: nothing is emailed without an admin choice, high-risk topics need confirmation, a failed Zoho write never marks a reply as sent, tickets cannot be deleted, shared presets cannot change Zoho settings.
+- Settings screens for Zoho status, test connection, pause switch, team accounts and passwords.
+- End-to-end automated tests (`npm run test:server`), Dockerfile and compose files, `.env.example`, install, Zoho, security/privacy and extension guides, MIT license.
+
+**Update (Nov 10, later): no Zoho access, Claude Haiku.** Beztak has not given us Zoho access, so delivery no longer depends on it. Changes: (1) the AI is Claude Haiku 5.5 (`claude-haiku-5-5`) through the official Anthropic SDK with the team's own key, roughly a dollar or two a month at about 500 requests; other providers remain optional; (2) a new **Import and evaluate** page lets people paste or upload a spreadsheet of requests, add them to the review queue, or run an **accuracy check** that scores the assistant against expected topics and risks (a sample file with made-up requests is included); (3) the Render setup starts without Zoho. Zoho Desk stays in the code as an optional connector, untested against a real portal.
+
+**Egnyte (added Nov 10, later):** admins can link one Egnyte folder (read-only, set in Settings with a folder browser). The server copies readable PDF, Word, text, Markdown, CSV and HTML files, re-checks hourly, and the AI is given the passages that best match each request instead of just the first files. Tested end to end against a stand-in Egnyte server with real Word and PDF files. Not yet tried against a real Egnyte account; Egnyte tokens may expire after 30 days, so a refresh-token flow is a sensible next step. See `docs/egnyte.md`.
+
+**Usability pass (Nov 10, later):** from a UX review: help boxes are collapsed by default; the menu is grouped Work / Manage / Help and each role opens on its own page (reviewers on the queue, admins on the dashboard); the review queue sorts urgent and longest-waiting first, shows waiting times, and moves to the next case after each decision; on a phone the draft reply sits right after the original email with the other panels folded away and a fixed action bar; the confidence meter has plain-language labels; Settings is split into sections with technical details tucked away; error messages stay until dismissed; tables become cards on a phone; the dashboard no longer shows a misleading "answered automatically" figure when nothing is sent automatically; names are consistent (Knowledge files, Test a document, Needs review).
+
+**Hosting decision:** Render (Docker web service with a persistent disk, owned by Beztak). Vercel does not fit because the app needs a lasting disk and a background timer. See `docs/deploy-render.md` for the plan, costs, checklist and schedule; `render.yaml` is the setup file.
+
+**Not yet done:**
+- Test the Claude connection with a real Anthropic key (only a stand-in has been used so far). This is now the biggest open risk.
+- Test against a real Zoho Desk portal (optional now; needs a sandbox and admin credentials from Beztak).
+- Build and run the Docker image on a machine with Docker (no Docker engine in the build sandbox).
+- Run the accuracy check on Beztak's real sample requests and tune the risk filters (the page is built; the data and tuning are not).
+- Policy document manager improvements (review dates, which policy backed an answer), setup wizard, reading a shared mailbox directly (IMAP).
+- Retention and delete-on-request tools; alert emails; reading ticket follow-ups and attachments.
+- Independent security review.
+
 ## 1. What we know
 
 - HR requests arrive at a shared email, which is routed into **Zoro** (ticketing). Zoro's internals are **not yet confirmed**. The app already has a placeholder for a "Zoro MCP server address", which suggests Zoro exposes an MCP server, but nothing in the repo or our research confirms what Zoro is, what it can do, or how to authenticate. A web search for "Zoro" returned only Zoho Desk results, which may be a different product or a spelling difference.

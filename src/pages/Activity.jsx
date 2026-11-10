@@ -21,10 +21,10 @@ export default function Activity() {
           <Segmented label="Type" value={f} onChange={setF} options={[{ value: 'all', label: 'All' }, ...Object.entries(TYPES).map(([k, v]) => ({ value: k, label: v[0] }))]} />
         </div>
         {list.length === 0 ? <Empty title="Nothing logged yet" /> : (
-          <div className="table-wrap"><table>
+          <div className="table-wrap"><table className="stack-sm">
             <thead><tr><th>When</th><th>Type</th><th>What happened</th></tr></thead>
             <tbody>{list.map((a) => (
-              <tr key={a.id}><td className="muted" style={{ whiteSpace: 'nowrap' }}>{fmtDate(a.at)}</td><td><Badge tone={(TYPES[a.type] || TYPES.system)[1]}>{(TYPES[a.type] || TYPES.system)[0]}</Badge></td><td>{a.text}</td></tr>
+              <tr key={a.id}><td className="muted" data-label="When" style={{ whiteSpace: 'nowrap' }}>{fmtDate(a.at)}</td><td data-label="Type"><Badge tone={(TYPES[a.type] || TYPES.system)[1]}>{(TYPES[a.type] || TYPES.system)[0]}</Badge></td><td data-label="What happened">{a.text}</td></tr>
             ))}</tbody>
           </table></div>
         )}

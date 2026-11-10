@@ -9,10 +9,11 @@ import Workflow from './pages/Workflow'
 import Settings from './pages/Settings'
 import Activity from './pages/Activity'
 import Guide from './pages/Guide'
+import Import from './pages/Import'
 import { Icon } from './components/ui'
 
-function useHashRoute() {
-  const get = () => window.location.hash.replace(/^#/, '') || '/help'
+function useHashRoute(home) {
+  const get = () => window.location.hash.replace(/^#/, '') || home
   const [route, setRoute] = useState(get)
   useEffect(() => {
     const h = () => { setRoute(get()); window.scrollTo(0, 0) }
@@ -22,19 +23,21 @@ function useHashRoute() {
   return route
 }
 
+// Grouped by what people do: Work (every day), Manage (set-up, admins), Help (learning and trying things safely)
 const NAV = [
-  { group: 'Guide' },
-  { to: '/help', icon: 'book', label: 'Getting started', match: (r) => r === '/help' },
-  { group: 'Test Lab' },
-  { to: '/lab', icon: 'mail', label: 'Test emails', match: (r) => r === '/lab' },
-  { to: '/lab/docs', icon: 'file', label: 'Test documents', match: (r) => r === '/lab/docs' },
-  { group: 'Administration' },
+  { group: 'Work' },
+  { to: '/admin/review', icon: 'inbox', label: 'Review queue', badge: true, match: (r) => r === '/admin/review' },
+  { to: '/admin/import', icon: 'upload', label: 'Import and evaluate', match: (r) => r === '/admin/import' },
+  { group: 'Manage' },
   { to: '/admin', icon: 'chart', label: 'Dashboard', match: (r) => r === '/admin' },
   { to: '/admin/workflow', icon: 'workflow', label: 'Workflow', match: (r) => r === '/admin/workflow' || r === '/admin/flags' },
-  { to: '/admin/review', icon: 'inbox', label: 'Review queue', badge: true, match: (r) => r === '/admin/review' },
   { to: '/admin/files', icon: 'folder', label: 'Knowledge files', match: (r) => r === '/admin/files' },
   { to: '/admin/settings', icon: 'gear', label: 'Settings', match: (r) => r === '/admin/settings' },
   { to: '/admin/activity', icon: 'log', label: 'Activity log', match: (r) => r === '/admin/activity' },
+  { group: 'Help' },
+  { to: '/help', icon: 'book', label: 'Getting started', match: (r) => r === '/help' },
+  { to: '/lab', icon: 'mail', label: 'Test emails', match: (r) => r === '/lab' },
+  { to: '/lab/docs', icon: 'file', label: 'Test a document', match: (r) => r === '/lab/docs' },
 ]
 
 function Page({ route }) {
@@ -43,6 +46,7 @@ function Page({ route }) {
   switch (route) {
     case '/admin': return <Dashboard />
     case '/admin/review': return <Review />
+    case '/admin/import': return <Import />
     case '/admin/files': return <Files />
     case '/admin/flags':
     case '/admin/workflow': return <Workflow />
@@ -52,9 +56,19 @@ function Page({ route }) {
   }
 }
 
+function StatusBanner({ status }) {
+  const t = status?.ticketing
+  if (t?.enabled && t.lastSync && !t.lastSync.ok) return <div className="sim-banner" role="alert"><strong>Zoho Desk problem.</strong> The last check for new tickets failed: {t.lastSync.error} <a href="#/admin/settings">Open Settings</a></div>
+  const eg = status?.egnyte
+  if (eg?.enabled && eg.lastSync && !eg.lastSync.ok) return <div className="sim-banner" role="alert"><strong>Egnyte problem.</strong> The last sync failed, so the AI is using the documents it copied earlier: {eg.lastSync.error} <a href="#/admin/settings">Open Settings</a></div>
+  if (!status?.ai?.configured) return <div className="sim-banner" role="note"><strong>No AI provider is set on this server.</strong> Replies use the simple built-in writer until an administrator adds one (see the install guide).</div>
+  return null
+}
+
 export default function App() {
-  const route = useHashRoute()
-  const { emails, toasts } = useApp()
+  const { emails, toasts, dismissToast, serverMode, user, signOut, status } = useApp()
+  // Reviewers open on the queue, admins on the dashboard, and visitors to the demo on the guide
+  const route = useHashRoute(serverMode ? (user.role === 'admin' ? '/admin' : '/admin/review') : '/help')
   const [open, setOpen] = useState(false)
   const waiting = emails.filter((e) => e.status === 'pending_review' || e.status === 'escalated').length
   useEffect(() => setOpen(false), [route])
@@ -72,13 +86,15 @@ export default function App() {
             </a>
           ))}
         </nav>
-        <div className="side-note">Test environment. Simulated AI.</div>
+        {serverMode
+          ? <div className="side-note">Signed in as <strong>{user.username}</strong> ({user.role}).<br /><button className="btn small" style={{ marginTop: 8 }} onClick={signOut}>Sign out</button></div>
+          : <div className="side-note">Test environment. Simulated AI.</div>}
       </aside>
       <main className="main">
-        <div className="sim-banner" role="note"><strong>Test environment.</strong> The AI is simulated and no real email is read or sent.</div>
+        {serverMode ? <StatusBanner status={status} /> : <div className="sim-banner" role="note"><strong>Test environment.</strong> The AI is simulated and no real email is read or sent.</div>}
         <Page route={route} />
       </main>
-      <Toasts toasts={toasts} />
+      <Toasts toasts={toasts} onDismiss={dismissToast} />
     </div>
   )
 }

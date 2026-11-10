@@ -177,7 +177,7 @@ tr:last-child td { border-bottom: 0; }
 @media (max-width: 560px) { .item.wrap-sm { flex-wrap: wrap; } .head-actions { width: 100%; } }
 @media (max-width: 480px) { .tiles { gap: 10px; } .tile .num { font-size: 1.5rem; } .bar-row { grid-template-columns: 100px 1fr 28px; } }
 
-.compose { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.compose { border: 1px solid var(--border); border-radius: 10px; overflow: clip; }
 .compose-line { display: flex; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); font-size: .9rem; flex-wrap: wrap; }
 .compose-line > span:first-child { color: var(--muted); width: 56px; flex: none; }
 .compose textarea { border: 0; border-radius: 0; min-height: 260px; outline-offset: -2px; }
@@ -325,4 +325,44 @@ tr:last-child td { border-bottom: 0; }
   .wf-toolbar .grp { display: contents; }
   .wf-toolbar .btn { padding: 6px 12px; min-height: 40px; font-size: .88rem; flex: 1 1 auto; }
   .wf-hint { font-size: .84rem; }
+}
+
+/* Sign-in page (live server only) */
+.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--bg, #f6f7f9); }
+.login-card { width: 100%; max-width: 380px; padding: 24px; }
+
+/* ---- usability pass ---- */
+.toast { display: flex; gap: 12px; align-items: flex-start; }
+.toast-x { background: none; border: 0; color: inherit; font-size: 1.3rem; line-height: 1; cursor: pointer; min-width: 32px; min-height: 32px; margin: -6px -8px -6px 0; border-radius: 6px; }
+.toast-x:hover { background: rgba(255, 255, 255, .18); }
+.conf { display: grid; gap: 3px; justify-items: end; }
+.conf-word { font-size: .76rem; font-weight: 650; } .conf-word.green { color: var(--green); } .conf-word.amber { color: var(--amber); } .conf-word.red { color: var(--red); }
+.fold-head { all: unset; box-sizing: border-box; width: 100%; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; cursor: pointer; border-radius: 6px; }
+.fold-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.fold-head h2 { margin: 0; } .fold-sub { display: block; margin-top: 2px; }
+.fold-body { margin-top: 14px; }
+.queue-wait { white-space: nowrap; flex: none; font-size: .82rem; } .queue-wait.late { color: var(--red); font-weight: 650; }
+.settings-tabs { margin-bottom: 18px; }
+.tech { margin: 4px 0 10px; } .tech summary { cursor: pointer; font-size: .85rem; color: var(--muted); }
+/* On a tablet or phone the review screen puts the draft reply right after the original email */
+@media (max-width: 1100px) {
+  .review-grid { display: flex; flex-direction: column; gap: 16px; }
+  .review-grid > .stack { display: contents; }
+  .review-grid .o1 { order: 1; } .review-grid .o2 { order: 2; } .review-grid .o3 { order: 3; } .review-grid .o4 { order: 4; }
+  .review-grid .o5 { order: 5; } .review-grid .o6 { order: 6; } .review-grid .o7 { order: 7; } .review-grid .o8 { order: 8; }
+}
+@media (max-width: 860px) {
+  .action-bar { position: sticky; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--border); padding-top: 10px; margin-top: 12px !important; }
+  .btn { min-height: 44px; } .btn.small { min-height: 40px; padding: 6px 12px; }
+  .segmented { flex-wrap: nowrap; overflow-x: auto; max-width: 100%; } .segmented button { white-space: nowrap; min-height: 40px; }
+  .toggle { transform: scale(1.1); transform-origin: right center; }
+}
+/* Tables become one card per row on a phone */
+@media (max-width: 700px) {
+  table.stack-sm thead { display: none; }
+  table.stack-sm, table.stack-sm tbody, table.stack-sm tr, table.stack-sm td { display: block; width: 100%; }
+  table.stack-sm tr { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: var(--surface); }
+  table.stack-sm td { border: 0; padding: 5px 0; }
+  table.stack-sm td[data-label]::before { content: attr(data-label); display: block; font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 2px; }
+  table.stack-sm td.actions { text-align: left !important; padding-top: 8px; }
 }

@@ -3,9 +3,10 @@ import { DEFAULT_SETTINGS, SAMPLE_FILES, SCENARIOS, SEED_EMAILS } from './data/d
 import { statusFromDecision } from './engine/mockAI'
 import { runWorkflow, runWorkflowSync } from './workflow/runner'
 import { makeDefaultWorkflow, rulesOf } from './workflow/defaults'
+import { summarizeResult } from './workflow/evaluate'
 
 const KEY = 'hr-helpdesk-sandbox-v4'
-const Ctx = createContext(null)
+export const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
 
 let counter = 0
@@ -34,7 +35,7 @@ function makeSeed() {
     }
     emails.push({ ...email, result, status, finalReply, wasEdited, history })
   }
-  return { settings, workflow, files, emails: emails.reverse(), activity: [{ id: uid('a'), at: new Date().toISOString(), type: 'system', text: 'Test environment created with sample data' }] }
+  return { settings, workflow, files, evalRuns: [], emails: emails.reverse(), activity: [{ id: uid('a'), at: new Date().toISOString(), type: 'system', text: 'Test environment created with sample data' }] }
 }
 
 function load() {
@@ -61,9 +62,10 @@ export function AppProvider({ children }) {
 
   const toast = useCallback((text, tone = 'ok') => {
     const id = uid('t')
-    setToasts((t) => [...t, { id, text, tone }])
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200)
+    setToasts((t) => [...t, { id, text, tone }].slice(-4))
+    if (tone !== 'warn') setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200)
   }, [])
+  const dismissToast = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), [])
 
   const log = useCallback((type, text) => {
     setData((d) => ({ ...d, activity: [{ id: uid('a'), at: new Date().toISOString(), type, text }, ...d.activity].slice(0, 300) }))
@@ -107,8 +109,33 @@ export function AppProvider({ children }) {
       result.alerts.forEach((a) => log('alert', `Alert to ${a.role}: ${a.message} ("${email.subject}")`))
       return full
     },
+    /** Import a real request into the review queue (never sent anywhere automatically). */
+    async importRequest(input) {
+      const d = dataRef.current
+      const t = Date.parse(input.receivedAt)
+      const email = { id: uid('e'), attachments: [], source: 'import', name: input.name || 'Employee', from: input.from || 'unknown@example.com', subject: input.subject, body: input.body, receivedAt: Number.isFinite(t) ? new Date(t).toISOString() : new Date().toISOString() }
+      const result = await runWorkflow({ email, workflow: d.workflow, settings: d.settings, files: d.files, history: d.emails })
+      let status = statusFromDecision(result.decision)
+      if (status === 'auto_sent') status = 'pending_review'
+      const at = new Date().toISOString()
+      const full = { ...email, result, status, finalReply: null, history: [{ at, text: 'Request imported' }, { at, text: status === 'escalated' ? 'Escalated to a person' : status === 'discarded' ? 'Closed without a reply' : 'Draft created, waiting for review' }] }
+      setData((s) => ({ ...s, emails: [full, ...s.emails] }))
+      return full
+    },
+    /** Measure one request without saving it anywhere. */
+    async evaluateRequest(input) {
+      const d = dataRef.current
+      const email = { id: uid('e'), attachments: [], source: 'eval', name: input.name || 'Employee', from: input.from || 'unknown@example.com', subject: input.subject, body: input.body, receivedAt: new Date().toISOString() }
+      const result = await runWorkflow({ email, workflow: d.workflow, settings: d.settings, files: d.files, history: [] })
+      return summarizeResult({ ...email, result, status: statusFromDecision(result.decision) }, { expectedTopic: input.expectedTopic, expectedRisk: input.expectedRisk })
+    },
+    saveEvalRun(run) {
+      const saved = { ...run, id: uid('r'), at: new Date().toISOString(), by: 'you' }
+      setData((s) => ({ ...s, evalRuns: [saved, ...(s.evalRuns || [])].slice(0, 5) }))
+      return saved
+    },
     /** Review actions: send (with edited text) or discard. */
-    resolveEmail(id, kind, text) {
+    async resolveEmail(id, kind, text) {
       setData((d) => ({
         ...d,
         emails: d.emails.map((e) => {
@@ -120,6 +147,7 @@ export function AppProvider({ children }) {
         }),
       }))
       log('review', kind === 'send' ? 'A reviewer sent a reply (simulated)' : 'A reviewer closed an email without replying')
+      return { ok: true, message: kind === 'send' ? 'Reply sent (simulated, no real email)' : 'Closed without a reply' }
     },
     addNote(id, text) {
       const note = { id: uid('n'), at: new Date().toISOString(), text }
@@ -143,6 +171,6 @@ export function AppProvider({ children }) {
   }), [toast, log])
 
   const rules = useMemo(() => rulesOf(data.workflow), [data.workflow])
-  const value = { ...data, rules, ...actions, toasts, storageFull }
+  const value = { ...data, rules, ...actions, toasts, dismissToast, storageFull }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

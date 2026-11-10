@@ -182,7 +182,7 @@ function Editor() {
     setRunning(true)
     try {
       const email = await sendTestEmail({ name: sc.name, from: sc.from, subject: sc.subject, body: sc.body })
-      setLastRun(email)
+      if (email) setLastRun(email)
     } finally { setRunning(false) }
   }
 

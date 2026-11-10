@@ -83,7 +83,8 @@ export function sanitizeWorkflow(raw) {
 export function sanitizeSettings(raw) {
   if (!raw || typeof raw !== 'object') return null
   const d = DEFAULT_SETTINGS
-  const z = raw.integrations?.zoro && typeof raw.integrations.zoro === 'object' ? raw.integrations.zoro : {}
+  const zr = raw.integrations?.zoho ?? raw.integrations?.zoro // older presets used the key "zoro"
+  const z = zr && typeof zr === 'object' ? zr : {}
   const model = typeof raw.ai?.model === 'string' && /^[\w.\-/:]{1,100}$/.test(raw.ai.model) ? raw.ai.model : d.ai.model
   return {
     tone: oneOf(raw.tone, ['warm', 'professional', 'concise'], d.tone),
@@ -91,7 +92,7 @@ export function sanitizeSettings(raw) {
     signature: str(raw.signature, d.signature, 400), footer: str(raw.footer, d.footer, 500), includeFooter: bool(raw.includeFooter, d.includeFooter),
     minutesSavedPerReply: Math.max(1, Math.min(60, Math.round(Number(raw.minutesSavedPerReply)) || d.minutesSavedPerReply)),
     ai: { engine: oneOf(raw.ai?.engine, ['ai', 'simulated'], d.ai.engine), model },
-    integrations: { zoro: { enabled: bool(z.enabled, false), serverUrl: str(z.serverUrl, '', 200), pullTickets: bool(z.pullTickets, true), sendReplies: bool(z.sendReplies, true), replyAs: oneOf(z.replyAs, ['draft_note', 'none'], 'draft_note') } },
+    integrations: { egnyte: d.integrations.egnyte, zoho: { enabled: bool(z.enabled, false), applyTicketActions: bool(z.applyTicketActions, true), noteDraftOnArrival: bool(z.noteDraftOnArrival, true), onApprove: oneOf(z.onApprove, ['internal_note', 'send_reply', 'none'], 'internal_note') } },
   }
 }
 
