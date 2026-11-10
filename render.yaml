@@ -1,0 +1,35 @@
+# Render Blueprint: creates the web service and its data disk in one step.
+# Render dashboard > New > Blueprint > pick this repository. Secret values (marked sync: false) are asked for
+# once during creation and are never stored in the repository. See docs/deploy-render.md.
+services:
+  - type: web
+    name: hr-helpdesk-ai
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter              # a paid plan is required for a persistent disk and for staying awake
+    region: ohio               # closest US region to Michigan
+    healthCheckPath: /api/health
+    autoDeploy: false          # deploy deliberately, after testing a new version
+    disk:
+      name: hr-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - { key: DATA_DIR, value: /data }
+      - { key: COOKIE_SECURE, value: "true" }
+      - { key: TRUST_PROXY, value: "true" }
+      - { key: ALLOW_AUTO_SEND, value: "false" }
+      - { key: TICKETING_ADAPTER, value: zohodesk }
+      - { key: ZOHO_REGION, value: us }
+      - { key: POLL_SECONDS, value: "300" }
+      - { key: INTAKE_STATUSES, value: Open }
+      - { key: AI_BASE_URL, value: "https://openrouter.ai/api/v1" }
+      - { key: AI_MODEL, value: "anthropic/claude-sonnet-4.5" }
+      - { key: ADMIN_USERNAME, value: admin }
+      - { key: ADMIN_PASSWORD, sync: false }
+      - { key: AI_API_KEY, sync: false }
+      - { key: ZOHO_ORG_ID, sync: false }
+      - { key: ZOHO_DEPARTMENT_ID, sync: false }
+      - { key: ZOHO_CLIENT_ID, sync: false }
+      - { key: ZOHO_CLIENT_SECRET, sync: false }
+      - { key: ZOHO_REFRESH_TOKEN, sync: false }

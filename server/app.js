@@ -20,6 +20,11 @@ export function createApp(cfg, { fetchImpl = fetch, seedSampleFiles = false, log
   const loginLimit = makeLimiter(8, 15 * 60_000)
   const aiTransport = makeTransport(cfg.ai, fetchImpl)
   const staticDir = normalize(cfg.staticDir)
+  // Behind one trusted proxy the right-most forwarded address is the real visitor (earlier ones can be faked).
+  const clientIp = (req) => {
+    if (cfg.trustProxy) { const xff = String(req.headers['x-forwarded-for'] || '').split(',').map((x) => x.trim()).filter(Boolean); if (xff.length) return xff[xff.length - 1] }
+    return req.socket.remoteAddress || 'x'
+  }
 
   const routes = []
   const route = (method, pattern, role, fn, big) => routes.push({ method, role, fn, big, keys: [...pattern.matchAll(/:(\w+)/g)].map((m) => m[1]), re: new RegExp(`^${pattern.replace(/:\w+/g, '([^/]+)')}$`) })
@@ -40,8 +45,7 @@ export function createApp(cfg, { fetchImpl = fetch, seedSampleFiles = false, log
   route('GET', '/api/health', null, (ctx) => ({ ok: true, mode: 'server', signedIn: Boolean(ctx.user) }))
 
   route('POST', '/api/login', null, async (ctx) => {
-    const ip = ctx.req.socket.remoteAddress || 'x'
-    if (!loginLimit(ip)) throw new HttpError(429, 'Too many sign-in attempts. Wait a few minutes and try again.')
+    if (!loginLimit(clientIp(ctx.req))) throw new HttpError(429, 'Too many sign-in attempts. Wait a few minutes and try again.')
     const u = db.userByName(String(ctx.body.username || '').trim())
     const ok = u ? verifyPassword(String(ctx.body.password || ''), u.password_hash) : (verifyPassword('x', hashPassword('y')), false)
     if (!ok) throw new HttpError(401, 'That username or password is not right.')

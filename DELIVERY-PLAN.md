@@ -18,6 +18,8 @@ Decisions made: Zoho Desk is the ticketing system (confirmed by the team, not ye
 - Settings screens for Zoho status, test connection, pause switch, team accounts and passwords.
 - End-to-end automated tests (`npm run test:server`), Dockerfile and compose files, `.env.example`, install, Zoho, security/privacy and extension guides, MIT license.
 
+**Hosting decision:** Render (Docker web service with a persistent disk, owned by Beztak). Vercel does not fit because the app needs a lasting disk and a background timer. See `docs/deploy-render.md` for the plan, costs, checklist and schedule; `render.yaml` is the setup file.
+
 **Not yet done:**
 - Test against a real Zoho Desk portal (needs a sandbox and admin credentials from Beztak; the single biggest open risk).
 - Build and run the Docker image on a machine with Docker (no Docker engine in the build sandbox).

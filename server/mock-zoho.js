@@ -6,6 +6,7 @@ import { createServer } from 'node:http'
 export function createMockZoho({ orgId = 'mock-org', seed = true } = {}) {
   const tickets = []
   const log = []
+  const stats = { detailReads: 0 }
   let n = 1000
   const add = (t) => {
     const id = String(++n)
@@ -43,6 +44,7 @@ export function createMockZoho({ orgId = 'mock-org', seed = true } = {}) {
     }
     const t = tickets.find((x) => x.id === rest[1])
     if (!t) return json(res, 404, { errorCode: 'URL_NOT_FOUND', message: 'Ticket not found' })
+    if (rest.length === 2 && req.method === 'GET') { stats.detailReads += 1 }
     if (rest.length === 2 && req.method === 'GET') return json(res, 200, { ...view(t), description: t.description })
     if (rest.length === 2 && ['PATCH', 'PUT'].includes(req.method)) { Object.assign(t, body.status ? { status: body.status } : {}, body.assigneeId ? { assigneeId: body.assigneeId } : {}); log.push({ ticket: t.id, op: 'update', body }); return json(res, 200, view(t)) }
     if (rest[2] === 'comments' && req.method === 'POST') { t.comments.push({ content: body.content, isPublic: body.isPublic === true }); log.push({ ticket: t.id, op: 'comment', isPublic: body.isPublic === true }); return json(res, 201, { id: String(t.comments.length) }) }
@@ -51,7 +53,7 @@ export function createMockZoho({ orgId = 'mock-org', seed = true } = {}) {
     if (rest[2] === 'threads') return json(res, 200, { data: [] })
     return json(res, 404, { message: 'not found' })
   })
-  return { server, tickets, log, add }
+  return { server, tickets, log, add, stats }
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {

@@ -25,14 +25,14 @@ function fakeAI() {
   return { server, calls }
 }
 
-async function setup() {
+async function setup(extra = {}) {
   const zoho = createMockZoho({ orgId: 'org1' }); const zPort = await listen(zoho.server)
   const ai = fakeAI(); const aPort = await listen(ai.server)
   const cfg = loadConfig({
     DATA_DIR: ':memory:', ADMIN_PASSWORD: 'correct-horse-battery', TICKETING_ADAPTER: 'zohodesk', BACKFILL_DAYS: '1',
     ZOHO_DESK_URL: `http://127.0.0.1:${zPort}`, ZOHO_ACCOUNTS_URL: `http://127.0.0.1:${zPort}`, ZOHO_ORG_ID: 'org1',
     ZOHO_CLIENT_ID: 'c', ZOHO_CLIENT_SECRET: 's', ZOHO_REFRESH_TOKEN: 'r', ZOHO_ASSIGNEES: '{"HR Director":"agent-9"}',
-    AI_BASE_URL: `http://127.0.0.1:${aPort}/v1`, AI_API_KEY: 'test-key',
+    AI_BASE_URL: `http://127.0.0.1:${aPort}/v1`, AI_API_KEY: 'test-key', ...extra,
   })
   const app = createApp(cfg, { log: () => {} }); const port = await listen(app.server)
   const base = `http://127.0.0.1:${port}`
@@ -93,7 +93,9 @@ test('tickets flow in, are processed safely, written back, and approved', async 
     assert.equal(zr.status, 'Escalated'); assert.ok(zr.tags.includes('Harassment'))
 
     // dedupe
+    const reads = t.zoho.stats.detailReads
     assert.equal((await t.api('POST', '/api/integrations/sync')).json.count, 0)
+    assert.equal(t.zoho.stats.detailReads, reads, 'known tickets are not read again')
 
     // reviewer approves with default mode (private note)
     await t.api('POST', '/api/login', { username: 'rev1', password: 'a-long-password-1' })
@@ -129,5 +131,15 @@ test('test emails never touch Zoho, and auto-send is off by default', async () =
     const r = await t.api('POST', '/api/emails/test', { name: 'Test Person', from: 'tp@example.com', subject: 'Holiday schedule', body: 'What days are we closed for holidays?' })
     assert.equal(r.status, 200); assert.equal(r.json.source, 'test')
     assert.equal(t.zoho.log.length, 0, 'no calls to Zoho for test emails')
+  } finally { t.stop() }
+})
+
+test('behind a proxy, one person guessing passwords does not lock everyone else out', async () => {
+  const t = await setup({ TRUST_PROXY: 'true' })
+  try {
+    const login = (ip, password) => fetch(`${t.base}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-hr-csrf': '1', 'x-forwarded-for': `1.1.1.1, ${ip}` }, body: JSON.stringify({ username: 'admin', password }) }).then((r) => r.status)
+    for (let i = 0; i < 8; i++) assert.equal(await login('9.9.9.9', 'wrong-wrong-wrong'), 401)
+    assert.equal(await login('9.9.9.9', 'correct-horse-battery'), 429, 'the guesser is blocked')
+    assert.equal(await login('8.8.8.8', 'correct-horse-battery'), 200, 'a different visitor is not')
   } finally { t.stop() }
 })

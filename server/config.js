@@ -17,6 +17,8 @@ export function loadConfig(e = env) {
     staticDir: e.STATIC_DIR || './dist',
     admin: { username: e.ADMIN_USERNAME || 'admin', password: e.ADMIN_PASSWORD || '' },
     cookieSecure: String(e.COOKIE_SECURE || 'auto').toLowerCase(), // auto | true | false
+    // true when a platform proxy (Render, Fly, a load balancer) sits in front: use its forwarded visitor address
+    trustProxy: bool(e.TRUST_PROXY, false),
     sessionHours: int(e.SESSION_HOURS, 12),
     // Safety switch: nothing is ever sent to an employee automatically unless this is on AND the workflow allows it.
     allowAutoSend: bool(e.ALLOW_AUTO_SEND, false),

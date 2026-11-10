@@ -60,10 +60,10 @@ export function createZohoDeskAdapter({ zoho, ticketing }, fetchImpl = fetch) {
     },
 
     /** Tickets created at or after `since` (ISO string), oldest first. */
-    async listNewTickets({ since }) {
+    async listNewTickets({ since, isKnown = () => false }) {
       const sinceMs = new Date(since).getTime()
       const r = await call('GET', '/tickets', { query: { status: ticketing.intakeStatuses, departmentId: ticketing.departmentId, sortBy: '-createdTime', limit: 100, from: 0, include: 'contacts' } })
-      const rows = (r?.data || []).filter((t) => new Date(t.createdTime).getTime() >= sinceMs)
+      const rows = (r?.data || []).filter((t) => new Date(t.createdTime).getTime() >= sinceMs && !isKnown(String(t.id)))
       const out = []
       for (const t of rows) {
         let body = ''

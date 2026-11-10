@@ -12,9 +12,11 @@ WORKDIR /app
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/dist-server ./dist-server
 COPY server/mock-zoho.js ./mock-zoho.js
-RUN mkdir -p /data && chown node:node /data
-USER node
+RUN apk add --no-cache su-exec && mkdir -p /data
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 VOLUME /data
 EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://127.0.0.1:8080/api/health >/dev/null || exit 1
+HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://127.0.0.1:${PORT}/api/health >/dev/null || exit 1
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["node", "--disable-warning=ExperimentalWarning", "dist-server/index.js"]

@@ -33,7 +33,7 @@ Open http://localhost:8080. The first sign-in password is printed in the log (or
 
 ## Real installation
 
-1. Read [docs/install.md](docs/install.md) (Docker or plain Node).
+1. Read [docs/install.md](docs/install.md) (Docker or plain Node), or deploy to Render with [docs/deploy-render.md](docs/deploy-render.md) (recommended; `render.yaml` is included).
 2. Connect Zoho Desk: [docs/zoho-desk.md](docs/zoho-desk.md).
 3. Review [docs/security-privacy.md](docs/security-privacy.md) with your IT and legal contacts before using real employee data.
 

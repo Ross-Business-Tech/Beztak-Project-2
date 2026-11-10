@@ -93,7 +93,7 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
     try {
       let since = db.kvGet('ingest_since')
       if (!since) { since = new Date(Date.now() - cfg.ticketing.backfillDays * 864e5).toISOString(); db.kvSet('ingest_since', since); log('system', `Ticket intake started. Tickets created from ${since} onward will be picked up.`) }
-      for (const t of await adapter.listNewTickets({ since })) {
+      for (const t of await adapter.listNewTickets({ since, isKnown: (id) => Boolean(db.emailIdForTicket(id)) })) {
         if (db.emailIdForTicket(t.id)) continue
         const email = { id: uid('e'), ticketId: t.id, ticketNumber: t.number, ticketUrl: t.url, source: 'zoho', name: clip(t.name, 120), from: clip(t.from, 200), subject: clip(t.subject, 300), body: clip(t.body, MAX_BODY), attachments: t.attachments || [], receivedAt: t.receivedAt }
         const rec = await processEmail(email)
