@@ -22,7 +22,7 @@ export function makeDefaultWorkflow({ autoSend = false } = {}) {
     node('n_careful', 'ai_draft', 1820, 40, { tone: 'default' }, 'Write careful reply'),
     node('n_urgent', 'review', 2120, 40, { priority: 'urgent', requireConfirm: true }, 'Urgent review'),
     node('n_sensitive', 'filter_flag', 920, 330, {
-      careful: false, semantic: true, rules: ['accommodation', 'termination', 'pay_dispute', 'immigration'].map(rule),
+      careful: false, semantic: true, rules: ['accommodation', 'hardship', 'termination', 'pay_dispute', 'immigration'].map(rule),
     }, 'Sensitive topics'),
     node('n_draft_s', 'ai_draft', 1220, 640, { tone: 'default' }, 'Write reply (sensitive)'),
     node('n_review_s', 'review', 1520, 640, { priority: 'normal', requireConfirm: false }, 'Review sensitive'),

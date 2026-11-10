@@ -4,7 +4,7 @@ import { statusFromDecision } from './engine/mockAI'
 import { runWorkflow, runWorkflowSync } from './workflow/runner'
 import { makeDefaultWorkflow, rulesOf } from './workflow/defaults'
 
-const KEY = 'hr-helpdesk-sandbox-v3'
+const KEY = 'hr-helpdesk-sandbox-v4'
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
 
