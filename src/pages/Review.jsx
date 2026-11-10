@@ -55,7 +55,7 @@ export default function Review() {
                       <StatusBadge status={e.status} />
                       {e.result.flags.length > 0 && <SeverityBadge severity={topSeverity(e.result.flags)} />}
                       {e.result.flags.length > 0 && <span className="small muted">{e.result.flags.map((f) => f.name).join(', ')}</span>}
-                      {e.result.priority === 'urgent' && <Badge tone="red">Urgent</Badge>}{e.source === 'test' && <Badge tone="blue">Test</Badge>}
+                      {e.result.priority === 'urgent' && <Badge tone="red">Urgent</Badge>}{e.source === 'test' && <Badge tone="blue">Test</Badge>}{e.source === 'import' && <Badge tone="blue">Imported</Badge>}
                     </div>
                   </div>
                   <span className="muted small" style={{ whiteSpace: 'nowrap', flex: 'none' }}>{timeAgo(e.receivedAt)}</span>
@@ -84,8 +84,9 @@ function Detail({ email, onBack }) {
   const edited = text !== r.draft
   const onApprove = settings.integrations.zoho.onApprove
   const live = serverMode && email.source === 'zoho'
-  const sendLabel = live ? (onApprove === 'send_reply' ? 'Approve and send to employee' : onApprove === 'internal_note' ? 'Approve and save to ticket' : 'Approve') : 'Send reply'
-  const sendHint = live ? (onApprove === 'send_reply' ? 'the reply is emailed through Zoho Desk when you approve' : onApprove === 'internal_note' ? 'approving saves the reply as a private note on the Zoho Desk ticket; nothing is emailed to the employee' : 'approving only records the decision here') : 'nothing is sent until you press Send'
+  const imported = email.source === 'import'
+  const sendLabel = imported ? 'Approve and record' : live ? (onApprove === 'send_reply' ? 'Approve and send to employee' : onApprove === 'internal_note' ? 'Approve and save to ticket' : 'Approve') : 'Send reply'
+  const sendHint = imported ? 'approving records your decision here. Copy the reply and send it from your own email or help desk' : live ? (onApprove === 'send_reply' ? 'the reply is emailed through Zoho Desk when you approve' : onApprove === 'internal_note' ? 'approving saves the reply as a private note on the Zoho Desk ticket; nothing is emailed to the employee' : 'approving only records the decision here') : 'nothing is sent until you press Send'
 
   return (
     <>
@@ -97,6 +98,7 @@ function Detail({ email, onBack }) {
               <StatusBadge status={email.status} />
               <Badge>{catLabel(r.category)}</Badge>
               {email.source === 'test' && <Badge tone="blue">Test email</Badge>}
+              {imported && <Badge tone="blue">Imported</Badge>}
               {email.ticketUrl && <a className="badge blue" href={email.ticketUrl} target="_blank" rel="noreferrer noopener">Ticket {email.ticketNumber ? `#${email.ticketNumber}` : ''}</a>}
             </div>
             <div className="email-box">{email.body}</div>
@@ -134,7 +136,8 @@ function Detail({ email, onBack }) {
                 <textarea id="reply" aria-label="Reply body" rows={14} value={text} onChange={(e) => { setText(e.target.value); setSaved(false) }} placeholder="Type your reply…" />
                 <div className="row between" style={{ margin: '6px 0 10px' }}>
                   <span className="muted small">{saved ? 'Draft saved' : edited ? 'Unsaved edits' : 'AI draft, not yet edited'} · {sendHint}</span>
-                  <button className="btn small" onClick={() => { saveDraft(email.id, text); setSaved(true); toast('Draft saved') }}>Save draft</button>
+                  <span className="row"><button className="btn small" onClick={() => { navigator.clipboard?.writeText(text).then(() => toast('Reply copied'), () => toast('Could not copy. Select the text and copy it.', 'warn')) }}>Copy reply</button>
+                  <button className="btn small" onClick={() => { saveDraft(email.id, text); setSaved(true); toast('Draft saved') }}>Save draft</button></span>
                 </div>
                 {highRisk && (
                   <label className="confirm-box"><input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} /> I have read this message and edited the reply as needed. It is appropriate to send.</label>

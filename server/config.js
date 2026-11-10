@@ -10,7 +10,9 @@ export function loadConfig(e = env) {
   const region = String(e.ZOHO_REGION || 'us').toLowerCase()
   const tld = ZOHO_DOMAINS[region] || region
   const zohoRoot = tld.startsWith('zoho') ? tld : `zoho.${tld}`
-  const aiBase = (e.AI_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/+$/, '')
+  // The AI is Claude through Anthropic's own API by default. Set AI_PROVIDER=openai to use any OpenAI-compatible service instead.
+  const provider = String(e.AI_PROVIDER || 'anthropic').toLowerCase() === 'openai' ? 'openai' : 'anthropic'
+  const aiBase = (e.AI_BASE_URL || (provider === 'anthropic' ? 'https://api.anthropic.com' : 'https://openrouter.ai/api/v1')).replace(/\/+$/, '')
   return {
     port: int(e.PORT, 8080),
     dataDir: e.DATA_DIR || './data',
@@ -23,11 +25,12 @@ export function loadConfig(e = env) {
     // Safety switch: nothing is ever sent to an employee automatically unless this is on AND the workflow allows it.
     allowAutoSend: bool(e.ALLOW_AUTO_SEND, false),
     ai: {
+      provider,
       baseUrl: aiBase,
-      apiKey: e.AI_API_KEY || e.OPENROUTER_API_KEY || '',
-      defaultModel: e.AI_MODEL || 'anthropic/claude-sonnet-4.5',
-      // A local model (Ollama, vLLM) needs no key.
-      allowNoKey: bool(e.AI_ALLOW_NO_KEY, aiBase !== 'https://openrouter.ai/api/v1'),
+      apiKey: e.AI_API_KEY || (provider === 'anthropic' ? e.ANTHROPIC_API_KEY : e.OPENROUTER_API_KEY) || '',
+      defaultModel: e.AI_MODEL || (provider === 'anthropic' ? 'claude-haiku-5-5' : 'anthropic/claude-sonnet-4.5'),
+      // A local OpenAI-compatible model (Ollama, vLLM) needs no key. Claude always does.
+      allowNoKey: provider === 'openai' && bool(e.AI_ALLOW_NO_KEY, aiBase !== 'https://openrouter.ai/api/v1'),
     },
     ticketing: {
       adapter: String(e.TICKETING_ADAPTER || 'none').toLowerCase(), // none | zohodesk

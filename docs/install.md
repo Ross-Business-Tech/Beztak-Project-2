@@ -5,8 +5,8 @@ Everything runs in **one container** (or one Node process). Data is kept in a si
 ## What you need
 
 - A computer or server that can run Docker (recommended), or Node 22.13+.
-- An AI provider account and key (OpenRouter, OpenAI, Azure OpenAI, or any OpenAI-compatible service), or a local model such as Ollama. Without one, the app still runs but uses a simple word-matching writer.
-- For Zoho Desk: an admin on your Zoho Desk account (see [zoho-desk.md](zoho-desk.md)).
+- An **Anthropic API key** (console.anthropic.com). The app uses Claude Haiku 5.5 by default. Without a key, the app still runs but uses a simple word-matching writer. Other providers (any OpenAI-compatible service, or a local model such as Ollama) are supported with `AI_PROVIDER=openai`.
+- Optional, for Zoho Desk: an admin on your Zoho Desk account (see [zoho-desk.md](zoho-desk.md)). Without it, bring requests in with **Import and evaluate**.
 - HTTPS in front of it (see below) for anything beyond a trial.
 
 ## Docker
@@ -38,8 +38,8 @@ All settings are environment variables. See `.env.example` for the full annotate
 | Variable | Meaning |
 |---|---|
 | `ADMIN_PASSWORD` | Password for the first admin (only used on the very first start) |
-| `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL` | Which AI service to call. Any OpenAI-compatible endpoint works |
-| `TICKETING_ADAPTER` | `zohodesk` or `none` |
+| `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL` | Which AI to call. Default: `anthropic`, your Anthropic key, model `claude-haiku-5-5`. For another service set `AI_PROVIDER=openai` and `AI_BASE_URL` |
+| `TICKETING_ADAPTER` | `none` (default; use Import and evaluate) or `zohodesk` |
 | `ZOHO_*` | Zoho Desk connection (see zoho-desk.md) |
 | `POLL_SECONDS` | How often to check for new tickets (minimum 30; default 300) |
 | `ALLOW_AUTO_SEND` | Safety switch. Leave `false` unless you have measured accuracy and want some replies sent automatically |
@@ -74,14 +74,16 @@ Run it under a process manager (systemd, pm2) so it restarts.
 2. **Settings > Team**: add reviewers.
 3. **Knowledge files**: upload your real policies (plain text works best). The AI only quotes from these.
 4. **Workflow**: review the risk filters and who gets alerted. The defaults treat harassment, discrimination, retaliation, safety, mental health and legal threats as "always a person".
-5. **Settings > Connection to Zoho Desk**: *Test connection*, then switch on *Pull new tickets*.
-6. Start in the safe mode: draft notes only, reviewers approve everything. Watch accuracy for a few weeks before changing anything.
+5. **Settings > Check the AI connection** to confirm your Claude key works.
+6. **Import and evaluate**: upload your sample requests (a file to try is on that page), run the accuracy check, and fix anything it misses in the Workflow. Then add real requests to the Review queue.
+7. Optional, later: **Settings > Connection to Zoho Desk**: *Test connection*, then switch on *Pull new tickets*.
+8. Start in the safe mode: reviewers approve everything. Watch accuracy for a few weeks before changing anything.
 
 ## Troubleshooting
 
 | Problem | What to check |
 |---|---|
-| Banner: "No AI provider is set" | `AI_API_KEY` is empty or wrong |
+| Banner: "No AI provider is set" | `AI_API_KEY` is empty. If Settings says the key was rejected, it is wrong or out of credit |
 | "Zoho sign-in failed" | Region, client id/secret, or refresh token (see zoho-desk.md) |
 | No tickets appear | Pulling is switched off; the ticket is outside `INTAKE_STATUSES` or `ZOHO_DEPARTMENT_ID`; it was created before first start (`BACKFILL_DAYS`) |
 | Locked out | Stop the app, delete the `users` row, or start a fresh database, and restart with `ADMIN_PASSWORD` set |

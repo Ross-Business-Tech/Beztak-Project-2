@@ -12,13 +12,13 @@ Plain-language answers for your IT, security and legal contacts. This is documen
 | Activity log (who did what, when) | same | Not editable from the app |
 | Zoho and AI credentials | Environment variables on your server only | n/a |
 
-No data is sent to the app's authors or to any analytics service. The app makes outbound calls only to **your Zoho Desk** and **your chosen AI provider**.
+No data is sent to the app's authors or to any analytics service. The app makes outbound calls only to **your chosen AI provider** (Anthropic's API by default) and, if you connect it, **your Zoho Desk**.
 
 ## What leaves your server
 
-For each ticket, the AI provider receives: the sender's name and email address, the subject and body, the risk-rule descriptions, and the policy documents (truncated). It does **not** receive anything from Zoho beyond the ticket text. Employees' records are never looked up.
+For each request, the AI provider receives: the sender's name and email address, the subject and body, the risk-rule descriptions, and the policy documents (truncated). It does **not** receive anything else from your systems. Employees' records are never looked up. Check Anthropic's current commercial terms on data retention and training for API use, and decide whether they meet Beztak's policy.
 
-Options to reduce exposure: use a provider whose terms say they do not store or train on your data, use a provider inside your own cloud account (for example Azure OpenAI), or run a local model with `AI_BASE_URL` pointing at it. Masking names and email addresses before the AI call is on the roadmap and is **not** in v1.
+Options to reduce exposure: confirm the provider's retention terms, use a provider inside your own cloud account, or run a local model (`AI_PROVIDER=openai` with `AI_BASE_URL` pointing at it). For accuracy checks, anonymize the requests first. Masking names and email addresses before the AI call is on the roadmap and is **not** in v1.
 
 ## Access control
 

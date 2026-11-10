@@ -35,7 +35,7 @@ async function callModel({ model, system, user, signal }) {
     throw new AIUnavailable('network', 'Could not reach the AI service.')
   }
   if (res.status === 404 || res.status === 405) throw new AIUnavailable('not_configured', 'The AI connection is not set up on this site yet.')
-  if (res.status === 401 || res.status === 403) throw new AIUnavailable('auth', 'The AI service rejected the key. Ask your instructor to check the OPENROUTER_API_KEY variable.')
+  if (res.status === 401 || res.status === 403) throw new AIUnavailable('auth', 'The AI service rejected the key. Check the AI key setting.')
   if (res.status === 402) throw new AIUnavailable('credits', 'The AI account is out of credits.')
   if (res.status === 429) throw new AIUnavailable('rate', 'Too many requests right now. Try again in a moment.')
   if ((res.headers.get('content-type') || '').includes('text/html')) throw new AIUnavailable('not_configured', 'The AI connection is not set up on this site yet.')

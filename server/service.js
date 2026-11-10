@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS, SAMPLE_FILES } from '../src/data/defaults'
 import { makeDefaultWorkflow } from '../src/workflow/defaults'
 import { createAdapter } from './adapters/index.js'
 import { aiConfigured, makeTransport } from './ai.js'
+import { summarizeResult } from '../src/workflow/evaluate'
 import { clip, nowIso, uid } from './util.js'
 
 const MAX_BODY = 20000
@@ -47,12 +48,13 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
     const result = await runWorkflow({ email, workflow: getWorkflow(), settings, files: getFiles(), history })
     let status = statusFromDecision(result.decision)
     const at = nowIso()
-    const hist = [{ at, text: email.source === 'zoho' ? `Ticket ${email.ticketNumber ? `#${email.ticketNumber} ` : ''}received from Zoho Desk` : 'Test email received' }]
+    const hist = [{ at, text: email.source === 'zoho' ? `Ticket ${email.ticketNumber ? `#${email.ticketNumber} ` : ''}received from Zoho Desk` : email.source === 'import' ? 'Request imported' : email.source === 'eval' ? 'Evaluation run' : 'Test email received' }]
     let finalReply = null
     if (status === 'auto_sent') {
       const zoho = settings.integrations.zoho
       const canSend = email.source === 'zoho' && cfg.allowAutoSend && adapter?.configured && zoho.onApprove === 'send_reply'
-      if (email.source === 'test') { finalReply = result.draft; hist.push({ at, text: 'Reply sent automatically (simulated, nothing really sent)' }) }
+      if (email.source === 'import') { status = 'pending_review'; hist.push({ at, text: 'Imported requests are never sent automatically, so a person must approve it.' }) }
+      else if (email.source === 'test' || email.source === 'eval') { finalReply = result.draft; hist.push({ at, text: 'Reply sent automatically (simulated, nothing really sent)' }) }
       else if (canSend) {
         try { await adapter.sendReply(email.ticketId, { to: email.from, text: result.draft }); finalReply = result.draft; hist.push({ at, text: 'Reply sent automatically through Zoho Desk' }) } catch (e) {
           status = 'pending_review'; hist.push({ at, text: `Automatic send failed (${e.message}), so a person must approve it.` })
@@ -120,6 +122,33 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
     return rec
   }
 
+  // ---- importing requests without a ticketing system, and measuring accuracy ----
+  function buildEmail(row, source) {
+    const body = clip(String(row?.body || '').trim(), MAX_BODY)
+    if (!body) throw new HttpError(400, 'A request needs message text.')
+    const t = Date.parse(row.receivedAt)
+    return { id: uid('e'), attachments: [], source, name: clip(row.name || 'Employee', 120), from: clip(row.from || 'unknown@example.com', 200), subject: clip(row.subject || body.slice(0, 60), 300), body, receivedAt: Number.isFinite(t) ? new Date(t).toISOString() : nowIso() }
+  }
+  async function importRequest(row, actor) {
+    const rec = await processEmail(buildEmail(row, 'import'))
+    db.putEmail(rec)
+    log('email', `Imported request "${rec.subject}" processed: ${rec.status.replace('_', ' ')}`, actor)
+    rec.result.alerts.forEach((a) => log('alert', `Alert to ${a.role}: ${a.message} ("${rec.subject}")`, actor))
+    return rec
+  }
+  /** Runs the whole workflow on one request and returns a summary. Nothing is stored, so it never touches the review queue. */
+  async function evaluateRequest(row) {
+    const rec = await processEmail(buildEmail(row, 'eval'))
+    return summarizeResult(rec, { expectedTopic: row.expectedTopic, expectedRisk: row.expectedRisk })
+  }
+  function saveEvalRun(run, actor) {
+    if (!run || !Array.isArray(run.rows) || run.rows.length === 0 || run.rows.length > 300) throw new HttpError(400, 'That evaluation run is not valid.')
+    const slim = { id: uid('r'), at: nowIso(), by: actor, name: clip(run.name || 'Evaluation', 80), model: clip(run.model || '', 80), rows: run.rows.map((r) => ({ ...r, draft: clip(r.draft, 1200), subject: clip(r.subject, 200), name: clip(r.name, 120) })) }
+    const runs = [slim, ...db.kvGet('eval_runs', [])].slice(0, 20)
+    db.kvSet('eval_runs', runs); log('system', `${actor} saved an accuracy check of ${slim.rows.length} requests`, actor)
+    return slim
+  }
+
   async function resolve(id, kind, text, actor) {
     const e = need(id)
     if (!OPEN.includes(e.status)) throw new HttpError(409, 'That message has already been handled.')
@@ -131,7 +160,7 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
     if (kind !== 'send') throw new HttpError(400, 'Unknown action.')
     const reply = String(text || '').trim()
     if (!reply) throw new HttpError(400, 'The reply is empty.')
-    let how = 'recorded (simulated, nothing really sent)'
+    let how = e.source === 'import' ? 'approved and recorded here. Send the reply from your own email or help desk' : 'recorded (simulated, nothing really sent)'
     if (e.source === 'zoho') {
       const mode = getSettings().integrations.zoho.onApprove
       if (!adapter?.configured) throw new HttpError(503, 'Zoho Desk is not connected, so the reply cannot be written to the ticket.')
@@ -173,7 +202,7 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
     const s = getSettings()
     return {
       ticketing: { adapter: cfg.ticketing.adapter, configured: Boolean(adapter?.configured), missing: adapter?.missing || [], enabled: s.integrations.zoho.enabled, pollSeconds: cfg.ticketing.pollSeconds, lastSync: db.kvGet('last_sync') },
-      ai: { configured: aiConfigured(cfg.ai), provider: new URL(cfg.ai.baseUrl).host },
+      ai: { configured: aiConfigured(cfg.ai), provider: new URL(cfg.ai.baseUrl).host, kind: cfg.ai.provider, model: getSettings().ai.model },
       allowAutoSend: cfg.allowAutoSend,
     }
   }
@@ -192,5 +221,5 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
   }
   const stop = () => { if (timer) clearInterval(timer); timer = null }
 
-  return { adapter, getSettings, getWorkflow, getFiles, putConfig, log, processEmail, ingestOnce, testEmail, resolve, addNote, saveDraft, regenerate, deleteEmail, status, testTicketing, start, stop }
+  return { adapter, getSettings, getWorkflow, getFiles, putConfig, log, processEmail, ingestOnce, testEmail, importRequest, evaluateRequest, saveEvalRun, resolve, addNote, saveDraft, regenerate, deleteEmail, status, testTicketing, start, stop }
 }

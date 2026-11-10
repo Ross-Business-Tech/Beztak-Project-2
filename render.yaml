@@ -1,6 +1,9 @@
 # Render Blueprint: creates the web service and its data disk in one step.
 # Render dashboard > New > Blueprint > pick this repository. Secret values (marked sync: false) are asked for
 # once during creation and are never stored in the repository. See docs/deploy-render.md.
+#
+# This starts WITHOUT a ticketing system: requests come in through "Import and evaluate" in the app.
+# To connect Zoho Desk later, change TICKETING_ADAPTER to zohodesk and add the ZOHO_ values listed at the bottom.
 services:
   - type: web
     name: hr-helpdesk-ai
@@ -19,17 +22,11 @@ services:
       - { key: COOKIE_SECURE, value: "true" }
       - { key: TRUST_PROXY, value: "true" }
       - { key: ALLOW_AUTO_SEND, value: "false" }
-      - { key: TICKETING_ADAPTER, value: zohodesk }
-      - { key: ZOHO_REGION, value: us }
-      - { key: POLL_SECONDS, value: "300" }
-      - { key: INTAKE_STATUSES, value: Open }
-      - { key: AI_BASE_URL, value: "https://openrouter.ai/api/v1" }
-      - { key: AI_MODEL, value: "anthropic/claude-sonnet-4.5" }
+      - { key: TICKETING_ADAPTER, value: none }
+      - { key: AI_PROVIDER, value: anthropic }
+      - { key: AI_MODEL, value: claude-haiku-5-5 }
       - { key: ADMIN_USERNAME, value: admin }
       - { key: ADMIN_PASSWORD, sync: false }
-      - { key: AI_API_KEY, sync: false }
-      - { key: ZOHO_ORG_ID, sync: false }
-      - { key: ZOHO_DEPARTMENT_ID, sync: false }
-      - { key: ZOHO_CLIENT_ID, sync: false }
-      - { key: ZOHO_CLIENT_SECRET, sync: false }
-      - { key: ZOHO_REFRESH_TOKEN, sync: false }
+      - { key: AI_API_KEY, sync: false }          # your Anthropic API key
+      # --- Zoho Desk (optional, later). Set TICKETING_ADAPTER=zohodesk and add: ---
+      #   ZOHO_REGION=us, ZOHO_ORG_ID, ZOHO_DEPARTMENT_ID, ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN

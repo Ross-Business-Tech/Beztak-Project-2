@@ -58,8 +58,11 @@ export function createApp(cfg, { fetchImpl = fetch, seedSampleFiles = false, log
 
   route('GET', '/api/state', 'any', (ctx) => ({
     user: ctx.user, settings: svc.getSettings(), workflow: svc.getWorkflow(), files: svc.getFiles(),
-    emails: db.listEmails(500), activity: db.listActivity(300), status: svc.status(),
+    emails: db.listEmails(500), activity: db.listActivity(300), status: svc.status(), evalRuns: db.kvGet('eval_runs', []),
   }))
+  route('POST', '/api/emails/import', 'any', (ctx) => svc.importRequest(ctx.body.row, ctx.user.username))
+  route('POST', '/api/eval/one', 'any', (ctx) => svc.evaluateRequest(ctx.body.row))
+  route('POST', '/api/eval/runs', 'any', (ctx) => svc.saveEvalRun(ctx.body.run, ctx.user.username), 6_000_000)
   route('GET', '/api/emails', 'any', () => ({ emails: db.listEmails(500), activity: db.listActivity(300), status: svc.status() }))
   route('PUT', '/api/config/:key', 'admin', (ctx) => { svc.putConfig(ctx.params.key, ctx.body.value, ctx.user.username); return { ok: true } }, 30_000_000)
 

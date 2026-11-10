@@ -15,6 +15,7 @@
     "test:server": "vite build -c vite.server.config.js --ssr server/test/e2e.test.js --outDir dist-test && node --test dist-test/"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
     "@xyflow/react": "^12.12.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

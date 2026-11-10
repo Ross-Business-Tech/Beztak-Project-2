@@ -9,6 +9,7 @@ import Workflow from './pages/Workflow'
 import Settings from './pages/Settings'
 import Activity from './pages/Activity'
 import Guide from './pages/Guide'
+import Import from './pages/Import'
 import { Icon } from './components/ui'
 
 function useHashRoute() {
@@ -32,6 +33,7 @@ const NAV = [
   { to: '/admin', icon: 'chart', label: 'Dashboard', match: (r) => r === '/admin' },
   { to: '/admin/workflow', icon: 'workflow', label: 'Workflow', match: (r) => r === '/admin/workflow' || r === '/admin/flags' },
   { to: '/admin/review', icon: 'inbox', label: 'Review queue', badge: true, match: (r) => r === '/admin/review' },
+  { to: '/admin/import', icon: 'upload', label: 'Import and evaluate', match: (r) => r === '/admin/import' },
   { to: '/admin/files', icon: 'folder', label: 'Knowledge files', match: (r) => r === '/admin/files' },
   { to: '/admin/settings', icon: 'gear', label: 'Settings', match: (r) => r === '/admin/settings' },
   { to: '/admin/activity', icon: 'log', label: 'Activity log', match: (r) => r === '/admin/activity' },
@@ -43,6 +45,7 @@ function Page({ route }) {
   switch (route) {
     case '/admin': return <Dashboard />
     case '/admin/review': return <Review />
+    case '/admin/import': return <Import />
     case '/admin/files': return <Files />
     case '/admin/flags':
     case '/admin/workflow': return <Workflow />

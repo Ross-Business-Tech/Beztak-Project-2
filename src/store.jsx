@@ -3,6 +3,7 @@ import { DEFAULT_SETTINGS, SAMPLE_FILES, SCENARIOS, SEED_EMAILS } from './data/d
 import { statusFromDecision } from './engine/mockAI'
 import { runWorkflow, runWorkflowSync } from './workflow/runner'
 import { makeDefaultWorkflow, rulesOf } from './workflow/defaults'
+import { summarizeResult } from './workflow/evaluate'
 
 const KEY = 'hr-helpdesk-sandbox-v3'
 export const Ctx = createContext(null)
@@ -34,7 +35,7 @@ function makeSeed() {
     }
     emails.push({ ...email, result, status, finalReply, wasEdited, history })
   }
-  return { settings, workflow, files, emails: emails.reverse(), activity: [{ id: uid('a'), at: new Date().toISOString(), type: 'system', text: 'Test environment created with sample data' }] }
+  return { settings, workflow, files, evalRuns: [], emails: emails.reverse(), activity: [{ id: uid('a'), at: new Date().toISOString(), type: 'system', text: 'Test environment created with sample data' }] }
 }
 
 function load() {
@@ -106,6 +107,31 @@ export function AppProvider({ children }) {
       log('email', `Test email "${email.subject}" processed: ${status.replace('_', ' ')}`)
       result.alerts.forEach((a) => log('alert', `Alert to ${a.role}: ${a.message} ("${email.subject}")`))
       return full
+    },
+    /** Import a real request into the review queue (never sent anywhere automatically). */
+    async importRequest(input) {
+      const d = dataRef.current
+      const t = Date.parse(input.receivedAt)
+      const email = { id: uid('e'), attachments: [], source: 'import', name: input.name || 'Employee', from: input.from || 'unknown@example.com', subject: input.subject, body: input.body, receivedAt: Number.isFinite(t) ? new Date(t).toISOString() : new Date().toISOString() }
+      const result = await runWorkflow({ email, workflow: d.workflow, settings: d.settings, files: d.files, history: d.emails })
+      let status = statusFromDecision(result.decision)
+      if (status === 'auto_sent') status = 'pending_review'
+      const at = new Date().toISOString()
+      const full = { ...email, result, status, finalReply: null, history: [{ at, text: 'Request imported' }, { at, text: status === 'escalated' ? 'Escalated to a person' : status === 'discarded' ? 'Closed without a reply' : 'Draft created, waiting for review' }] }
+      setData((s) => ({ ...s, emails: [full, ...s.emails] }))
+      return full
+    },
+    /** Measure one request without saving it anywhere. */
+    async evaluateRequest(input) {
+      const d = dataRef.current
+      const email = { id: uid('e'), attachments: [], source: 'eval', name: input.name || 'Employee', from: input.from || 'unknown@example.com', subject: input.subject, body: input.body, receivedAt: new Date().toISOString() }
+      const result = await runWorkflow({ email, workflow: d.workflow, settings: d.settings, files: d.files, history: [] })
+      return summarizeResult({ ...email, result, status: statusFromDecision(result.decision) }, { expectedTopic: input.expectedTopic, expectedRisk: input.expectedRisk })
+    },
+    saveEvalRun(run) {
+      const saved = { ...run, id: uid('r'), at: new Date().toISOString(), by: 'you' }
+      setData((s) => ({ ...s, evalRuns: [saved, ...(s.evalRuns || [])].slice(0, 5) }))
+      return saved
     },
     /** Review actions: send (with edited text) or discard. */
     async resolveEmail(id, kind, text) {

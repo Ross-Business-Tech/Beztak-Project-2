@@ -33,7 +33,7 @@ export default function Settings() {
         </div>
         {s.ai.engine === 'ai' && (
           <div style={{ marginTop: 16 }}>
-            <Field label="Model" hint="An OpenRouter model name. Leave the default unless your instructor suggests another.">
+            <Field label="Model" hint={serverMode ? 'The Claude model name, for example claude-haiku-5-5. The key and provider are set on the server.' : 'An OpenRouter model name. Leave the default unless your instructor suggests another.'}>
               {(id) => <input id={id} type="text" value={s.ai.model} onChange={(e) => set({ ai: { ...s.ai, model: e.target.value } })} placeholder={DEFAULT_MODEL} />}
             </Field>
             <div className="row">

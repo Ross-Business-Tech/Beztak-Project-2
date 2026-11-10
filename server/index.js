@@ -7,7 +7,7 @@ const app = createApp(cfg, { seedSampleFiles: /^(1|true|yes|on)$/i.test(process.
 app.svc.start()
 app.server.listen(cfg.port, '0.0.0.0', () => {
   console.log(`HR Help Desk AI is running on port ${cfg.port}`)
-  console.log(`  Ticketing: ${cfg.ticketing.adapter}   AI: ${cfg.ai.baseUrl}${cfg.ai.apiKey || cfg.ai.allowNoKey ? '' : ' (NO KEY SET: replies will use the simple built-in writer)'}   Auto-send: ${cfg.allowAutoSend ? 'ALLOWED' : 'off'}`)
+  console.log(`  Ticketing: ${cfg.ticketing.adapter}   AI: ${cfg.ai.provider} ${cfg.ai.defaultModel}${cfg.ai.apiKey || cfg.ai.allowNoKey ? '' : ' (NO KEY SET: replies will use the simple built-in writer)'}   Auto-send: ${cfg.allowAutoSend ? 'ALLOWED' : 'off'}`)
 })
 const bye = () => { app.close(); process.exit(0) }
 process.on('SIGINT', bye); process.on('SIGTERM', bye)

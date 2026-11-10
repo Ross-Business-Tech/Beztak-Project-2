@@ -9,7 +9,7 @@ import { api } from './serverApi'
 const POLL_MS = 15000
 
 export function ServerProvider({ initial, children }) {
-  const [data, setData] = useState({ settings: initial.settings, workflow: initial.workflow, files: initial.files, emails: initial.emails, activity: initial.activity, status: initial.status, designBackup: null })
+  const [data, setData] = useState({ settings: initial.settings, workflow: initial.workflow, files: initial.files, emails: initial.emails, activity: initial.activity, status: initial.status, evalRuns: initial.evalRuns || [], designBackup: null })
   const [toasts, setToasts] = useState([])
   const [saveError, setSaveError] = useState('')
   const user = initial.user
@@ -67,16 +67,16 @@ export function ServerProvider({ initial, children }) {
 
     setWorkflow(workflow) { if (!adminOnly()) return; setData((d) => ({ ...d, workflow })); save('workflow') },
     resetWorkflow() { if (!adminOnly()) return; setData((d) => ({ ...d, designBackup: { workflow: d.workflow, settings: d.settings }, workflow: makeDefaultWorkflow() })); save('workflow'); log('workflow', 'Workflow reset to the starter design') },
-    // A loaded preset never changes the Zoho Desk connection settings, so a shared preset cannot turn on sending.
+    // A loaded preset never changes the Zoho Desk connection or the AI model, so a shared preset cannot turn on sending or switch models.
     loadWorkflow(workflow, label, settings) {
       if (!adminOnly()) return
-      setData((d) => ({ ...d, designBackup: { workflow: d.workflow, settings: d.settings }, workflow, settings: settings ? { ...settings, integrations: d.settings.integrations } : d.settings }))
+      setData((d) => ({ ...d, designBackup: { workflow: d.workflow, settings: d.settings }, workflow, settings: settings ? { ...settings, integrations: d.settings.integrations, ai: d.settings.ai } : d.settings }))
       save('workflow'); if (settings) save('settings')
       log('workflow', `Workflow${settings ? ' and settings' : ''} replaced by "${label}"`)
     },
     restoreWorkflow() {
       if (!adminOnly()) return
-      setData((d) => (d.designBackup ? { ...d, workflow: d.designBackup.workflow, settings: { ...d.designBackup.settings, integrations: d.settings.integrations }, designBackup: { workflow: d.workflow, settings: d.settings } } : d))
+      setData((d) => (d.designBackup ? { ...d, workflow: d.designBackup.workflow, settings: { ...d.designBackup.settings, integrations: d.settings.integrations, ai: d.settings.ai }, designBackup: { workflow: d.workflow, settings: d.settings } } : d))
       save('workflow'); save('settings'); log('workflow', 'Previous design restored')
     },
 
@@ -90,6 +90,9 @@ export function ServerProvider({ initial, children }) {
         return { ok: true, message: kind === 'send' ? last.replace(/^Reviewed and approved by [^;]+; /, 'Done: ') : 'Closed without a reply' }
       } catch (e) { return fail(e) }
     },
+    async importRequest(row) { try { const rec = await api('POST', '/api/emails/import', { row }); replace(rec); return rec } catch (e) { fail(e); return null } },
+    async evaluateRequest(row) { try { return await api('POST', '/api/eval/one', { row }) } catch (e) { fail(e); return null } },
+    async saveEvalRun(run) { try { const saved = await api('POST', '/api/eval/runs', { run }); setData((d) => ({ ...d, evalRuns: [saved, ...d.evalRuns].slice(0, 20) })); return saved } catch (e) { fail(e); return null } },
     async addNote(id, text) { try { replace(await api('POST', `/api/emails/${id}/note`, { text })) } catch (e) { fail(e) } },
     async saveDraft(id, text) { try { replace(await api('PUT', `/api/emails/${id}/draft`, { text })) } catch (e) { fail(e) } },
     async regenerate(id) { try { await flush(); replace(await api('POST', `/api/emails/${id}/regenerate`, {})) } catch (e) { fail(e) } },

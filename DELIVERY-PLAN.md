@@ -18,13 +18,16 @@ Decisions made: Zoho Desk is the ticketing system (confirmed by the team, not ye
 - Settings screens for Zoho status, test connection, pause switch, team accounts and passwords.
 - End-to-end automated tests (`npm run test:server`), Dockerfile and compose files, `.env.example`, install, Zoho, security/privacy and extension guides, MIT license.
 
+**Update (Nov 10, later): no Zoho access, Claude Haiku.** Beztak has not given us Zoho access, so delivery no longer depends on it. Changes: (1) the AI is Claude Haiku 5.5 (`claude-haiku-5-5`) through the official Anthropic SDK with the team's own key, roughly a dollar or two a month at about 500 requests; other providers remain optional; (2) a new **Import and evaluate** page lets people paste or upload a spreadsheet of requests, add them to the review queue, or run an **accuracy check** that scores the assistant against expected topics and risks (a sample file with made-up requests is included); (3) the Render setup starts without Zoho. Zoho Desk stays in the code as an optional connector, untested against a real portal.
+
 **Hosting decision:** Render (Docker web service with a persistent disk, owned by Beztak). Vercel does not fit because the app needs a lasting disk and a background timer. See `docs/deploy-render.md` for the plan, costs, checklist and schedule; `render.yaml` is the setup file.
 
 **Not yet done:**
-- Test against a real Zoho Desk portal (needs a sandbox and admin credentials from Beztak; the single biggest open risk).
+- Test the Claude connection with a real Anthropic key (only a stand-in has been used so far). This is now the biggest open risk.
+- Test against a real Zoho Desk portal (optional now; needs a sandbox and admin credentials from Beztak).
 - Build and run the Docker image on a machine with Docker (no Docker engine in the build sandbox).
-- Accuracy evaluation page using Beztak's 20 to 50 sample requests.
-- Policy document manager improvements (review dates, which policy backed an answer), setup wizard, import from CSV.
+- Run the accuracy check on Beztak's real sample requests and tune the risk filters (the page is built; the data and tuning are not).
+- Policy document manager improvements (review dates, which policy backed an answer), setup wizard, reading a shared mailbox directly (IMAP).
 - Retention and delete-on-request tools; alert emails; reading ticket follow-ups and attachments.
 - Independent security review.
 
