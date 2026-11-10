@@ -161,11 +161,11 @@ const RUN = {
     return { port: 'out', detail: `Alert to ${c.role}: ${c.message}` }
   },
 
-  // Ticket blocks only RECORD what they would do in Zoro until the connection exists.
+  // Ticket blocks only RECORD what they would do in Zoho Desk until the connection exists.
   *ticket_status(node, ctx) {
     const s = node.data.config.status
     ctx.ticketActions.push({ type: 'status', value: s })
-    return { port: 'out', detail: `Ticket status would be set to "${s}" in Zoro (not connected yet, so only recorded).` }
+    return { port: 'out', detail: `Ticket status "${s}" in Zoho Desk (applied to real tickets; test emails only record it).` }
   },
 
   *ticket_tag(node, ctx) {
@@ -173,12 +173,12 @@ const RUN = {
     const tags = [...(c.fromRisks ? ctx.flags.map((f) => f.name) : []), ...c.tags]
     const unique = [...new Set(tags)]
     ctx.ticketActions.push({ type: 'tags', value: unique })
-    return { port: 'out', detail: unique.length ? `Ticket would be tagged: ${unique.join(', ')} (recorded only).` : 'No tags to add (nothing was flagged).' }
+    return { port: 'out', detail: unique.length ? `Ticket would be tagged: ${unique.join(', ')} (applied to real tickets; test emails only record it).` : 'No tags to add (nothing was flagged).' }
   },
 
   *ticket_assign(node, ctx) {
     ctx.ticketActions.push({ type: 'assign', value: node.data.config.assignee })
-    return { port: 'out', detail: `Ticket would be assigned to ${node.data.config.assignee} (recorded only).` }
+    return { port: 'out', detail: `Ticket assignment to ${node.data.config.assignee} (applied to real tickets; test emails only record it).` }
   },
 
   *email_out(node, ctx) {

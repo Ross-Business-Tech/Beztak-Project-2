@@ -326,3 +326,7 @@ tr:last-child td { border-bottom: 0; }
   .wf-toolbar .btn { padding: 6px 12px; min-height: 40px; font-size: .88rem; flex: 1 1 auto; }
   .wf-hint { font-size: .84rem; }
 }
+
+/* Sign-in page (live server only) */
+.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--bg, #f6f7f9); }
+.login-card { width: 100%; max-width: 380px; padding: 24px; }

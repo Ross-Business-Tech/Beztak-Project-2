@@ -52,9 +52,16 @@ function Page({ route }) {
   }
 }
 
+function StatusBanner({ status }) {
+  const t = status?.ticketing
+  if (t?.enabled && t.lastSync && !t.lastSync.ok) return <div className="sim-banner" role="alert"><strong>Zoho Desk problem.</strong> The last check for new tickets failed: {t.lastSync.error} <a href="#/admin/settings">Open Settings</a></div>
+  if (!status?.ai?.configured) return <div className="sim-banner" role="note"><strong>No AI provider is set on this server.</strong> Replies use the simple built-in writer until an administrator adds one (see the install guide).</div>
+  return null
+}
+
 export default function App() {
   const route = useHashRoute()
-  const { emails, toasts } = useApp()
+  const { emails, toasts, serverMode, user, signOut, status } = useApp()
   const [open, setOpen] = useState(false)
   const waiting = emails.filter((e) => e.status === 'pending_review' || e.status === 'escalated').length
   useEffect(() => setOpen(false), [route])
@@ -72,10 +79,12 @@ export default function App() {
             </a>
           ))}
         </nav>
-        <div className="side-note">Test environment. Simulated AI.</div>
+        {serverMode
+          ? <div className="side-note">Signed in as <strong>{user.username}</strong> ({user.role}).<br /><button className="btn small" style={{ marginTop: 8 }} onClick={signOut}>Sign out</button></div>
+          : <div className="side-note">Test environment. Simulated AI.</div>}
       </aside>
       <main className="main">
-        <div className="sim-banner" role="note"><strong>Test environment.</strong> The AI is simulated and no real email is read or sent.</div>
+        {serverMode ? <StatusBanner status={status} /> : <div className="sim-banner" role="note"><strong>Test environment.</strong> The AI is simulated and no real email is read or sent.</div>}
         <Page route={route} />
       </main>
       <Toasts toasts={toasts} />

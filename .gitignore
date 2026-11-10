@@ -34,3 +34,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# --- self-hosted server ---
+!.env.example
+/data/
+/dist-server/
+/dist-test/

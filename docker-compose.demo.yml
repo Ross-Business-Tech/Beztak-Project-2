@@ -1,0 +1,21 @@
+# Try everything without a Zoho account: adds a pretend Zoho Desk with made-up tickets.
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up --build
+services:
+  mock-zoho:
+    build: .
+    command: ["node", "mock-zoho.js"]
+    environment:
+      ZOHO_ORG_ID: demo-org
+  app:
+    depends_on: [mock-zoho]
+    environment:
+      TICKETING_ADAPTER: zohodesk
+      ZOHO_DESK_URL: http://mock-zoho:8787
+      ZOHO_ACCOUNTS_URL: http://mock-zoho:8787
+      ZOHO_ORG_ID: demo-org
+      ZOHO_CLIENT_ID: demo
+      ZOHO_CLIENT_SECRET: demo
+      ZOHO_REFRESH_TOKEN: demo
+      BACKFILL_DAYS: "1"
+      POLL_SECONDS: "30"
+      SEED_SAMPLE_FILES: "true"

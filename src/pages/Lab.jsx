@@ -48,6 +48,7 @@ function EmailTab() {
     setBusy(true)
     try {
       const sent = await sendTestEmail({ ...form, from: form.from.trim() || 'test.employee@example.com', name: form.name.trim() || 'Test Employee' })
+      if (!sent) return
       setSelId(sent.id)
       toast(sent.result.aiFallback ? 'Processed with the simulated engine. The AI was not reachable.' : 'Test email processed. See the result on the right.', sent.result.aiFallback ? 'warn' : 'ok')
     } finally { setBusy(false) }
@@ -108,11 +109,11 @@ function EmailTab() {
   )
 }
 
-export function TicketActions({ actions }) {
+export function TicketActions({ actions, applied = false }) {
   const label = { status: 'Set status', tags: 'Add tags', assign: 'Assign to' }
   return (
     <div className="ticket-actions">
-      <strong className="small">Ticket actions in Zoro</strong> <Badge>Recorded only until Zoro is connected</Badge>
+      <strong className="small">Ticket actions in Zoho Desk</strong> <Badge>{applied ? 'Sent to the Zoho Desk ticket' : 'Recorded only, not sent anywhere'}</Badge>
       <ul>{actions.map((a, i) => <li key={i}>{label[a.type]}: <strong>{Array.isArray(a.value) ? (a.value.length ? a.value.join(', ') : 'nothing to add') : a.value}</strong></li>)}</ul>
     </div>
   )

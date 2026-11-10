@@ -120,7 +120,7 @@ export default function PresetsDialog({ onClose, workflow, onLoaded }) {
         <>
           <div className="preset-save">
             <h3>Save everything as a preset</h3>
-            <p className="muted small" style={{ marginBottom: 10 }}>A preset saves your whole workflow and your Settings (tone, signature, footer, AI engine, reporting and the Zoro options), so loading it brings back the full setup.</p>
+            <p className="muted small" style={{ marginBottom: 10 }}>A preset saves your whole workflow and your Settings (tone, signature, footer, AI engine, reporting and the Zoho Desk options), so loading it brings back the full setup.</p>
             <div className="two-col">
               <Field label="Preset name">{(id) => <input id={id} type="text" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="e.g. Cautious launch" />}</Field>
               <Field label="Your name (shown to the team)">{(id) => <input id={id} type="text" value={author} maxLength={80} onChange={(e) => setAuth(e.target.value)} placeholder="Optional" />}</Field>

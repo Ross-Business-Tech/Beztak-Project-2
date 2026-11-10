@@ -70,7 +70,7 @@ export default function Review() {
 }
 
 function Detail({ email, onBack }) {
-  const { resolveEmail, regenerate, saveDraft, addNote, deleteEmail, toast, settings } = useApp()
+  const { resolveEmail, regenerate, saveDraft, addNote, deleteEmail, toast, settings, serverMode } = useApp()
   const [note, setNote] = useState('')
   const [regen, setRegen] = useState(false)
   const r = email.result
@@ -82,6 +82,10 @@ function Detail({ email, onBack }) {
   const [prevResult, setPrevResult] = useState(r)
   if (prevResult !== r) { setPrevResult(r); setText(r.draft); setSaved(false); setChecked(false) }
   const edited = text !== r.draft
+  const onApprove = settings.integrations.zoho.onApprove
+  const live = serverMode && email.source === 'zoho'
+  const sendLabel = live ? (onApprove === 'send_reply' ? 'Approve and send to employee' : onApprove === 'internal_note' ? 'Approve and save to ticket' : 'Approve') : 'Send reply'
+  const sendHint = live ? (onApprove === 'send_reply' ? 'the reply is emailed through Zoho Desk when you approve' : onApprove === 'internal_note' ? 'approving saves the reply as a private note on the Zoho Desk ticket; nothing is emailed to the employee' : 'approving only records the decision here') : 'nothing is sent until you press Send'
 
   return (
     <>
@@ -93,11 +97,12 @@ function Detail({ email, onBack }) {
               <StatusBadge status={email.status} />
               <Badge>{catLabel(r.category)}</Badge>
               {email.source === 'test' && <Badge tone="blue">Test email</Badge>}
+              {email.ticketUrl && <a className="badge blue" href={email.ticketUrl} target="_blank" rel="noreferrer noopener">Ticket {email.ticketNumber ? `#${email.ticketNumber}` : ''}</a>}
             </div>
             <div className="email-box">{email.body}</div>
           </Card>
           <Card title="Why it's here"><ul style={{ margin: 0, paddingLeft: 18 }}>{r.reasons.map((x, i) => <li key={i}>{x}</li>)}</ul>
-            {r.ticketActions?.length > 0 && <TicketActions actions={r.ticketActions} />}
+            {r.ticketActions?.length > 0 && <TicketActions actions={r.ticketActions} applied={serverMode && email.source === 'zoho'} />}
             {(r.owner || r.priority === 'urgent' || r.alerts?.length > 0) && (
               <p className="small" style={{ marginTop: 10 }}>{r.priority === 'urgent' && <Badge tone="red">Urgent</Badge>} {r.owner && <>Suggested owner: <strong>{r.owner}</strong>. </>}{r.alerts?.length > 0 && <>Alerted: {r.alerts.map((a) => a.role).join(', ')}.</>}</p>
             )}
@@ -128,22 +133,22 @@ function Detail({ email, onBack }) {
                 <div className="compose-line"><span>Subject</span><strong>Re: {email.subject}</strong></div>
                 <textarea id="reply" aria-label="Reply body" rows={14} value={text} onChange={(e) => { setText(e.target.value); setSaved(false) }} placeholder="Type your reply…" />
                 <div className="row between" style={{ margin: '6px 0 10px' }}>
-                  <span className="muted small">{saved ? 'Draft saved' : edited ? 'Unsaved edits' : 'AI draft, not yet edited'} · nothing is sent until you press Send</span>
+                  <span className="muted small">{saved ? 'Draft saved' : edited ? 'Unsaved edits' : 'AI draft, not yet edited'} · {sendHint}</span>
                   <button className="btn small" onClick={() => { saveDraft(email.id, text); setSaved(true); toast('Draft saved') }}>Save draft</button>
                 </div>
                 {highRisk && (
                   <label className="confirm-box"><input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} /> I have read this message and edited the reply as needed. It is appropriate to send.</label>
                 )}
                 <div className="modal-actions" style={{ justifyContent: 'flex-start', marginTop: 12 }}>
-                  <button className="btn primary" disabled={!text.trim() || (highRisk && !checked)} onClick={() => { resolveEmail(email.id, 'send', text); toast('Reply sent (simulated, no real email)'); onBack() }}>Send reply</button>
+                  <button className="btn primary" disabled={!text.trim() || (highRisk && !checked)} onClick={async () => { const r = await resolveEmail(email.id, 'send', text); toast(r.message, r.ok ? 'ok' : 'warn'); if (r.ok) onBack() }}>{sendLabel}</button>
                   <button className="btn" onClick={async () => { setRegen(true); await regenerate(email.id); setRegen(false); toast('Draft regenerated') }} disabled={regen}>{regen ? 'Rewriting...' : 'Regenerate'}</button>
-                  <button className="btn danger" onClick={() => { resolveEmail(email.id, 'discard'); onBack() }}>Close without reply</button>
+                  <button className="btn danger" onClick={async () => { const r = await resolveEmail(email.id, 'discard'); if (r.ok) onBack() }}>Close without reply</button>
                 </div>
               </div>
             ) : email.finalReply ? <div className="draft-box">{email.finalReply}</div> : <p className="muted">Closed without a reply.</p>}
           </Card>
           <Card title="How it decided"><Trace trace={r.trace} /></Card>
-          <button className="btn small danger" style={{ justifySelf: 'start' }} onClick={() => { deleteEmail(email.id); onBack() }}>Delete this record</button>
+          <button className="btn small danger" style={{ justifySelf: 'start' }} onClick={async () => { const r = await deleteEmail(email.id); if (r?.ok === false) return; onBack() }}>Delete this record</button>
         </div>
       </div>
     </>

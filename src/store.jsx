@@ -5,7 +5,7 @@ import { runWorkflow, runWorkflowSync } from './workflow/runner'
 import { makeDefaultWorkflow, rulesOf } from './workflow/defaults'
 
 const KEY = 'hr-helpdesk-sandbox-v3'
-const Ctx = createContext(null)
+export const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
 
 let counter = 0
@@ -108,7 +108,7 @@ export function AppProvider({ children }) {
       return full
     },
     /** Review actions: send (with edited text) or discard. */
-    resolveEmail(id, kind, text) {
+    async resolveEmail(id, kind, text) {
       setData((d) => ({
         ...d,
         emails: d.emails.map((e) => {
@@ -120,6 +120,7 @@ export function AppProvider({ children }) {
         }),
       }))
       log('review', kind === 'send' ? 'A reviewer sent a reply (simulated)' : 'A reviewer closed an email without replying')
+      return { ok: true, message: kind === 'send' ? 'Reply sent (simulated, no real email)' : 'Closed without a reply' }
     },
     addNote(id, text) {
       const note = { id: uid('n'), at: new Date().toISOString(), text }

@@ -59,7 +59,7 @@ export const BLOCKS = {
     title: 'Email received', group: 'start', icon: 'mail', hasInput: false, singleton: true, undeletable: true,
     ports: () => one, defaults: () => ({}),
     summary: () => 'Every incoming email starts here.',
-    help: 'This is where every email begins. In production it is a ticket pulled from Zoro. Here, it is whatever you send from the Test Lab. Connect it to the first block that should look at the message.',
+    help: 'This is where every email begins. In production it is a ticket pulled from Zoho Desk. Here, it is whatever you send from the Test Lab. Connect it to the first block that should look at the message.',
   },
   ai_understand: {
     title: 'Understand with AI', group: 'ai', icon: 'brain', ports: () => one, defaults: () => ({}),
@@ -114,22 +114,22 @@ export const BLOCKS = {
   ticket_status: {
     title: 'Set ticket status', group: 'ticket', icon: 'ticket', ports: () => one, defaults: () => ({ status: 'Pending' }),
     summary: (c) => `Status: ${c.status || '(choose)'}`,
-    help: 'Changes the status of the ticket in Zoro, for example to Escalated when something serious is found, or Answered once a reply is ready. The email then carries on to the next block. Until Zoro is connected, this only records what it would do, which you can see on each case.',
+    help: 'Changes the status of the ticket in Zoho Desk, for example to Escalated when something serious is found, or Answered once a reply is ready. The email then carries on to the next block. Until Zoho Desk is connected, this only records what it would do, which you can see on each case.',
   },
   ticket_tag: {
     title: 'Tag ticket', group: 'ticket', icon: 'tag', ports: () => one, defaults: () => ({ fromRisks: true, tags: [] }),
     summary: (c) => `${c.fromRisks ? 'Risk names' : ''}${c.fromRisks && c.tags.length ? ' + ' : ''}${c.tags.join(', ')}` || 'Add tags',
-    help: 'Adds labels to the ticket in Zoro so staff can filter and search. Turn on "Tag with the risks found" to add the name of every risk that was flagged, such as Harassment, plus any fixed tags you list. Until Zoro is connected, this only records what it would do.',
+    help: 'Adds labels to the ticket in Zoho Desk so staff can filter and search. Turn on "Tag with the risks found" to add the name of every risk that was flagged, such as Harassment, plus any fixed tags you list. Until Zoho Desk is connected, this only records what it would do.',
   },
   ticket_assign: {
     title: 'Assign ticket', group: 'ticket', icon: 'user', ports: () => one, defaults: () => ({ assignee: 'HR Business Partner' }),
     summary: (c) => `To ${c.assignee || '(choose)'}`,
-    help: 'Assigns the ticket in Zoro to a person or team and carries on to the next block. This is different from "Escalate / assign owner", which ends the case. Until Zoro is connected, this only records what it would do.',
+    help: 'Assigns the ticket in Zoho Desk to a person or team and carries on to the next block. This is different from "Escalate / assign owner", which ends the case. Until Zoho Desk is connected, this only records what it would do.',
   },
   email_out: {
     title: 'Email sent', group: 'end', icon: 'send', ports: () => [], defaults: () => ({ requireApproval: true }),
     summary: (c) => (c.requireApproval ? 'Ready to send, a person approves first' : 'Sends automatically'),
-    help: 'Sends the written reply to the employee (through the Zoro ticket in production). Leave "A person approves first" on to place the reply in the Review queue as ready to send. Turn it off to send automatically. If no reply has been written yet, the message is held for a person instead.',
+    help: 'Sends the written reply to the employee (through the Zoho Desk ticket in production). Leave "A person approves first" on to place the reply in the Review queue as ready to send. Turn it off to send automatically. If no reply has been written yet, the message is held for a person instead.',
   },
   review: {
     title: 'Send to review queue', group: 'end', icon: 'inbox', ports: () => [], defaults: () => ({ priority: 'normal', requireConfirm: false }),
@@ -153,7 +153,7 @@ export const PALETTE = [
   { label: 'Filters', kinds: ['filter_flag', 'filter_text'] },
   { label: 'Logic', kinds: ['if', 'while', 'switch_topic'] },
   { label: 'Actions', kinds: ['alert'] },
-  { label: 'Ticket (Zoro)', kinds: ['ticket_status', 'ticket_tag', 'ticket_assign'] },
+  { label: 'Ticket (Zoho Desk)', kinds: ['ticket_status', 'ticket_tag', 'ticket_assign'] },
   { label: 'Finish the case', kinds: ['email_out', 'review', 'assign', 'close'] },
 ]
 

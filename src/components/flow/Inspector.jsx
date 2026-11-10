@@ -72,10 +72,10 @@ function Form({ kind, config, set }) {
       </>
     )
     case 'ticket_status': return (
-      <div className="field"><label>Set the ticket to</label><p className="muted small">Pick a common status or type the exact status name used in Zoro.</p>
+      <div className="field"><label>Set the ticket to</label><p className="muted small">Pick a common status or type the exact status name used in Zoho Desk.</p>
         <select value={TICKET_STATUSES.includes(config.status) ? config.status : '__custom'} onChange={(e) => set({ status: e.target.value === '__custom' ? '' : e.target.value })}>
           {TICKET_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}<option value="__custom">Something else...</option></select>
-        {!TICKET_STATUSES.includes(config.status) && <input type="text" style={{ marginTop: 8 }} value={config.status} placeholder="Exact Zoro status name" onChange={(e) => set({ status: e.target.value })} />}
+        {!TICKET_STATUSES.includes(config.status) && <input type="text" style={{ marginTop: 8 }} value={config.status} placeholder="Exact Zoho Desk status name" onChange={(e) => set({ status: e.target.value })} />}
       </div>
     )
     case 'ticket_tag': return (

@@ -32,8 +32,12 @@ export const DEFAULT_SETTINGS = {
   // 'ai' = real AI model (falls back to the simulation if unreachable); 'simulated' = word matching only
   ai: { engine: 'ai', model: 'anthropic/claude-sonnet-4.5' },
   integrations: {
-    // Zoro is the ticketing system: tickets come in from it and replies go back out through it.
-    zoro: { enabled: false, serverUrl: '', pullTickets: true, sendReplies: true, replyAs: 'draft_note' },
+    // Zoho Desk is the ticketing system: tickets come in from it and results go back to the ticket.
+    //  enabled: pull new tickets (turn off to pause everything)
+    //  applyTicketActions: let the workflow's status, tag and assign blocks change the ticket
+    //  noteDraftOnArrival: save the AI draft as a private note on the ticket (never sent to the employee)
+    //  onApprove: what happens when a person approves a reply: 'internal_note' (default), 'send_reply', or 'none'
+    zoho: { enabled: false, applyTicketActions: true, noteDraftOnArrival: true, onApprove: 'internal_note' },
   },
 }
 
@@ -41,7 +45,7 @@ export const DEFAULT_RULES = [
   {
     id: 'harassment', name: 'Harassment', severity: 'critical', action: 'escalate', enabled: true, builtin: true,
     description: 'Unwelcome behaviour, bullying, sexual harassment, inappropriate comments or touching.',
-    keywords: ['harass', 'harassment', 'harassed', 'bullied', 'bullying', 'inappropriate touching', 'unwanted advances', 'sexual comments', 'hostile work environment', 'groped', 'stalking'],
+    keywords: ['harass', 'harassment', 'harassed', 'bullied', 'bullying', 'inappropriate touching', 'unwanted advances', 'sexual comments', 'hostile work environment', 'groped', 'stalking', 'inappropriate comments', 'inappropriate remarks'],
     notify: 'HR Director',
   },
   {

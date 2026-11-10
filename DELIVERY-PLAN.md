@@ -6,6 +6,26 @@
 
 This replaces the earlier 20-week plan. With one week, the goal is a **working, honest, self-hostable first release in suggest-only mode**, plus a clear roadmap for everything else. Anything that cannot be finished and tested by Monday is listed as "not in this release" rather than shipped half-built.
 
+## 0. Progress (updated Tue Nov 10, 2026)
+
+Decisions made: Zoho Desk is the ticketing system (confirmed by the team, not yet by Beztak's admin); launch is suggest-only; reply handling defaults to a private note on the ticket; MIT license (to confirm with Beztak); build for flexibility (any OpenAI-compatible AI, adapter design for ticketing); about 500 tickets a month.
+
+**Built and tested (branch `Brendan`):**
+- Self-hosted server (one container, SQLite, no other services): sign-in with admin and reviewer roles, shared settings/workflow/documents, activity log.
+- Zoho Desk connector (read tickets, private notes, status, tags, assign, optional email reply) plus a stand-in Zoho server for testing and demos.
+- Provider-neutral AI connection with the key kept on the server.
+- Safety: nothing is emailed without an admin choice, high-risk topics need confirmation, a failed Zoho write never marks a reply as sent, tickets cannot be deleted, shared presets cannot change Zoho settings.
+- Settings screens for Zoho status, test connection, pause switch, team accounts and passwords.
+- End-to-end automated tests (`npm run test:server`), Dockerfile and compose files, `.env.example`, install, Zoho, security/privacy and extension guides, MIT license.
+
+**Not yet done:**
+- Test against a real Zoho Desk portal (needs a sandbox and admin credentials from Beztak; the single biggest open risk).
+- Build and run the Docker image on a machine with Docker (no Docker engine in the build sandbox).
+- Accuracy evaluation page using Beztak's 20 to 50 sample requests.
+- Policy document manager improvements (review dates, which policy backed an answer), setup wizard, import from CSV.
+- Retention and delete-on-request tools; alert emails; reading ticket follow-ups and attachments.
+- Independent security review.
+
 ## 1. What we know
 
 - HR requests arrive at a shared email, which is routed into **Zoro** (ticketing). Zoro's internals are **not yet confirmed**. The app already has a placeholder for a "Zoro MCP server address", which suggests Zoro exposes an MCP server, but nothing in the repo or our research confirms what Zoro is, what it can do, or how to authenticate. A web search for "Zoro" returned only Zoho Desk results, which may be a different product or a spelling difference.
