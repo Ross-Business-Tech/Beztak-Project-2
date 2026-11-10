@@ -28,6 +28,21 @@ services:
       - { key: ADMIN_USERNAME, value: admin }
       - { key: ADMIN_PASSWORD, sync: false }
       - { key: AI_API_KEY, sync: false }          # your Anthropic API key
+      - { key: CORS_ORIGIN, sync: false }         # address of the static front end, e.g. https://hr-helpdesk-web.onrender.com
       # --- Egnyte (optional): add EGNYTE_DOMAIN and EGNYTE_ACCESS_TOKEN, then pick the folder in Settings. See docs/egnyte.md ---
       # --- Zoho Desk (optional, later). Set TICKETING_ADAPTER=zohodesk and add: ---
       #   ZOHO_REGION=us, ZOHO_ORG_ID, ZOHO_DEPARTMENT_ID, ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN
+
+  # Front end: the same app as a static site (no server). It calls the web service above.
+  - type: web
+    name: hr-helpdesk-web
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - { key: NODE_VERSION, value: "22" }
+      - { key: VITE_API_URL, sync: false }        # address of the web service above, e.g. https://hr-helpdesk-ai.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

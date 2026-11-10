@@ -13,6 +13,8 @@ const MAX_DOC_CHARS = 90000 // about 22,000 tokens of reference text per request
 
 // How the model is reached. In the browser it is the site's own /api/ai route. A self-hosted server
 // replaces this with a direct call to the configured AI provider (see server/ai.js).
+import { API_BASE } from '../serverApi.js'
+
 let transport = (url, init) => fetch(url, init)
 export const setTransport = (fn) => { transport = fn }
 
@@ -23,7 +25,7 @@ export class AIUnavailable extends Error {
 async function callModel({ model, system, user, signal }) {
   let res
   try {
-    res = await transport('/api/ai', {
+    res = await transport(`${API_BASE}/api/ai`, {
       method: 'POST', signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

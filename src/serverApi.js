@@ -1,5 +1,9 @@
 // Talking to the self-hosted server. When the app is opened from the static demo site there is no server,
 // detectServer() returns null and the app runs in demo mode (everything in the browser).
+// Where the back-end server lives. Empty = the same site (the server also serves this app).
+// Set VITE_API_URL at build time when the front end is a separate static site.
+export const API_BASE = String(import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
+
 export class ApiError extends Error {
   constructor(status, message) { super(message); this.status = status }
 }
@@ -7,8 +11,8 @@ export class ApiError extends Error {
 export async function api(method, path, body) {
   let res
   try {
-    res = await fetch(path, {
-      method, credentials: 'same-origin',
+    res = await fetch(`${API_BASE}${path}`, {
+      method, credentials: API_BASE ? 'include' : 'same-origin',
       headers: { 'Content-Type': 'application/json', 'x-hr-csrf': '1' },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
@@ -24,7 +28,7 @@ export async function api(method, path, body) {
 
 export async function detectServer() {
   try {
-    const r = await fetch('/api/health', { headers: { Accept: 'application/json' } })
+    const r = await fetch(`${API_BASE}/api/health`, { headers: { Accept: 'application/json' } })
     if (!(r.headers.get('content-type') || '').includes('application/json')) return null
     const j = await r.json()
     return j?.mode === 'server' ? j : null

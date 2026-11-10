@@ -6,6 +6,11 @@ const int = (v, d) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n
 // Zoho runs separate data centres. Pick the one your Zoho Desk account lives in (check the web address you sign in at).
 const ZOHO_DOMAINS = { us: 'com', com: 'com', eu: 'eu', in: 'in', au: 'com.au', jp: 'jp', ca: 'zohocloud.ca', sa: 'zoho.sa', uk: 'zoho.uk', cn: 'com.cn' }
 
+// Addresses of separately hosted front ends allowed to call this server (comma-separated, e.g. https://hr-helpdesk-web.onrender.com).
+// Scheme is optional: a bare host like hr-helpdesk-web.onrender.com is treated as https.
+const originList = (v) => String(v || '').split(',').map((s) => s.trim().replace(/\/+$/, '')).filter(Boolean)
+  .map((s) => (/^https?:\/\//i.test(s) ? s : `https://${s}`))
+
 const egnyteDomain = (v) => String(v || '').trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '').replace(/\.egnyte\.com$/i, '')
 
 export function loadConfig(e = env) {
@@ -21,6 +26,8 @@ export function loadConfig(e = env) {
     staticDir: e.STATIC_DIR || './dist',
     admin: { username: e.ADMIN_USERNAME || 'admin', password: e.ADMIN_PASSWORD || '' },
     cookieSecure: String(e.COOKIE_SECURE || 'auto').toLowerCase(), // auto | true | false
+    // Separately hosted front end(s). When set, sign-in cookies are sent across sites (SameSite=None; Secure).
+    corsOrigins: originList(e.CORS_ORIGIN),
     // true when a platform proxy (Render, Fly, a load balancer) sits in front: use its forwarded visitor address
     trustProxy: bool(e.TRUST_PROXY, false),
     sessionHours: int(e.SESSION_HOURS, 12),

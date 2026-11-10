@@ -37,7 +37,9 @@ export function createApp(cfg, { fetchImpl = fetch, seedSampleFiles = false, log
   })
   const cookies = (req) => Object.fromEntries(String(req.headers.cookie || '').split(';').map((c) => c.trim().split('=')).filter((p) => p[0]).map(([k, ...v]) => [k, decodeURIComponent(v.join('='))]))
   const isHttps = (req) => cfg.cookieSecure === 'true' || (cfg.cookieSecure === 'auto' && (req.headers['x-forwarded-proto'] === 'https' || req.socket.encrypted))
-  const setCookie = (req, res, token, maxAge) => res.setHeader('Set-Cookie', `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${isHttps(req) ? '; Secure' : ''}`)
+  // A separately hosted front end is a different site, so its browser needs SameSite=None (and Secure) to send the sign-in cookie.
+  const crossSite = cfg.corsOrigins.length > 0
+  const setCookie = (req, res, token, maxAge) => res.setHeader('Set-Cookie', `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=${crossSite ? 'None' : 'Strict'}; Max-Age=${maxAge}${crossSite || isHttps(req) ? '; Secure' : ''}`)
   const send = (res, status, body) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...SECURITY_HEADERS }); res.end(JSON.stringify(body)) }
   const fail = (res, e) => { if (!e.status) console.error(e); send(res, e.status || 500, { error: e.status ? e.message : 'Something went wrong on the server.' }) }
 
@@ -124,6 +126,17 @@ export function createApp(cfg, { fetchImpl = fetch, seedSampleFiles = false, log
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url, 'http://localhost')
+      // Allow only the configured front-end addresses to call the API from a browser (with cookies).
+      const origin = req.headers.origin
+      if (origin && cfg.corsOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin)
+        res.setHeader('Access-Control-Allow-Credentials', 'true')
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-hr-csrf')
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+        res.setHeader('Access-Control-Max-Age', '600')
+        res.setHeader('Vary', 'Origin')
+        if (req.method === 'OPTIONS') { res.writeHead(204); return res.end() }
+      }
       if (!url.pathname.startsWith('/api/')) {
         if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end() }
         return serveStatic(req, res, url.pathname)
