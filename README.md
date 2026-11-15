@@ -4,6 +4,8 @@ An open-source assistant for HR teams. It reads HR requests (imported from a spr
 
 Built for Beztak. MIT licensed: use it, change it, host it yourself.
 
+**New here?** Read the [User Guide](docs/user-guide.md) (3 pages, no technical knowledge needed).
+
 ## What it does
 
 - **Import and evaluate:** paste or upload a spreadsheet of requests, add them to the review queue, or run an accuracy check that scores the assistant against your own expected answers.
@@ -12,7 +14,25 @@ Built for Beztak. MIT licensed: use it, change it, host it yourself.
 - Claude (Haiku 5.5 by default, through Anthropic's API with your own key) reads each message by meaning and drafts a reply grounded in your documents. Every quoted policy passage is checked against the document.
 - A visual **workflow editor** decides what is flagged, escalated, tagged, assigned or sent for review. The AI only reads and drafts; the workflow decides.
 - Reviewers approve or edit each draft. By default an approved reply is saved as a **private note** on the Zoho ticket and HR sends it from Zoho. Nothing is emailed to an employee unless an administrator turns that on.
-- Accounts for admins and reviewers, a full activity log, and a pause switch.
+- Accounts for admins and reviewers. An admin-only **Access** page adds people by email and chooses which optional pages reviewers can open.
+- A full activity log, and a pause switch.
+- A made-up 25-question HR test set (`testing/hr-test-set.csv`) and a sample file (`public/sample-requests.csv`) for trying the accuracy check.
+
+## Pages in the app
+
+| Page | Who | What it is for |
+|---|---|---|
+| Review queue | Everyone | Read each draft, edit it, approve it or close the case |
+| Import and evaluate | Everyone (default) | Load requests from a spreadsheet; check accuracy |
+| Dashboard | Admins (reviewers if opened) | Volumes, time saved, topics, flags |
+| Workflow | Admins edit; reviewers view if opened | Design how each request is routed |
+| Knowledge files | Admins edit; reviewers view if opened | Policy documents the AI answers from |
+| Access | Admins | Add people; choose what reviewers can open |
+| Settings | Admins | AI engine, reply style, Zoho Desk, Egnyte |
+| Activity log | Admins (reviewers if opened) | Who changed what |
+| Getting started, Test emails, Test a document | Everyone | Learn and practice safely |
+
+Full walk-through: [docs/user-guide.md](docs/user-guide.md).
 
 ## Two ways to run it
 
@@ -59,6 +79,13 @@ npm run lint
 ```
 
 How to add another ticketing system: [docs/extending.md](docs/extending.md).
+
+## All the guides
+
+- [User guide](docs/user-guide.md): for reviewers and admins
+- [Install](docs/install.md), [Deploy to Render](docs/deploy-render.md)
+- [Zoho Desk](docs/zoho-desk.md), [Egnyte](docs/egnyte.md)
+- [Security and privacy](docs/security-privacy.md), [Extending](docs/extending.md)
 
 ## Status and limits (v1)
 
