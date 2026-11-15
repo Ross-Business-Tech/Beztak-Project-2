@@ -32,6 +32,14 @@ export const DEFAULT_SETTINGS = {
   footer: 'This reply was prepared with the help of an AI assistant. If anything looks off, just reply and a person from HR will follow up.',
   includeFooter: true,
   minutesSavedPerReply: 6,
+  // Which extra pages people with the Reviewer role can open. Admins always see everything.
+  reviewerAccess: { dashboard: false, import: true, workflow: false, files: false, activity: false, lab: true, labDocs: true },
+  // Test environment only: the people list on the Access page (the real server keeps accounts on the server).
+  people: [
+    { id: 'p_lead', email: 'hr.lead@example.com', role: 'admin' },
+    { id: 'p_rev1', email: 'reviewer.one@example.com', role: 'reviewer' },
+    { id: 'p_rev2', email: 'reviewer.two@example.com', role: 'reviewer' },
+  ],
   // 'ai' = real AI model (falls back to the simulation if unreachable); 'simulated' = word matching only
   ai: { engine: 'ai', model: 'anthropic/claude-sonnet-4.5' },
   integrations: {

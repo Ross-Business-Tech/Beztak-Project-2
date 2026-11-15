@@ -367,3 +367,16 @@ tr:last-child td { border-bottom: 0; }
   table.stack-sm td.actions { text-align: left !important; padding-top: 8px; }
 }
 .side-note.role-switch { opacity: 1; }
+.access-add { display: grid; grid-template-columns: minmax(0, 1fr) 160px auto; gap: 12px; align-items: end; }
+.access-add .field { margin-bottom: 0; }
+.access-person select { width: auto; min-width: 120px; }
+.always-row { display: flex; gap: 8px; align-items: center; font-size: .9rem; color: var(--muted); padding: 2px 0; }
+@media (max-width: 640px) {
+  .access-add { grid-template-columns: minmax(0, 1fr); }
+  .access-person { flex-wrap: wrap; }
+}
+@media (max-width: 640px) {
+  .access-person .body { flex-basis: 100%; }
+  .access-person .cell-title { overflow-wrap: anywhere; }
+  .reviewer-pages .setting-row { flex-direction: row; align-items: center; }
+}

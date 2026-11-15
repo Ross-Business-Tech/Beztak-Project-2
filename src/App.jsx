@@ -10,6 +10,7 @@ import Settings from './pages/Settings'
 import Activity from './pages/Activity'
 import Guide from './pages/Guide'
 import Import from './pages/Import'
+import Access, { accessOf } from './pages/Access'
 import { Icon, Segmented } from './components/ui'
 
 function useHashRoute(home) {
@@ -27,33 +28,58 @@ function useHashRoute(home) {
 const NAV = [
   { group: 'Work' },
   { to: '/admin/review', icon: 'inbox', label: 'Review queue', badge: true, match: (r) => r === '/admin/review' },
-  { to: '/admin/import', icon: 'upload', label: 'Import and evaluate', match: (r) => r === '/admin/import' },
-  { group: 'Manage', admin: true },
-  { to: '/admin', icon: 'chart', label: 'Dashboard', admin: true, match: (r) => r === '/admin' },
-  { to: '/admin/workflow', icon: 'workflow', label: 'Workflow', admin: true, match: (r) => r === '/admin/workflow' || r === '/admin/flags' },
-  { to: '/admin/files', icon: 'folder', label: 'Knowledge files', admin: true, match: (r) => r === '/admin/files' },
+  { to: '/admin/import', icon: 'upload', label: 'Import and evaluate', key: 'import', match: (r) => r === '/admin/import' },
+  { group: 'Manage' },
+  { to: '/admin', icon: 'chart', label: 'Dashboard', key: 'dashboard', match: (r) => r === '/admin' },
+  { to: '/admin/workflow', icon: 'workflow', label: 'Workflow', key: 'workflow', match: (r) => r === '/admin/workflow' || r === '/admin/flags' },
+  { to: '/admin/files', icon: 'folder', label: 'Knowledge files', key: 'files', match: (r) => r === '/admin/files' },
+  { to: '/admin/access', icon: 'lock', label: 'Access', admin: true, match: (r) => r === '/admin/access' },
   { to: '/admin/settings', icon: 'gear', label: 'Settings', admin: true, match: (r) => r === '/admin/settings' },
-  { to: '/admin/activity', icon: 'log', label: 'Activity log', admin: true, match: (r) => r === '/admin/activity' },
+  { to: '/admin/activity', icon: 'log', label: 'Activity log', key: 'activity', match: (r) => r === '/admin/activity' },
   { group: 'Help' },
   { to: '/help', icon: 'book', label: 'Getting started', match: (r) => r === '/help' },
-  { to: '/lab', icon: 'mail', label: 'Test emails', match: (r) => r === '/lab' },
-  { to: '/lab/docs', icon: 'file', label: 'Test a document', match: (r) => r === '/lab/docs' },
+  { to: '/lab', icon: 'mail', label: 'Test emails', key: 'lab', match: (r) => r === '/lab' },
+  { to: '/lab/docs', icon: 'file', label: 'Test a document', key: 'labDocs', match: (r) => r === '/lab/docs' },
 ]
+
+// Hide pages a reviewer cannot open, and any group heading left with nothing under it.
+function visibleNav(isAdmin, access) {
+  const items = NAV.filter((n) => n.group || (n.admin ? isAdmin : canOpen(n.to, isAdmin, access)))
+  return items.filter((n, i) => !n.group || (items[i + 1] && !items[i + 1].group))
+}
 
 function AdminOnly() {
   return (
     <div className="card" style={{ maxWidth: 520 }}>
       <h1 style={{ fontSize: 20, marginTop: 0 }}>Admins only</h1>
-      <p className="muted">This page is for administrators. As a reviewer you can work through the review queue, import requests and use the help pages.</p>
+      <p className="muted">Your admin has not opened this page to reviewers. You can work through the review queue and use the pages in your menu.</p>
       <a className="btn primary" href="#/admin/review">Go to the review queue</a>
     </div>
   )
 }
 
-const ADMIN_ROUTES = ['/admin', '/admin/files', '/admin/flags', '/admin/workflow', '/admin/settings', '/admin/activity']
+// Which access key each route needs. Routes not listed are open to everyone.
+const ROUTE_KEY = {
+  '/admin': 'dashboard', '/admin/import': 'import', '/admin/workflow': 'workflow', '/admin/flags': 'workflow',
+  '/admin/files': 'files', '/admin/activity': 'activity', '/lab': 'lab', '/lab/docs': 'labDocs',
+  '/admin/settings': 'admin', '/admin/access': 'admin',
+}
+const VIEW_ONLY = ['workflow', 'files']
 
-function Page({ route, isAdmin }) {
-  if (!isAdmin && ADMIN_ROUTES.includes(route)) return <AdminOnly />
+// Admins see everything; reviewers see what the admin opened on the Access page.
+export function canOpen(route, isAdmin, access) {
+  if (isAdmin) return true
+  const key = ROUTE_KEY[route] ?? (route.startsWith('/lab') ? 'lab' : null)
+  return !key || (key !== 'admin' && !!access[key])
+}
+
+function Page({ route, isAdmin, access }) {
+  if (!canOpen(route, isAdmin, access)) return <AdminOnly />
+  const viewOnly = !isAdmin && VIEW_ONLY.includes(ROUTE_KEY[route])
+  return <>{viewOnly && <div className="sim-banner" role="note"><strong>View only.</strong> Only an admin can change this page.</div>}<PageBody route={route} /></>
+}
+
+function PageBody({ route }) {
   if (route.startsWith('/lab')) return <Lab route={route} />
   if (route === '/help') return <Guide />
   switch (route) {
@@ -64,6 +90,7 @@ function Page({ route, isAdmin }) {
     case '/admin/flags':
     case '/admin/workflow': return <Workflow />
     case '/admin/settings': return <Settings />
+    case '/admin/access': return <Access />
     case '/admin/activity': return <Activity />
     default: return <Guide />
   }
@@ -79,7 +106,8 @@ function StatusBanner({ status }) {
 }
 
 export default function App() {
-  const { emails, toasts, dismissToast, serverMode, user, signOut, status, isAdmin, demoRole, setDemoRole } = useApp()
+  const { emails, toasts, dismissToast, serverMode, user, signOut, status, isAdmin, demoRole, setDemoRole, settings } = useApp()
+  const access = accessOf(settings)
   // Reviewers open on the queue, admins on the dashboard, and visitors to the demo on the guide
   const route = useHashRoute(serverMode ? (isAdmin ? '/admin' : '/admin/review') : '/help')
   const [open, setOpen] = useState(false)
@@ -93,7 +121,7 @@ export default function App() {
       <aside className={`sidebar ${open ? 'open' : ''}`}>
         <div className="brand"><div className="brand-mark" aria-hidden>HR</div>HR Help Desk AI</div>
         <nav className="nav" aria-label="Main">
-          {NAV.filter((n) => isAdmin || !n.admin).map((n) => n.group ? <div key={n.group} className="nav-group">{n.group}</div> : (
+          {visibleNav(isAdmin, access).map((n) => n.group ? <div key={n.group} className="nav-group">{n.group}</div> : (
             <a key={n.to} href={`#${n.to}`} className={n.match(route) ? 'active' : ''} aria-current={n.match(route) ? 'page' : undefined}>
               <Icon name={n.icon} />{n.label}{n.badge && waiting > 0 && <span className="count">{waiting}</span>}
             </a>
@@ -104,12 +132,12 @@ export default function App() {
           : <div className="side-note role-switch">
               <div style={{ marginBottom: 6 }}>Test environment. Viewing as:</div>
               <Segmented label="View as" value={demoRole} onChange={setDemoRole} options={[{ value: 'admin', label: 'Admin' }, { value: 'reviewer', label: 'Reviewer' }]} />
-              <div style={{ marginTop: 6 }}>{demoRole === 'admin' ? 'Admins see everything, including set-up.' : 'Reviewers see the review queue and help pages.'}</div>
+              <div style={{ marginTop: 6 }}>{demoRole === 'admin' ? 'Admins see everything, including set-up.' : 'Reviewers see the pages an admin opened for them.'}</div>
             </div>}
       </aside>
       <main className="main">
         {serverMode ? <StatusBanner status={status} /> : <div className="sim-banner" role="note"><strong>Test environment.</strong> The AI is simulated and no real email is read or sent.</div>}
-        <Page route={route} isAdmin={isAdmin} />
+        <Page route={route} isAdmin={isAdmin} access={access} />
       </main>
       <Toasts toasts={toasts} onDismiss={dismissToast} />
     </div>

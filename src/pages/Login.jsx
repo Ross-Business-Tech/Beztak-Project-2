@@ -15,8 +15,8 @@ export default function Login({ onDone }) {
       <form className="card login-card" onSubmit={submit}>
         <div className="brand" style={{ marginBottom: 16 }}><div className="brand-mark" aria-hidden>HR</div>HR Help Desk AI</div>
         <h1 style={{ fontSize: 20, margin: '0 0 4px' }}>Sign in</h1>
-        <p className="muted small" style={{ marginBottom: 16 }}>Use the account your administrator gave you.</p>
-        <div className="field"><label htmlFor="u">Username</label><input id="u" type="text" autoComplete="username" autoFocus required value={username} onChange={(e) => setUsername(e.target.value)} /></div>
+        <p className="muted small" style={{ marginBottom: 16 }}>Use the email your administrator added, and your password.</p>
+        <div className="field"><label htmlFor="u">Email or username</label><input id="u" type="text" autoComplete="username" autoFocus required value={username} onChange={(e) => setUsername(e.target.value)} /></div>
         <div className="field"><label htmlFor="p">Password</label><input id="p" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
         {error && <div className="outcome red" role="alert" style={{ marginBottom: 12 }}><div>{error}</div></div>}
         <button className="btn primary" type="submit" disabled={busy} style={{ width: '100%' }}>{busy ? 'Signing in...' : 'Sign in'}</button>

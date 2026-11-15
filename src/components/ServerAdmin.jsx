@@ -73,7 +73,7 @@ export function TeamCard() {
     try { await api('DELETE', `/api/users/${u.id}`); toast('Account removed'); load() } catch (err) { toast(err.message, 'warn') }
   }
   return (
-    <Card title="Team" hint="Reviewers can review and approve replies. Admins can also change settings, the workflow and documents.">
+    <Card title="People with access" hint="Add someone by email and choose their role. They sign in with that email and the temporary password, then change the password in Settings.">
       <div className="list" style={{ marginBottom: 14 }}>
         {users.map((u) => (
           <div key={u.id} className="item" style={{ cursor: 'default' }}>
@@ -85,11 +85,11 @@ export function TeamCard() {
       </div>
       <form onSubmit={add}>
         <div className="two-col">
-          <Field label="Username">{(id) => <input id={id} type="text" required value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoComplete="off" />}</Field>
+          <Field label="Email address">{(id) => <input id={id} type="email" placeholder="name@company.com" required value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} autoComplete="off" />}</Field>
           <Field label="Temporary password" hint="At least 10 characters.">{(id) => <input id={id} type="password" required minLength={10} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} autoComplete="new-password" />}</Field>
         </div>
         <Field label="Role">{(id) => <select id={id} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option value="reviewer">Reviewer</option><option value="admin">Admin</option></select>}</Field>
-        <button className="btn primary" type="submit">Add person</button>
+        <button className="btn primary" type="submit">Give access</button>
       </form>
     </Card>
   )

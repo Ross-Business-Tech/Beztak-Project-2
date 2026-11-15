@@ -23,7 +23,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHeader title="Admin dashboard" subtitle={serverMode ? 'Last 7 days.' : 'Last 7 days. Sample data until Zoho Desk is connected.'} />
+      <PageHeader title="Dashboard" subtitle={serverMode ? 'Last 7 days.' : 'Last 7 days. Sample data until Zoho Desk is connected.'} />
       <HelpPanel id="dash" steps={[
         'The four figures at the top summarise the last seven days. "Waiting for review" is how many messages need a person right now. "Time saved" multiplies replies by the minutes set in Settings. "Drafts sent without edits" shows answer quality: the higher it is, the less reviewers rewrite.',
         'Current setup shows how many blocks your workflow has and whether anything sends automatically. Select Change to open the Workflow.',

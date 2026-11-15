@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useApp } from '../store'
 import { DEFAULT_MODEL, testConnection } from '../engine/ai'
 import { Badge, Card, HelpPanel, Icon, Field, Modal, PageHeader, Segmented, SettingRow, Toggle } from '../components/ui'
-import { EgnyteCard, PasswordCard, TeamCard, ZohoCard } from '../components/ServerAdmin'
+import { EgnyteCard, PasswordCard, ZohoCard } from '../components/ServerAdmin'
 
 export default function Settings() {
-  const { settings: s, updateSettings, log, toast, resetAll, storageFull, serverMode, isAdmin, saveError } = useApp()
+  const { settings: s, updateSettings, log, toast, resetAll, storageFull, serverMode, saveError } = useApp()
   const [confirmReset, setConfirmReset] = useState(false)
   const [check, setCheck] = useState(null)
   const [tab, setTab] = useState('ai')
@@ -24,7 +24,7 @@ export default function Settings() {
       {storageFull && <div className="sim-banner" role="alert">This browser is out of storage, so recent changes may not be saved. Delete some large files in Knowledge files.</div>}
 
       <div className="tabs settings-tabs" role="tablist" aria-label="Settings sections">
-        {[['ai', 'AI'], ['style', 'Reply style'], ['connections', 'Connections'], ['team', serverMode ? 'Team' : 'Data']].map(([id, label]) => (
+        {[['ai', 'AI'], ['style', 'Reply style'], ['connections', 'Connections'], ['team', serverMode ? 'Account' : 'Data']].map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>
         ))}
       </div>
@@ -111,7 +111,7 @@ export default function Settings() {
 
       {serverMode ? (
         <>
-          {isAdmin && <TeamCard />}
+          <Card title="People and access" hint="Adding people and choosing what reviewers can see has moved to its own page."><a className="btn" href="#/admin/access">Open Access</a></Card>
           <PasswordCard />
         </>
       ) : (

@@ -55,6 +55,8 @@ export function AppProvider({ children }) {
   const [storageFull, setStorageFull] = useState(false)
   // Test environment only: switch between the admin and reviewer views. The real server uses sign-in instead.
   const [demoRole, setDemoRoleState] = useState(() => { try { return localStorage.getItem(KEY + '-role') || 'admin' } catch { return 'admin' } })
+  const roleRef = useRef(demoRole)
+  roleRef.current = demoRole
   const setDemoRole = useCallback((r) => { setDemoRoleState(r); try { localStorage.setItem(KEY + '-role', r) } catch { /* ignore */ } }, [])
   const dataRef = useRef(data)
   dataRef.current = data
@@ -74,25 +76,31 @@ export function AppProvider({ children }) {
     setData((d) => ({ ...d, activity: [{ id: uid('a'), at: new Date().toISOString(), type, text }, ...d.activity].slice(0, 300) }))
   }, [])
 
+  // Same rule as the real server: reviewers can look at set-up pages but only admins can change them.
+  const adminOnly = () => { if (roleRef.current === 'admin') return true; toast('Only an admin can change this.', 'warn'); return false }
+
   const actions = useMemo(() => ({
     toast, log,
     updateSettings(patch, note) {
+      if (!adminOnly()) return
       setData((d) => ({ ...d, settings: { ...d.settings, ...patch } }))
       if (note) log('settings', note)
     },
-    addFile(file) { setData((d) => ({ ...d, files: [{ ...file, id: uid('f') }, ...d.files] })) },
-    updateFile(id, patch) { setData((d) => ({ ...d, files: d.files.map((f) => (f.id === id ? { ...f, ...patch } : f)) })) },
-    deleteFile(id) { setData((d) => ({ ...d, files: d.files.filter((f) => f.id !== id) })) },
+    addFile(file) { if (!file.test && !adminOnly()) return; setData((d) => ({ ...d, files: [{ ...file, id: uid('f') }, ...d.files] })) },
+    updateFile(id, patch) { if (!dataRef.current.files.find((f) => f.id === id)?.test && !adminOnly()) return; setData((d) => ({ ...d, files: d.files.map((f) => (f.id === id ? { ...f, ...patch } : f)) })) },
+    deleteFile(id) { if (!dataRef.current.files.find((f) => f.id === id)?.test && !adminOnly()) return; setData((d) => ({ ...d, files: d.files.filter((f) => f.id !== id) })) },
 
     /** Run a test email through the simulated AI and store the result. */
-    setWorkflow(workflow) { setData((d) => ({ ...d, workflow })) },
-    resetWorkflow() { setData((d) => ({ ...d, designBackup: { workflow: d.workflow, settings: d.settings }, workflow: makeDefaultWorkflow() })); log('workflow', 'Workflow reset to the starter design') },
+    setWorkflow(workflow) { if (!adminOnly()) return; setData((d) => ({ ...d, workflow })) },
+    resetWorkflow() { if (!adminOnly()) return; setData((d) => ({ ...d, designBackup: { workflow: d.workflow, settings: d.settings }, workflow: makeDefaultWorkflow() })); log('workflow', 'Workflow reset to the starter design') },
     /** Replace the design (and, for a full preset, the Settings). The old one is kept so it can be restored. */
     loadWorkflow(workflow, label, settings) {
+      if (!adminOnly()) return
       setData((d) => ({ ...d, designBackup: { workflow: d.workflow, settings: d.settings }, workflow, settings: settings || d.settings }))
       log('workflow', `Workflow${settings ? ' and settings' : ''} replaced by "${label}"`)
     },
     restoreWorkflow() {
+      if (!adminOnly()) return
       setData((d) => (d.designBackup ? { ...d, workflow: d.designBackup.workflow, settings: d.designBackup.settings, designBackup: { workflow: d.workflow, settings: d.settings } } : d))
       log('workflow', 'Previous design restored')
     },
