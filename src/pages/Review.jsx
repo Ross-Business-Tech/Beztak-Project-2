@@ -17,6 +17,14 @@ const byQueue = (a, b) => (Number(isOpen(b)) - Number(isOpen(a))) || (isOpen(a) 
 const waited = (e) => { const t = timeAgo(e.receivedAt); return t === 'just now' ? 'New' : `Waiting ${t.replace(' ago', '')}` }
 const isLate = (e) => isOpen(e) && Date.now() - new Date(e.receivedAt) > 864e5
 
+// First and last initial of a name ("Sam Carter" -> "SC"); one word gives its first two letters.
+function initials(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  const text = parts.length === 1 ? parts[0].slice(0, 2) : parts[0][0] + parts[parts.length - 1][0]
+  return text.toUpperCase()
+}
+
 export default function Review() {
   const { emails } = useApp()
   const [filter, setFilter] = useState('open')
@@ -55,7 +63,7 @@ export default function Review() {
             <div className="list">
               {list.map((e) => (
                 <button key={e.id} className="item" onClick={() => setSelId(e.id)}>
-                  <div className="avatar" aria-hidden>{(e.name || '?')[0]}</div>
+                  <div className="avatar" aria-hidden>{initials(e.name)}</div>
                   <div className="body">
                     <div className="truncate cell-title">{e.subject}</div>
                     <div className="truncate muted small">{e.name} · {catLabel(e.result.category)}</div>

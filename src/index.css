@@ -110,7 +110,7 @@ tr:last-child td { border-bottom: 0; }
 .item:last-child { border-bottom: 0; } .item:hover, .item.sel { background: var(--surface-2); }
 .item { min-width: 0; overflow: hidden; font-weight: inherit; }
 .item .body { min-width: 0; flex: 1; } .item .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.avatar { width: 34px; height: 34px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; flex: none; }
+.avatar { width: 34px; height: 34px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
 
 .email-box { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .draft-box { border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 6px; padding: 12px 14px; white-space: pre-wrap; background: var(--accent-soft); overflow-wrap: anywhere; }
