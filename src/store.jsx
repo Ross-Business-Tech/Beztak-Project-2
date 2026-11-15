@@ -53,6 +53,9 @@ export function AppProvider({ children }) {
   const [data, setData] = useState(load)
   const [toasts, setToasts] = useState([])
   const [storageFull, setStorageFull] = useState(false)
+  // Test environment only: switch between the admin and reviewer views. The real server uses sign-in instead.
+  const [demoRole, setDemoRoleState] = useState(() => { try { return localStorage.getItem(KEY + '-role') || 'admin' } catch { return 'admin' } })
+  const setDemoRole = useCallback((r) => { setDemoRoleState(r); try { localStorage.setItem(KEY + '-role', r) } catch { /* ignore */ } }, [])
   const dataRef = useRef(data)
   dataRef.current = data
 
@@ -171,6 +174,6 @@ export function AppProvider({ children }) {
   }), [toast, log])
 
   const rules = useMemo(() => rulesOf(data.workflow), [data.workflow])
-  const value = { ...data, rules, ...actions, toasts, dismissToast, storageFull }
+  const value = { ...data, rules, ...actions, toasts, dismissToast, storageFull, demoRole, setDemoRole, isAdmin: demoRole === 'admin' }
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
