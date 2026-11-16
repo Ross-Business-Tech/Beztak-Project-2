@@ -33,7 +33,8 @@ async function callModel({ model, system, user, signal }) {
   try {
     res = await transport('/api/ai', {
       method: 'POST', signal,
-      headers: { 'Content-Type': 'application/json' },
+      // x-hr-csrf: the self-hosted server refuses browser requests without it (here.now ignores it).
+      headers: { 'Content-Type': 'application/json', 'x-hr-csrf': '1' },
       body: JSON.stringify({
         model, temperature: 0.2, max_tokens: 2000, response_format: { type: 'json_object' },
         messages: [{ role: 'system', content: system }, { role: 'user', content: user }],

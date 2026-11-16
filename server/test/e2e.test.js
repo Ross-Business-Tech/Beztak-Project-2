@@ -220,6 +220,20 @@ test('an OpenAI (Codex) key goes to OpenAI through the Responses API, with no un
   } finally { t.stop(); fake.close() }
 })
 
+test('"Check the AI connection" in the browser gets through the server and reaches the AI', async () => {
+  const { testConnection, setTransport } = await import('../../src/engine/ai.js')
+  const t = await setup({ TICKETING_ADAPTER: 'none' })
+  try {
+    await t.api('POST', '/api/login', { username: 'admin', password: 'correct-horse-battery' })
+    const cookie = (await fetch(`${t.base}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-hr-csrf': '1' }, body: JSON.stringify({ username: 'admin', password: 'correct-horse-battery' }) })).headers.get('set-cookie').split(';')[0]
+    // the browser sends exactly what callModel builds, plus its sign-in cookie
+    setTransport((url, init) => fetch(t.base + url, { ...init, headers: { ...init.headers, cookie } }))
+    t.ai.server.removeAllListeners('request')
+    t.ai.server.on('request', (req, res) => { req.resume(); req.on('end', () => { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ choices: [{ message: { content: '{"ok": true}' } }] })) }) })
+    assert.equal(await testConnection('test-model'), true)
+  } finally { setTransport((url, init) => fetch(url, init)); t.stop() }
+})
+
 test('when the AI service refuses, its own reason is shown, with any key hidden', async () => {
   const { testConnection, setTransport } = await import('../../src/engine/ai.js')
   const reply = (status, body) => async () => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
