@@ -20,6 +20,14 @@ export class AIUnavailable extends Error {
   constructor(code, message) { super(message); this.code = code }
 }
 
+// The error message from the AI service, short, with anything that looks like a key hidden.
+async function providerReason(res) {
+  let body
+  try { body = await res.json() } catch { return '' }
+  const msg = typeof body?.error === 'string' ? body.error : body?.error?.message || body?.message || ''
+  return String(msg).replace(/\b(sk|key)[-_][A-Za-z0-9*_-]{4,}/g, '[key hidden]').replace(/\s+/g, ' ').trim().slice(0, 240)
+}
+
 async function callModel({ model, system, user, signal }) {
   let res
   try {
@@ -35,12 +43,16 @@ async function callModel({ model, system, user, signal }) {
     if (e.name === 'AbortError') throw new AIUnavailable('timeout', 'The AI took too long to answer.')
     throw new AIUnavailable('network', 'Could not reach the AI service.')
   }
-  if (res.status === 404 || res.status === 405) throw new AIUnavailable('not_configured', 'The AI connection is not set up on this site yet.')
-  if (res.status === 401 || res.status === 403) throw new AIUnavailable('auth', 'The AI service rejected the key. Check the AI key setting.')
-  if (res.status === 402) throw new AIUnavailable('credits', 'The AI account is out of credits.')
-  if (res.status === 429) throw new AIUnavailable('rate', 'Too many requests right now. Try again in a moment.')
-  if ((res.headers.get('content-type') || '').includes('text/html')) throw new AIUnavailable('not_configured', 'The AI connection is not set up on this site yet.')
-  if (!res.ok) throw new AIUnavailable('error', `The AI service returned an error (${res.status}).`)
+  const html = (res.headers.get('content-type') || '').includes('text/html')
+  // The AI service's own reason (for example "model not found" or "quota exceeded") helps whoever fixes the setup.
+  const why = !res.ok && !html ? await providerReason(res) : ''
+  const fail = (code, msg) => { throw new AIUnavailable(code, why ? `${msg} The AI service said: "${why}"` : msg) }
+  if ((res.status === 404 || res.status === 405) && !why) fail('not_configured', 'The AI connection is not set up on this site yet.')
+  if (res.status === 401 || res.status === 403) fail('auth', 'The AI service rejected the key. Check the AI key setting.')
+  if (res.status === 402) fail('credits', 'The AI account is out of credits.')
+  if (res.status === 429) fail('rate', 'The AI service is refusing requests for now (too many, or the account is out of credit).')
+  if (html) fail('not_configured', 'The AI connection is not set up on this site yet.')
+  if (!res.ok) fail('error', `The AI service returned an error (${res.status}).`)
   let json
   try { json = await res.json() } catch { throw new AIUnavailable('error', 'The AI service sent an unreadable answer.') }
   const content = json?.choices?.[0]?.message?.content

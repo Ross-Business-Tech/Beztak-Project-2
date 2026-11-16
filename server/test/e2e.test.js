@@ -220,6 +220,21 @@ test('an OpenAI (Codex) key goes to OpenAI through the Responses API, with no un
   } finally { t.stop(); fake.close() }
 })
 
+test('when the AI service refuses, its own reason is shown, with any key hidden', async () => {
+  const { testConnection, setTransport } = await import('../../src/engine/ai.js')
+  const reply = (status, body) => async () => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+  try {
+    setTransport(reply(401, { error: { message: 'Incorrect API key provided: sk-proj-****abcd. You can find your API key at https://platform.openai.com/account/api-keys.' } }))
+    await assert.rejects(testConnection('gpt-5-mini'), (e) => /rejected the key/.test(e.message) && /Incorrect API key/.test(e.message) && !/abcd/.test(e.message))
+    setTransport(reply(404, { error: { message: 'The model `gpt-5-codex-mini` does not exist or you do not have access to it.' } }))
+    await assert.rejects(testConnection('gpt-5-codex-mini'), (e) => /does not exist or you do not have access/.test(e.message))
+    setTransport(reply(429, { error: { message: 'You exceeded your current quota, please check your plan and billing details.' } }))
+    await assert.rejects(testConnection('gpt-5-mini'), (e) => /exceeded your current quota/.test(e.message))
+    setTransport(async () => new Response('<html></html>', { status: 404, headers: { 'content-type': 'text/html' } }))
+    await assert.rejects(testConnection('gpt-5-mini'), (e) => /not set up on this site yet\.$/.test(e.message))
+  } finally { setTransport((url, init) => fetch(url, init)) }
+})
+
 test('model names are cleaned up for OpenAI', async () => {
   const { openAiModelId } = await import('../ai.js')
   assert.equal(openAiModelId('gpt-5-codex-mini', 'gpt-5-mini'), 'gpt-5-codex-mini')
