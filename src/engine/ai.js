@@ -25,7 +25,7 @@ async function providerReason(res) {
   let body
   try { body = await res.json() } catch { return '' }
   const msg = typeof body?.error === 'string' ? body.error : body?.error?.message || body?.message || ''
-  return String(msg).replace(/\b(sk|key)[-_][A-Za-z0-9*_-]{4,}/g, '[key hidden]').replace(/\s+/g, ' ').trim().slice(0, 240)
+  return String(msg).replace(/\b(sk|key)[-_][A-Za-z0-9*_-]{4,}/g, '[key hidden]').replace(/[A-Za-z0-9_-]*\*{3,}[A-Za-z0-9*_-]*/g, '[key hidden]').replace(/\s+/g, ' ').trim().slice(0, 240)
 }
 
 async function callModel({ model, system, user, signal }) {
