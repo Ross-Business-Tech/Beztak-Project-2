@@ -180,6 +180,54 @@ test('Claude Haiku through the Anthropic API: right model, key stays on the serv
   } finally { t.stop(); fake.close() }
 })
 
+test('an OpenAI (Codex) key goes to OpenAI through the Responses API, with no unsupported options', async () => {
+  const seen = []
+  const fake = createServer((req, res) => {
+    let b = ''; req.on('data', (c) => { b += c }); req.on('end', () => {
+      const body = JSON.parse(b)
+      seen.push({ url: req.url, key: req.headers.authorization, body })
+      const triage = String(body.instructions).includes('triage assistant')
+      const out = triage ? { category: 'time_off', flags: [], certainty: 90 } : { draft: 'Hi there,\n\nHere is your OpenAI answer.', sources: [], confidence: 85 }
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ id: 'resp_1', object: 'response', status: 'completed', output: [{ type: 'reasoning', summary: [] }, { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: JSON.stringify(out) }] }] }))
+    })
+  })
+  const port = await listen(fake)
+  // A key that is not an OpenRouter key goes to OpenAI by default
+  assert.equal(loadConfig({ AI_PROVIDER: 'openai', AI_API_KEY: 'sk-proj-abc' }).ai.baseUrl, 'https://api.openai.com/v1')
+  assert.equal(loadConfig({ AI_PROVIDER: 'openai', AI_API_KEY: 'sk-proj-abc' }).ai.api, 'responses')
+  assert.equal(loadConfig({ AI_PROVIDER: 'openai', AI_API_KEY: 'sk-or-abc' }).ai.baseUrl, 'https://openrouter.ai/api/v1')
+  const t = await setup({ TICKETING_ADAPTER: 'none', AI_PROVIDER: 'openai', AI_BASE_URL: `http://127.0.0.1:${port}/v1`, AI_API_KEY: 'sk-proj-test', AI_MODEL: '', AI_API: 'responses' })
+  try {
+    await t.api('POST', '/api/login', { username: 'admin', password: 'correct-horse-battery' })
+    const st0 = (await t.api('GET', '/api/state')).json
+    assert.equal((await t.api('PUT', '/api/config/settings', { value: { ...st0.settings, ai: { ...st0.settings.ai, engine: 'ai', model: 'gpt-5-codex-mini' } } })).status, 200)
+    const r = await t.api('POST', '/api/emails/test', { name: 'Test Person', from: 'tp@example.com', subject: 'Vacation days', body: 'How many vacation days do I get?' })
+    assert.equal(r.status, 200)
+    assert.equal(r.json.result.engine, 'ai', 'the AI answered (not the simple fallback writer)')
+    assert.match(r.json.result.draft, /OpenAI answer/)
+    assert.ok(seen.length >= 2)
+    for (const c of seen) {
+      assert.equal(c.body.model, 'gpt-5-codex-mini', 'the model chosen in Settings')
+      assert.equal(c.url, '/v1/responses'); assert.equal(c.key, 'Bearer sk-proj-test')
+      assert.equal(c.body.temperature, undefined, 'no temperature (newer OpenAI models reject it)')
+      assert.equal(c.body.max_tokens, undefined); assert.ok(c.body.max_output_tokens >= 8000)
+      assert.ok(String(c.body.instructions).length > 50)
+      assert.ok(c.body.input.every((m) => m.role === 'user'))
+    }
+    const st = JSON.stringify((await t.api('GET', '/api/state')).json)
+    assert.ok(!st.includes('sk-proj-test'))
+  } finally { t.stop(); fake.close() }
+})
+
+test('model names are cleaned up for OpenAI', async () => {
+  const { openAiModelId } = await import('../ai.js')
+  assert.equal(openAiModelId('gpt-5-codex-mini', 'gpt-5-mini'), 'gpt-5-codex-mini')
+  assert.equal(openAiModelId('claude-haiku-5-5', 'gpt-5-mini'), 'gpt-5-mini')
+  assert.equal(openAiModelId('anthropic/claude-sonnet-4.5', 'gpt-5-mini'), 'gpt-5-mini')
+  assert.equal(openAiModelId('', 'gpt-5-mini'), 'gpt-5-mini')
+})
+
 test('an old OpenRouter-style model name still reaches Claude as a valid name', async () => {
   const { claudeModelId } = await import('../ai.js')
   assert.equal(claudeModelId('anthropic/claude-haiku-5-5', 'x'), 'claude-haiku-5-5')

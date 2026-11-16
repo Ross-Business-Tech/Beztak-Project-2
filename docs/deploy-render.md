@@ -59,6 +59,7 @@ Confirm against Render's pricing page and Anthropic's price list before quoting 
 | `ADMIN_PASSWORD` | A strong password for the first admin (only used on first start) |
 | `AI_API_KEY` | An Anthropic API key (from the account that will pay for it) |
 | `AI_PROVIDER`, `AI_MODEL` | Already set to `anthropic` and `claude-haiku-5-5` |
+| **Using an OpenAI ("Codex") key instead** | Put the OpenAI key in `AI_API_KEY`, set `AI_PROVIDER` to `openai`, and set `AI_MODEL` to an OpenAI model (for example `gpt-5-mini` or `gpt-5-codex-mini`). Save, then Manual Deploy. In the app, Settings > AI > Model should be the same OpenAI name |
 | `TICKETING_ADAPTER` | `none` at launch. Requests come in through **Import and evaluate**. Later, set `zohodesk` and add the `ZOHO_*` values from [zoho-desk.md](zoho-desk.md) |
 | `COOKIE_SECURE=true`, `TRUST_PROXY=true` | Already set. Required behind Render's HTTPS proxy |
 | `ALLOW_AUTO_SEND=false` | Already set. Leave it off for launch |
