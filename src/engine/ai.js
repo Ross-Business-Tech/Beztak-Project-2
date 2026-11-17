@@ -294,10 +294,8 @@ export async function aiDraft({ email, settings, files, ctx, tone, model, readMo
   const retry = ctx.tries > 0 && ctx.draftBody
     ? `\nThis is attempt ${ctx.tries + 1}. The previous attempt was only ${ctx.confidence}% supported:\n<previous_draft>\n${ctx.draftBody}\n</previous_draft>\nLook harder for support in the documents, or say plainly that the HR team will follow up. Do not invent facts.\n`
     : ''
-  // Make sure the greeting ("Hi Sam,") sits on its own line with a blank line before the message, even if the AI ran them together.
-  const spaceGreeting = (t) => t.replace(/^((?:[Hh]i|[Hh]ello|[Hh]ey|[Dd]ear|[Gg]ood (?:[Mm]orning|[Aa]fternoon|[Ee]vening))\b[^\n,]{0,40}[,:!])(?:[ \t]*\n(?!\n)[ \t]*|[ \t]+(?=[A-Z]))/, '$1\n\n')
   const finish = (body) => {
-    const parts = [spaceGreeting(body), settings.signature]
+    const parts = [body, settings.signature]
     if (settings.includeFooter && settings.footer) parts.push(`--\n${settings.footer}`)
     return parts.join('\n\n')
   }
