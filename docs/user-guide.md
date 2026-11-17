@@ -1,126 +1,74 @@
 # HR Help Desk AI: User Guide
 
-For the people who use the help desk every day: reviewers and administrators. No technical knowledge needed.
+For reviewers and administrators. The assistant drafts replies from your policy documents. **A person always reviews and approves before anything is sent.**
 
-**In one sentence:** employees send HR a question, the assistant drafts a reply using your own policy documents, and **a person always reads, edits and approves it** before anything is sent.
+## Getting started
 
----
-
-## Page 1: The basics
-
-### Who can do what
+Sign in with the email and password your administrator gave you. Reviewers open on the **Review queue**; administrators open on the **Dashboard**. On a phone, use the menu button at the top left.
 
 | | Reviewer | Administrator |
 |---|---|---|
-| Work through the Review queue | Yes | Yes |
-| Use Import and evaluate, Test emails, Test a document | Yes (on by default) | Yes |
-| See the Dashboard, Workflow, Knowledge files, Activity log | Only if an admin opens them | Yes |
-| Change the Workflow, upload or delete files | No (view only) | Yes |
+| Review queue, Import, Test emails | Yes | Yes |
+| Dashboard, Workflow, Knowledge files, Activity log | Only if an admin opens them (Workflow and files are view-only) | Yes |
 | Settings and Access | No | Yes |
 
-Administrators choose what reviewers can open on the **Access** page.
+**How a request is handled**
 
-### Signing in
+1. A request arrives from a spreadsheet import or from Zoho Desk.
+2. The Workflow flags risky topics and routes the request.
+3. The assistant drafts a reply and quotes the policy passages it used.
+4. A person reviews it in the Review queue.
 
-Open the site and sign in with the email and password your administrator gave you. Reviewers land on the **Review queue**; administrators land on the **Dashboard**. On a phone, tap the menu button (top left) to move between pages.
+Harassment, discrimination, legal, safety and mental-health topics always go to a person.
 
-If you open the site in its **test version** (no sign-in), it uses sample data kept in your own browser. Nothing is read or sent, and what you do is not shared with colleagues. A banner at the top tells you which version you are in.
+## Step by step: your first request
 
-### How a message moves through the help desk
+1. **Sign in** and open the **Review queue** (reviewers land here).
+2. **Pick a tab:** *Needs review*, *Flagged*, *Handled* or *All*. Use the search box to find a sender or subject. Each row shows the sender's initials, how long the case has waited, and tags such as **Critical** or **Urgent**.
+3. **Open the top case.** The most urgent are listed first.
+4. **Read the email**, then the draft reply below it.
+5. **Check Sources** to confirm the reply matches your policy.
+6. **Edit the reply** so it says what you would say.
+7. **Send / approve.** The next case opens automatically.
+8. **Repeat** until no messages are waiting for review.
 
-1. **A request arrives.** It comes in from a spreadsheet you import (or from Zoho Desk, if your team has connected it).
-2. **The Workflow takes over.** It is a set of steps your team designed. It flags risky topics, sorts the request by subject, and decides where it goes next.
-3. **The assistant drafts a reply.** It reads the request, finds the matching passages in your Knowledge files, and writes a reply that quotes its sources.
-4. **A person reviews it.** The case waits in the Review queue until someone approves, edits or closes it.
+*Admins, to add requests first:* open **Import and evaluate**, click **Use an example** (or paste your own spreadsheet), choose **Add to Review queue**, then click the button below it. They appear in the queue within moments.
 
-The assistant only reads and drafts. The Workflow decides what happens to each message. **Harassment, discrimination, legal threats, safety and mental-health topics are always sent to a person.**
+## Reviewing requests
 
----
+1. Open the **Review queue**. The most urgent, longest-waiting cases are first.
+2. Read the original message, then the **draft reply**. The confidence meter shows how sure the assistant is.
+3. Check **Sources** for the policy passages behind the draft. If none are found, write the answer yourself. **Why it's here** explains any flag.
+4. Edit the reply, then choose:
+   - **Send / approve:** records your reply, then opens the next case.
+   - **Save draft** or **Regenerate:** keep your work or get a fresh draft.
+   - **Close without reply.**
+5. On a red **high-risk** case, tick the confirmation box before you can send.
 
-## Page 2: Everyday work (Review queue)
+Use **Case notes** for private internal comments; they are never sent to the employee. By default an approved reply is saved as a private note on the Zoho Desk ticket, and HR sends it from there.
 
-This is where reviewers spend their time.
+## Administrator tasks
 
-### The queue
+| Page | What to do there |
+|---|---|
+| **Import and evaluate** | Paste or upload a CSV (up to 200 rows; needs `subject` and `body`). Choose **Check accuracy** for a scorecard, or **Add to Review queue**. Add `expected_topic` and `expected_risk` columns to measure accuracy. |
+| **Knowledge files** | Upload the PDF, Word or text policies the assistant may answer from. Files marked "Not readable yet" (for example scanned PDFs) can't be used. |
+| **Workflow** | Edit how requests are flagged, escalated and routed. A built-in check warns if a flagged message could be sent with no person involved. |
+| **Access** | Add people by email, set Reviewer or Administrator, and choose which optional pages reviewers can open. Keep at least one administrator. |
+| **Settings** | Pick the AI engine and run **Check the AI connection**. Set tone, signature and AI disclosure footer. Connect Zoho Desk or Egnyte. |
+| **Dashboard and Activity log** | See volumes, time saved, topics and flags, and a record of who changed what. |
 
-- Cases are sorted with the **most urgent and longest-waiting first**. Each shows how long it has been waiting.
-- Use the filter at the top to switch between open cases and all cases.
-- Tap a case to open it.
+**Test emails** and **Test a document** let you practice with made-up messages. Nothing there touches real tickets.
 
-### Reviewing one case
+## Good practice
 
-On a computer the original email and the draft sit side by side. On a phone you see the original email first, then the **draft reply**, with the other details folded away underneath.
+- Read the sources, not just the reply.
+- Use made-up or anonymized data when testing.
+- Run **Check accuracy** again after changing the Workflow or policies.
+- If a case feels sensitive, close it and handle it yourself.
 
-1. **Read the original message.**
-2. **Read the draft reply.** The meter shows how confident the assistant is, in plain words. Lower confidence means read more carefully.
-3. **Check the details if you need them** (tap to open):
-   - **Why it's here:** what was flagged or why a person is needed.
-   - **Sources:** the exact policy passages the reply is based on. If it says *No supporting document found*, write the answer yourself.
-   - **Case notes:** private notes for your team. Never sent to the employee.
-   - **History:** what has happened to this case.
-   - **How it decided:** the step-by-step path it took through the Workflow.
-4. **Edit the reply** in the box. Use **Save draft** to keep unfinished work, **Copy reply** to paste it somewhere else, or **Regenerate** to ask for a fresh draft.
-5. **Finish the case:**
-   - **Approve / send** records your approved reply. After you finish, the next case opens automatically.
-   - **Close without reply** closes it with no answer.
+## Limits
 
-### High-risk cases
+Only the first message of a ticket is read; attachments are not. Alerts are logged, not emailed.
 
-A red box means the topic is sensitive. The draft is deliberately cautious. You must tick **"I have read this message and edited the reply as needed"** before the send button works. Rewrite the reply in your own words where needed.
-
-### What "send" really does
-
-Nothing is emailed to an employee unless an administrator has turned that on. By default an approved reply is **saved as a private note on the Zoho Desk ticket** (or recorded in the app if Zoho is not connected), and HR sends it from there.
-
----
-
-## Page 3: Administrators
-
-### Dashboard
-Last 7 days at a glance: how many requests, how many are waiting, time saved, what people are asking about, and what was flagged. Use **Open queue**, **Edit rules** and **See all** to jump to the right page.
-
-### Import and evaluate
-Bring in requests from a spreadsheet (up to 200 at a time) and choose what to do with them:
-
-- **Check accuracy:** runs every request through your Workflow *without* adding anything to the queue and gives you a **scorecard**. Add `expected_topic` and `expected_risk` (yes or no) columns and it shows how often the assistant agrees with you. Use **Save this check** to compare results after you change the Workflow or documents.
-- **Add to Review queue:** each request is drafted and waits for a person.
-
-The spreadsheet needs a `subject` and a `body` column. `name`, `from` and `received_at` are optional. Use **Download a sample file** to see the format. Use made-up or anonymized requests when testing, and remove names and ID numbers first.
-
-### Knowledge files
-The documents the assistant is allowed to answer from: policies, FAQs, guides. Upload PDF, Word or text files, and open a file to see what the assistant can read. A file marked **Not readable yet** (for example a scanned PDF with no text) cannot be used. If Egnyte is connected, its files appear here marked **Egnyte** and are kept up to date automatically.
-
-### Workflow
-The visual editor where you decide how every request is handled: what is flagged, what is escalated, which team owns it, and when a person must review. Changes apply to the next request. A built-in check warns you if a path could send a flagged message with no person involved.
-
-### Access
-Add people by email, choose **Reviewer** or **Administrator**, and choose which optional pages reviewers can open (each is shown as **Open** or **Hidden**). Keep at least one administrator. Changes apply right away.
-
-### Settings
-Choose the AI engine and use **Check the AI connection** to confirm it works. Set the reply tone, signature and the "prepared with the help of an AI assistant" footer. Connect Zoho Desk or Egnyte (live server only), and set the minutes-saved figure the Dashboard uses.
-
-### Activity log
-A record of who changed what and what the help desk did.
-
-### Test emails and Test a document
-A safe practice area. Write a pretend employee email (or start from an example) and see the draft, the sources and the reasoning. Upload a practice policy, then ask a question about it to check the assistant uses it. Nothing here touches real tickets.
-
----
-
-## Good habits
-
-- Always read the sources, not just the reply.
-- Use made-up data when practicing. Do not paste real employee information into the test areas.
-- After changing the Workflow or uploading new policies, run **Check accuracy** again.
-- If a case feels wrong or sensitive, close it without a reply and handle it yourself.
-
-## Limits to know about
-
-- Only the first message of a ticket is read; later replies and attachments are not.
-- Alerts such as "Alert HR Director" are recorded in the Activity log, not emailed.
-- Scanned PDFs cannot be read.
-- Zoho Desk and Egnyte have been tested against stand-ins, not a real account. Run the connection tests in Settings first.
-
-## Need help?
-
-Ask your administrator, or see the technical guides: [install](install.md), [Zoho Desk](zoho-desk.md), [Egnyte](egnyte.md) and [security and privacy](security-privacy.md).
+Need help? Ask your administrator, or see the [install](install.md), [Zoho Desk](zoho-desk.md), [Egnyte](egnyte.md) and [security](security-privacy.md) guides.
