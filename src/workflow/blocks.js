@@ -20,6 +20,7 @@ export const FIELDS = {
   flagged: { label: 'Any risk flagged', type: 'yesno', help: 'Whether any Risk filter has matched so far.' },
   flaggedRule: { label: 'Risk rule that matched', type: 'text', help: 'The name of a rule that matched, for example "Harassment".' },
   sourcesFound: { label: 'Supporting document found', type: 'yesno', help: 'Whether the reply is backed by a quote from your documents.' },
+  needsInfo: { label: 'Reply asks the employee for details', type: 'yesno', help: 'Whether the AI had to ask the employee questions before it could fully answer.' },
   senderEmail: { label: 'Sender email', type: 'text', help: '' },
   senderDomain: { label: 'Sender email domain', type: 'text', help: 'The part after the @ sign.' },
   subject: { label: 'Subject', type: 'text', help: '' },

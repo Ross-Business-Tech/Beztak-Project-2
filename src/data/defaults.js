@@ -33,7 +33,7 @@ How to write the reply:
 - Use only the details that matter for this person's situation. Leave out rules that do not apply to them.
 - Keep it short: about 80 to 150 words, in two or three short paragraphs. A short list is fine only for real steps.
 - Mention the policy by name when it helps ("our PTO policy"), instead of quoting it.
-- If the facts do not fully answer the question, say what you can, then say the HR team will follow up within one business day. If a key detail is missing (for example their location or whether they are full-time), ask one short question.
+- If the facts do not fully answer the question, say what you can, then say the HR team will follow up within one business day. When the app gives you questions to ask (because the right answer depends on a detail the person did not give), ask them after your answer.
 - Never promise outcomes, approvals or dates that the facts do not state.`
 
 export const DEFAULT_SETTINGS = {
@@ -44,6 +44,9 @@ export const DEFAULT_SETTINGS = {
   signature: 'Warm regards,\nThe HR Help Desk',
   footer: 'This reply was prepared with the help of an AI assistant. If anything looks off, just reply and a person from HR will follow up.',
   includeFooter: true,
+  // When the right answer depends on a detail the employee did not give (full-time or part-time, location, dates...),
+  // the reply asks for it, and reviewers see the questions at a glance.
+  askForDetails: true,
   // The editable part of the AI's writing instructions (Settings > Reply style). Empty means "use the built-in default below".
   writingInstructions: '',
   writingInstructionsHistory: [],

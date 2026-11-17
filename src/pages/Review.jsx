@@ -71,7 +71,7 @@ export default function Review() {
                       <StatusBadge status={e.status} />
                       {e.result.flags.length > 0 && <SeverityBadge severity={topSeverity(e.result.flags)} />}
                       {e.result.flags.length > 0 && <span className="small muted">{e.result.flags.map((f) => f.name).join(', ')}</span>}
-                      {e.result.priority === 'urgent' && <Badge tone="red">Urgent</Badge>}{e.source === 'test' && <Badge tone="blue">Test</Badge>}{e.source === 'import' && <Badge tone="blue">Imported</Badge>}
+                      {e.result.clarify?.questions?.length > 0 && <Badge tone="blue">Asks for details</Badge>}{e.result.priority === 'urgent' && <Badge tone="red">Urgent</Badge>}{e.source === 'test' && <Badge tone="blue">Test</Badge>}{e.source === 'import' && <Badge tone="blue">Imported</Badge>}
                     </div>
                   </div>
                   <span className={`queue-wait ${isLate(e) ? 'late' : 'muted'}`}>{isOpen(e) ? waited(e) : timeAgo(e.receivedAt)}</span>
@@ -128,6 +128,13 @@ function Detail({ email, next, onBack, onNext }) {
               <div key={f.ruleId} className="row" style={{ marginTop: 10 }}><SeverityBadge severity={f.severity} /><strong>{f.name}</strong> {f.matched.map((m) => <span key={m} className="chip hit">{m}</span>)}{f.by === 'ai' && <Badge tone="blue">Caught by meaning</Badge>}{f.reason && <span className="muted small" style={{ flexBasis: '100%' }}>Why: {f.reason}</span>}</div>
             ))}
           </Fold>
+          {r.clarify?.questions?.length > 0 && (
+            <Fold className="o4" title="Details the reply asks for" summary={`${r.clarify.questions.length} question${r.clarify.questions.length === 1 ? '' : 's'} for the employee`} defaultOpen>
+              <p className="muted small" style={{ marginBottom: 6 }}>The right answer depends on these. The reply already asks them, so you can approve it as is and finish the answer once the employee replies.</p>
+              <ol style={{ margin: 0, paddingLeft: 18 }}>{r.clarify.questions.map((q, i) => <li key={i}>{q}</li>)}</ol>
+              {r.clarify.missing && <p className="small" style={{ marginTop: 8 }}><strong>Not in the documents:</strong> {r.clarify.missing}</p>}
+            </Fold>
+          )}
           <Fold className="o4" title="Sources" summary={r.sources.length ? `${r.sources.length} quoted source${r.sources.length === 1 ? '' : 's'}` : 'No supporting document found'}>
             {r.copy?.tooClose && <p className="small" style={{ marginBottom: 8 }}><Badge tone="amber">Close to handbook wording</Badge> The AI stayed close to the document's own words even after a rewrite. Please check the tone and reword if needed.</p>}
             {r.sources.length === 0 ? <p className="muted">No supporting document found.</p> : r.sources.map((s, i) => <div key={i} style={{ marginBottom: 8 }}><strong>{s.name}</strong><div className="quote">{s.snippet}</div></div>)}

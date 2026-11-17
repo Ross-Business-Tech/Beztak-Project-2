@@ -68,10 +68,9 @@ export function WritingInstructions() {
           <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
             <Badge tone={test.out.copy.tooClose ? 'red' : 'green'}>{test.out.copy.tooClose ? 'Close to the documents’ wording' : 'In its own words'}</Badge>
             <Badge>{test.out.confidence}% confident</Badge>
-            <Badge>{test.out.usage.sections} section{test.out.usage.sections === 1 ? '' : 's'} read, {Math.round(test.out.usage.charsSent / 1000)}k of {Math.round(test.out.usage.charsTotal / 1000)}k characters</Badge>
           </div>
           <div className="pre" style={{ whiteSpace: 'pre-wrap' }}>{test.out.draft}</div>
-          {test.out.usage.used?.length > 0 && <p className="muted small" style={{ marginTop: 6 }}>Read: {test.out.usage.used.map((u) => `${u.name}${u.heading ? ` > ${u.heading}` : ''}`).join('; ')}</p>}
+          {test.out.clarify?.questions?.length > 0 && <p className="muted small" style={{ marginTop: 6 }}>Asks the employee: {test.out.clarify.questions.join(' ')}</p>}
         </div>
       ))}
 

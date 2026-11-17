@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useApp } from '../store'
 import { FILE_FOLDERS } from '../data/defaults'
 import { Uploader } from '../components/Uploader'
-import { sectionsOf } from '../engine/sections'
 import { Badge, Card, HelpPanel, Empty, Modal, PageHeader, Toggle, fmtSize } from '../components/ui'
 
 export default function Files() {
@@ -26,9 +25,9 @@ export default function Files() {
       <HelpPanel id="files" steps={[
         'Select Upload files to add a document, or paste text. Choose the folder it belongs in.',
         'The AI answers only from files whose "AI can use" switch is on. Turn a file off to stop using it without deleting it.',
-        'Use View to read a document and see how it was split into sections. Use the folder filter and search to find files.',
+        'Use View to read a document exactly as the AI sees it. Use the folder filter and search to find files.',
         'Delete removes a file permanently, so prefer turning it off if you may need it again.',
-      ]} note="Documents are split into sections at their headings when added. For each email the AI is shown only the few best-matching sections, not the whole file, so clear headings and one topic per section work best." />
+      ]} note="Keep documents short, current and clearly written. The AI searches them paragraph by paragraph, so one topic per paragraph works best." />
       <div className="tiles" style={{ gridTemplateColumns: 'repeat(3, minmax(0,1fr))' }}>
         <div className="tile"><div className="num">{files.length}</div><div className="lbl">Total files</div></div>
         <div className="tile"><div className="num">{readable}</div><div className="lbl">In use by the AI</div></div>
@@ -48,7 +47,7 @@ export default function Files() {
                   <tr key={f.id}>
                     <td data-label="Name">
                       <div className="cell-title">{f.name} {f.test && <Badge tone="blue">Test</Badge>}{f.source === 'egnyte' && <Badge tone="blue">Egnyte</Badge>}{!f.extracted && <Badge tone="amber">Not readable yet</Badge>}</div>
-                      <div className="muted small">{f.description || 'No description'}{f.content ? ` · ${sectionsOf(f).length} section${sectionsOf(f).length === 1 ? '' : 's'}` : ''}</div>
+                      <div className="muted small">{f.description || 'No description'}</div>
                     </td>
                     <td data-label="Folder">
                       {f.source === 'egnyte' ? <span className="muted">Egnyte</span> : (
@@ -81,10 +80,6 @@ export default function Files() {
       {view && (
         <Modal title={view.name} onClose={() => setView(null)} wide>
           <p className="muted small" style={{ marginBottom: 10 }}>{view.folder} · {fmtSize(view.size)}</p>
-          <details style={{ marginBottom: 10 }}>
-            <summary className="small"><strong>{sectionsOf(view).length} section{sectionsOf(view).length === 1 ? '' : 's'}</strong>: the AI reads only the ones that match each question</summary>
-            <ol className="small" style={{ margin: '8px 0 0 18px' }}>{sectionsOf(view).map((x, i) => <li key={i}>{x.heading || 'Start of document'} <span className="muted">({x.text.length.toLocaleString()} characters)</span></li>)}</ol>
-          </details>
           <div className="pre">{view.content}</div>
         </Modal>
       )}

@@ -23,6 +23,7 @@ function fieldValue(field, ctx, env) {
     case 'flagged': return ctx.flags.length ? 'yes' : 'no'
     case 'flaggedRule': return ctx.flags.map((f) => f.name).join(', ')
     case 'sourcesFound': return ctx.sources.length ? 'yes' : 'no'
+    case 'needsInfo': return ctx.clarify?.questions?.length ? 'yes' : 'no'
     case 'senderEmail': return e.from || ''
     case 'senderDomain': return (e.from || '').split('@')[1] || ''
     case 'subject': return e.subject || ''
@@ -149,11 +150,12 @@ const RUN = {
     ctx.sources = res.data.sources
     ctx.confidence = res.data.confidence
     ctx.copy = res.data.copy || null
+    ctx.clarify = res.data.clarify || null
     ctx.usage = res.data.usage || null
     const how = res.engine === 'ai' ? `AI, ${res.model}` : 'simulated'
     return {
       port: 'out', status: ctx.careful ? 'flag' : res.note ? 'warn' : 'ok',
-      detail: `${ctx.careful ? 'Wrote a careful, no-advice reply' : `Wrote a reply (${res.data.sources.length} quoted source${res.data.sources.length === 1 ? '' : 's'}, ${ctx.confidence}% confident)`} (${how})${res.data.droppedQuotes ? `. ${res.data.droppedQuotes} unverifiable quote(s) removed.` : ''}${res.data.rewritten ? '. The first draft stayed too close to the documents, so it was rewritten.' : ''}${res.data.copy?.tooClose ? '. Still close to the documents\' wording, so confidence was lowered for a person to check.' : ''}${res.note ? `. ${res.note} Used the simulated writer instead.` : ''}`,
+      detail: `${ctx.careful ? 'Wrote a careful, no-advice reply' : `Wrote a reply (${res.data.sources.length} quoted source${res.data.sources.length === 1 ? '' : 's'}, ${ctx.confidence}% confident)`} (${how})${res.data.droppedQuotes ? `. ${res.data.droppedQuotes} unverifiable quote(s) removed.` : ''}${res.data.clarify?.questions?.length ? `. Asks the employee ${res.data.clarify.questions.length} question${res.data.clarify.questions.length === 1 ? '' : 's'}.` : ''}${res.data.rewritten ? '. The first draft stayed too close to the documents, so it was rewritten.' : ''}${res.data.copy?.tooClose ? '. Still close to the documents\' wording, so confidence was lowered for a person to check.' : ''}${res.note ? `. ${res.note} Used the simulated writer instead.` : ''}`,
     }
   },
 
@@ -259,7 +261,7 @@ export function* execute({ email, workflow, settings, history = [] }) {
     requireConfirm: Boolean(end.requireConfirm), priority: end.priority || (ctx.careful ? 'urgent' : 'normal'), owner: end.owner || null,
     ready: Boolean(end.ready), alerts: ctx.alerts, ticketActions: ctx.ticketActions, careful: ctx.careful,
     engine: ctx.usedAI ? 'ai' : 'simulated', model: ctx.model, aiFallback: ctx.aiFallback,
-    copy: ctx.copy || null, usage: ctx.usage || null,
+    copy: ctx.copy || null, usage: ctx.usage || null, clarify: ctx.clarify || null,
   }
 }
 

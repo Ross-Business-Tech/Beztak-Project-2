@@ -76,6 +76,9 @@ export default function Settings() {
         </div>
         <Field label="Tone">{() => <Segmented label="Tone" value={s.tone} onChange={(v) => set({ tone: v })} options={[{ value: 'warm', label: 'Warm' }, { value: 'professional', label: 'Professional' }, { value: 'concise', label: 'Concise' }]} />}</Field>
         <Field label="Signature">{(id) => <textarea id={id} rows={3} value={s.signature} onChange={(e) => set({ signature: e.target.value })} />}</Field>
+        <SettingRow title="Ask the employee for missing details" hint="When the right answer depends on something the person did not say (full-time or part-time, location, dates), the first reply asks for it. Reviewers see the questions at a glance. The AI never asks about medical details or personal ID numbers.">
+          <Toggle label="Ask for missing details" checked={s.askForDetails !== false} onChange={(v) => set({ askForDetails: v }, `Asking for missing details ${v ? 'turned on' : 'turned off'}`)} />
+        </SettingRow>
         <SettingRow title="Add an AI disclosure footer" hint="Tells people an AI helped write the reply.">
           <Toggle label="Footer" checked={s.includeFooter} onChange={(v) => set({ includeFooter: v })} />
         </SettingRow>

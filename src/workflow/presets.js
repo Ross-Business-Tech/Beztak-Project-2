@@ -90,7 +90,7 @@ export function sanitizeSettings(raw) {
     tone: oneOf(raw.tone, ['warm', 'professional', 'concise'], d.tone),
     helpDeskName: str(raw.helpDeskName, d.helpDeskName, 80), replyToAddress: str(raw.replyToAddress, d.replyToAddress, 120),
     signature: str(raw.signature, d.signature, 400), footer: str(raw.footer, d.footer, 500), includeFooter: bool(raw.includeFooter, d.includeFooter),
-    writingInstructions: str(raw.writingInstructions, '', 2000), writingInstructionsHistory: [],
+    askForDetails: bool(raw.askForDetails, d.askForDetails), writingInstructions: str(raw.writingInstructions, '', 2000), writingInstructionsHistory: [],
     minutesSavedPerReply: Math.max(1, Math.min(60, Math.round(Number(raw.minutesSavedPerReply)) || d.minutesSavedPerReply)),
     ai: { engine: oneOf(raw.ai?.engine, ['ai', 'simulated'], d.ai.engine), model },
     integrations: { egnyte: d.integrations.egnyte, zoho: { enabled: bool(z.enabled, false), applyTicketActions: bool(z.applyTicketActions, true), noteDraftOnArrival: bool(z.noteDraftOnArrival, true), onApprove: oneOf(z.onApprove, ['internal_note', 'send_reply', 'none'], 'internal_note') } },
