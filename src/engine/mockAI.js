@@ -6,8 +6,11 @@ const STOP = new Set('a an and are as at be but by can do does for from have how
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+// "W-2", "I-9" and "401(k)" are written many ways and are too short to survive as plain words, so they get a fixed spelling.
+const KEEP = new Set(['w2', 'w4', 'i9', '401k'])
 export function tokenize(text) {
-  return (text.toLowerCase().match(/[a-z0-9']+/g) || []).filter((w) => w.length > 2 && !STOP.has(w))
+  const t = String(text).toLowerCase().replace(/\bw-?([24])\b/g, 'w$1').replace(/\bi-?9\b/g, 'i9').replace(/\b401\s*\(?k\)?/g, '401k')
+  return (t.match(/[a-z0-9']+/g) || []).filter((w) => (w.length > 2 || KEEP.has(w)) && !STOP.has(w))
 }
 
 export function matchKeywords(text, keywords) {

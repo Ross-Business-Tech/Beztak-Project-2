@@ -1,3 +1,4 @@
+import { ConfidenceWhy } from '../components/ConfidenceWhy'
 import { useState } from 'react'
 import { useApp } from '../store'
 import { TicketActions } from './Lab'
@@ -26,7 +27,8 @@ function initials(name) {
 }
 
 export default function Review() {
-  const { emails } = useApp()
+  const { emails: allEmails } = useApp()
+  const emails = allEmails.filter((e) => e.status !== 'processing') // still being written: it joins the queue when it is done
   const [filter, setFilter] = useState('open')
   const [q, setQ] = useState('')
   const [selId, setSelId] = useState(null)
@@ -136,7 +138,13 @@ function Detail({ email, next, onBack, onNext }) {
             </Fold>
           )}
           <Fold className="o4" title="Sources" summary={r.sources.length ? `${r.sources.length} quoted source${r.sources.length === 1 ? '' : 's'}` : 'No supporting document found'}>
-            {r.copy?.tooClose && <p className="small" style={{ marginBottom: 8 }}><Badge tone="amber">Close to handbook wording</Badge> The AI stayed close to the document's own words even after a rewrite. Please check the tone and reword if needed.</p>}
+            <ConfidenceWhy result={r} />
+            {(r.unverified?.length > 0 || r.copy?.tooClose) && (
+              <div className="checks">
+                {r.unverified?.length > 0 && <p className="small"><Badge tone="red">Check these figures</Badge> {r.unverified.join(', ')} appear in the reply but not in the documents or the employee's message. Confirm them before approving.</p>}
+                {r.copy?.tooClose && <p className="small"><Badge tone="amber">Close to handbook wording</Badge> The AI stayed close to the document's own words even after a rewrite. Please check the tone and reword if needed.</p>}
+              </div>
+            )}
             {r.sources.length === 0 ? <p className="muted">No supporting document found.</p> : r.sources.map((s, i) => <div key={i} style={{ marginBottom: 8 }}><strong>{s.name}</strong><div className="quote">{s.snippet}</div></div>)}
           </Fold>
           <Fold className="o6" title="Case notes" hint="Internal only. Never sent to the employee." summary={(email.notes || []).length ? `${email.notes.length} note${email.notes.length === 1 ? '' : 's'}` : 'No notes yet'}>
@@ -150,7 +158,7 @@ function Detail({ email, next, onBack, onNext }) {
         </div>
 
         <div className="stack">
-          <Card className="o2" title={open ? 'Draft reply' : 'Reply'} actions={<ConfidenceMeter value={r.confidence} />}>
+          <Card className="o2" title={open ? 'Draft reply' : 'Reply'} actions={<span className="row" style={{ gap: 8 }}>{r.handoff && <Badge>Hand-off</Badge>}<ConfidenceMeter value={r.confidence} /></span>}>
             {highRisk && open && <div className="outcome red"><Icon name="flag" /><div><strong>High-risk: please read carefully before sending</strong><p>The AI wrote a cautious starting draft. Rewrite it in your own words if needed. It cannot be sent until you confirm below.</p></div></div>}
             {open ? (
               <div className="compose">

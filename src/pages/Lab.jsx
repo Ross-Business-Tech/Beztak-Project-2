@@ -1,3 +1,4 @@
+import { ConfidenceWhy } from '../components/ConfidenceWhy'
 import { useState } from 'react'
 import { useApp } from '../store'
 import { SCENARIOS } from '../data/defaults'
@@ -50,6 +51,7 @@ function EmailTab() {
       const sent = await sendTestEmail({ ...form, from: form.from.trim() || 'test.employee@example.com', name: form.name.trim() || 'Test Employee' })
       if (!sent) return
       setSelId(sent.id)
+      if (sent.status === 'processing') { toast('Sent. The AI is working on it and the result will appear on the right in a moment.'); return }
       toast(sent.result.aiFallback ? 'Processed with the simulated engine. The AI was not reachable.' : 'Test email processed. See the result on the right.', sent.result.aiFallback ? 'warn' : 'ok')
     } finally { setBusy(false) }
   }
@@ -101,7 +103,9 @@ function EmailTab() {
       </div>
 
       <div className="stack">
-        {selected ? <Result email={selected} /> : (
+        {selected?.status === 'processing' ? (
+          <Card title="The AI is working on it"><p className="muted">Reading the message, searching your documents and writing a reply. This usually takes 10 to 30 seconds. You can leave this page and come back.</p></Card>
+        ) : selected ? <Result email={selected} /> : (
           <Card><Empty title="The AI's answer will appear here">Send a test email, or pick an example, to see the draft, what got flagged, and why the AI decided what it did.</Empty></Card>
         )}
       </div>
@@ -135,7 +139,7 @@ export function Result({ email }) {
         {r.alerts?.length > 0 && <p className="small" style={{ marginBottom: 10 }}><strong>Alerts sent:</strong> {r.alerts.map((a) => `${a.role}: ${a.message}`).join(' · ')}</p>}
         <div className="two-col">
           <div><div className="muted small">Topic</div><strong>{catLabel(r.category)}</strong></div>
-          <div><div className="muted small">Confidence</div><ConfidenceMeter value={r.confidence} /></div>
+          <div><div className="muted small">Confidence {r.handoff && <Badge>Hand-off</Badge>}</div><ConfidenceMeter value={r.confidence} /></div>
         </div>
         {r.flags.length > 0 && (
           <div style={{ marginTop: 14 }}>
@@ -173,7 +177,13 @@ export function Result({ email }) {
       )}
 
       <Card title="Sources used">
-        {r.copy?.tooClose && <p className="small" style={{ marginBottom: 8 }}><Badge tone="amber">Close to handbook wording</Badge> The reply stayed close to the documents' wording, so its confidence was lowered.</p>}
+        <ConfidenceWhy result={r} />
+        {(r.unverified?.length > 0 || r.copy?.tooClose) && (
+          <div className="checks">
+            {r.unverified?.length > 0 && <p className="small"><Badge tone="red">Check these figures</Badge> {r.unverified.join(', ')} are not in the documents or the employee's message.</p>}
+            {r.copy?.tooClose && <p className="small"><Badge tone="amber">Close to handbook wording</Badge> The reply stayed close to the documents' wording, so its confidence was lowered.</p>}
+          </div>
+        )}
         {r.sources.length === 0 ? <p className="muted">No document supported an answer. Try uploading one in the Test a document tab.</p> : r.sources.map((s, i) => (
           <div key={i} style={{ marginBottom: 8 }}><strong>{s.name}</strong><div className="quote">{s.snippet}</div></div>
         ))}

@@ -54,6 +54,8 @@ export function loadConfig(e = env) {
       departmentId: e.ZOHO_DEPARTMENT_ID || '',
     },
     // Egnyte (optional): a folder of documents the AI may answer from. Read-only.
+    // The most knowledge-file text the server will accept in one save. Raise it if your documents are larger.
+    limits: { filesBytes: Math.max(5, int(e.MAX_FILES_MB, 30)) * 1_000_000 },
     egnyte: (() => {
       const domain = egnyteDomain(e.EGNYTE_DOMAIN)
       return {

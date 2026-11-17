@@ -34,7 +34,7 @@ function anthropicTransport(ai) {
       }, { signal: init?.signal })
       if (msg.stop_reason === 'refusal') return json(502, { error: { message: 'The AI declined to process this message.' } })
       const text = msg.content.filter((b) => b.type === 'text').map((b) => b.text).join('')
-      return json(200, { choices: [{ message: { content: text } }] })
+      return json(200, { choices: [{ message: { content: text } }], usage: { prompt_tokens: msg.usage?.input_tokens, completion_tokens: msg.usage?.output_tokens } })
     } catch (e) {
       if (e instanceof Anthropic.APIError && e.status) return json(e.status, { error: { message: e.message } })
       throw e
@@ -101,7 +101,7 @@ function openAiResponsesTransport(ai, fetchImpl) {
       if (refusal) return json(502, { error: { message: 'The AI declined to process this message.' } })
       return json(502, { error: { message: body.incomplete_details?.reason === 'max_output_tokens' ? 'The AI ran out of room before answering.' : 'The AI sent an empty answer.' } })
     }
-    return json(200, { choices: [{ message: { content: text } }] })
+    return json(200, { choices: [{ message: { content: text } }], usage: { prompt_tokens: body.usage?.input_tokens, completion_tokens: body.usage?.output_tokens } })
   }
 }
 

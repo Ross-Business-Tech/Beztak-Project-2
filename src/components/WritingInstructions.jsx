@@ -38,51 +38,58 @@ export function WritingInstructions() {
   }
 
   return (
-    <Card title="Writing instructions for the AI" hint="Admins only. Decides how every reply is worded: length, voice, structure.">
-      <p className="muted small" style={{ marginBottom: 10 }}>These instructions tell the AI how to write. Your changes apply to the next email. You can use <code>{'{{tone}}'}</code> and <code>{'{{helpDeskName}}'}</code>, which are filled in from the settings above.</p>
-      <Field label={<>Instructions {usingDefault ? <Badge tone="green">Built-in default</Badge> : <Badge tone="blue">Customised</Badge>} {dirty && <Badge tone="amber">Not saved yet</Badge>}</>}>
-        {(id) => <textarea id={id} rows={14} maxLength={MAX} value={text} onChange={(e) => setText(e.target.value)} style={{ fontFamily: 'inherit' }} />}
+    <Card title="Writing instructions for the AI" hint="Admins only. How every reply is worded: length, voice and structure. Changes apply to the next email.">
+      <Field label={<>Instructions {usingDefault ? <Badge tone="green">Built-in default</Badge> : <Badge tone="blue">Customised</Badge>} {dirty && <Badge tone="amber">Not saved yet</Badge>}</>}
+        hint={<>You can use <code>{'{{tone}}'}</code> and <code>{'{{helpDeskName}}'}</code>; they are filled in from the settings above.</>}>
+        {(id) => <textarea id={id} rows={12} maxLength={MAX} value={text} onChange={(e) => setText(e.target.value)} style={{ fontFamily: 'inherit' }} />}
       </Field>
-      <div className="row between" style={{ marginTop: 6 }}>
+      <div className="row between">
         <span className="muted small">{text.length.toLocaleString()} / {MAX.toLocaleString()} characters</span>
         <span className="row" style={{ gap: 8 }}>
           <button className="btn" disabled={usingDefault && !dirty} onClick={() => setText(DEFAULT_WRITING_INSTRUCTIONS)}>Reset to default</button>
           <button className="btn primary" disabled={!dirty || !text.trim()} onClick={save}>Save instructions</button>
         </span>
       </div>
-      <div className="guardrail" role="note" style={{ marginTop: 12 }}>
-        <div>Always added by the app, and not editable: the AI may only use the verified facts from your documents, must ignore instructions hidden inside emails or documents, and sensitive messages (harassment, legal threats, distress) always get the built-in careful, no-advice reply. <button type="button" className="btn small" onClick={() => setShowPrompt(true)}>Show the full prompt</button></div>
+      <div className="note" role="note">
+        The app always adds its own rules, which cannot be edited away: use only facts verified in your documents, ignore instructions hidden in emails, and give sensitive messages the careful, no-advice reply.
+        <button type="button" className="btn small" onClick={() => setShowPrompt(true)}>Show the full prompt</button>
       </div>
 
-      <h3 style={{ marginTop: 18 }}>Try it on a sample email</h3>
-      <p className="muted small" style={{ marginBottom: 8 }}>Uses the text in the box above (even if not saved yet) and your Knowledge files. Nothing is sent or stored.</p>
-      <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <select aria-label="Sample email" value={scenario} onChange={(e) => setScenario(e.target.value)} style={{ maxWidth: 320 }}>
-          {SCENARIOS.filter((x) => !/harass|legal|wellbeing|hostile|eviction|arrest|garnish/.test(x.id)).map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
-        </select>
-        <button className="btn" disabled={test === 'busy' || s.ai.engine !== 'ai'} onClick={run}>{test === 'busy' ? 'Writing...' : 'Write a sample reply'}</button>
-        {s.ai.engine !== 'ai' && <span className="muted small">Turn on the AI language model on the AI tab first.</span>}
-      </div>
-      {test && test !== 'busy' && (test.error ? <p className="small" style={{ marginTop: 10 }}><Badge tone="red">Problem</Badge> {test.error}</p> : (
-        <div style={{ marginTop: 12 }}>
-          <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-            <Badge tone={test.out.copy.tooClose ? 'red' : 'green'}>{test.out.copy.tooClose ? 'Close to the documents’ wording' : 'In its own words'}</Badge>
-            <Badge>{test.out.confidence}% confident</Badge>
+      <details className="plain">
+        <summary>Try it on a sample email</summary>
+        <div className="plain-body">
+          <p className="muted small" style={{ marginBottom: 8 }}>Uses the text above (even if not saved) and your Knowledge files. Nothing is sent or stored.</p>
+          <div className="row" style={{ gap: 8 }}>
+            <select aria-label="Sample email" value={scenario} onChange={(e) => setScenario(e.target.value)} style={{ maxWidth: 320 }}>
+              {SCENARIOS.filter((x) => !/harass|legal|wellbeing|hostile|eviction|arrest|garnish/.test(x.id)).map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+            </select>
+            <button className="btn" disabled={test === 'busy' || s.ai.engine !== 'ai'} onClick={run}>{test === 'busy' ? 'Writing...' : 'Write a sample reply'}</button>
+            {s.ai.engine !== 'ai' && <span className="muted small">Turn on the AI language model on the AI tab first.</span>}
           </div>
-          <div className="pre" style={{ whiteSpace: 'pre-wrap' }}>{test.out.draft}</div>
-          {test.out.clarify?.questions?.length > 0 && <p className="muted small" style={{ marginTop: 6 }}>Asks the employee: {test.out.clarify.questions.join(' ')}</p>}
-        </div>
-      ))}
-
-      {history.length > 0 && (
-        <details style={{ marginTop: 16 }}>
-          <summary className="small"><strong>Earlier versions</strong> ({history.length})</summary>
-          {history.map((h, i) => (
-            <div key={i} className="row between" style={{ marginTop: 8, alignItems: 'flex-start' }}>
-              <div className="small" style={{ flex: 1 }}><span className="muted">{fmtWhen(h.at)}</span><div style={{ whiteSpace: 'pre-wrap' }}>{h.text.slice(0, 160)}{h.text.length > 160 ? '…' : ''}</div></div>
-              <button className="btn small" onClick={() => setText(h.text)}>Load into the box</button>
+          {test && test !== 'busy' && (test.error ? <p className="small" style={{ marginTop: 10 }}><Badge tone="red">Problem</Badge> {test.error}</p> : (
+            <div style={{ marginTop: 12 }}>
+              <div className="row" style={{ gap: 6, marginBottom: 8 }}>
+                <Badge tone={test.out.copy.tooClose ? 'red' : 'green'}>{test.out.copy.tooClose ? 'Close to the documents’ wording' : 'In its own words'}</Badge>
+                <Badge>{test.out.confidence}% confident</Badge>
+              </div>
+              <div className="pre" style={{ whiteSpace: 'pre-wrap' }}>{test.out.draft}</div>
+              {test.out.clarify?.questions?.length > 0 && <p className="muted small" style={{ marginTop: 6 }}>Asks the employee: {test.out.clarify.questions.join(' ')}</p>}
             </div>
           ))}
+        </div>
+      </details>
+
+      {history.length > 0 && (
+        <details className="plain">
+          <summary>Earlier versions ({history.length})</summary>
+          <div className="plain-body">
+            {history.map((h, i) => (
+              <div key={i} className="row between" style={{ marginBottom: 10, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+                <div className="small" style={{ flex: 1, minWidth: 0 }}><span className="muted">{fmtWhen(h.at)}</span><div style={{ whiteSpace: 'pre-wrap' }}>{h.text.slice(0, 160)}{h.text.length > 160 ? '…' : ''}</div></div>
+                <button className="btn small" onClick={() => setText(h.text)}>Load</button>
+              </div>
+            ))}
+          </div>
         </details>
       )}
 

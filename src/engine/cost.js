@@ -1,0 +1,91 @@
+// What the AI costs: a price list, and an estimate of what an email (or a whole import) will use.
+// Figures are estimates (about 4 characters per token) so people can plan and set limits; the provider's invoice is the truth.
+
+// US dollars per million tokens: [input, output]. List prices from Anthropic and OpenAI, checked November 2026; the
+// providers change prices from time to time, so Settings lets you type your own. A model that is not listed here gets its
+// price from those fields, and without one the app cannot show a cost for it. Keys are written the way normalizeModel()
+// spells names: lower case, dots as dashes, no provider prefix, no date.
+export const PRICES = {
+  // Anthropic
+  'claude-fable-5-2': [8, 40], 'claude-fable-5-1': [10, 50], 'claude-fable-5': [10, 50],
+  'claude-opus-5-5': [4, 20], 'claude-opus-5': [5, 25], 'claude-opus-4-8': [5, 25], 'claude-opus-4-7': [5, 25], 'claude-opus-4-6': [5, 25],
+  'claude-sonnet-5-5': [2, 10], 'claude-sonnet-5': [2, 10], 'claude-sonnet-4-6': [3, 15], 'claude-sonnet-4-5': [3, 15],
+  'claude-haiku-5-5': [0.1, 0.5], 'claude-haiku-4-5': [1, 5],
+  // OpenAI: GPT-6 and 6.1
+  'gpt-6-astra': [10, 50], 'gpt-6-sol': [2, 10], 'gpt-6-luna': [0.1, 0.5], 'gpt-6-1-sol': [2, 10], 'gpt-6-1-terra': [1, 5],
+  // OpenAI: GPT-5.6 (Sol is shown at its list price; a lower promotional price runs until late November 2026)
+  'gpt-5-6-sol': [5, 30], 'gpt-5-6-terra': [2, 12], 'gpt-5-6-luna': [0.2, 1.2],
+  // OpenAI: GPT-5.x and earlier
+  'gpt-5-5': [5, 30], 'gpt-5-4': [2.5, 15], 'gpt-5-4-mini': [0.75, 4.5], 'gpt-5-4-nano': [0.2, 1.25],
+  'gpt-5-3-codex': [1.75, 14], 'gpt-5-1-codex-mini': [0.25, 2], 'gpt-5-codex': [1.25, 10],
+  'gpt-5': [1.25, 10], 'gpt-5-mini': [0.25, 2], 'gpt-5-nano': [0.05, 0.4],
+  'gpt-4-1': [2, 8], 'gpt-4-1-mini': [0.4, 1.6], 'gpt-4-1-nano': [0.1, 0.4], 'gpt-4o': [2.5, 10], 'gpt-4o-mini': [0.15, 0.6],
+}
+export const CHARS_PER_TOKEN = 4
+
+/** "anthropic/claude-sonnet-4.5", "claude-sonnet-4-5-20250929", "openai/gpt-5.6-terra" and "gpt-4o-2024-08-06" become "claude-sonnet-4-5", "gpt-5-6-terra", "gpt-4o". */
+export const normalizeModel = (name) => String(name || '').trim().toLowerCase().replace(/^[a-z0-9_-]+\//, '').replace(/\./g, '-').replace(/-\d{8}$/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '')
+
+const num = (v) => (v === '' || v === null || v === undefined ? NaN : Number(v))
+
+/**
+ * The price of one model: { in, out, source } or null when unknown.
+ * `ai` is the AI part of the settings: priceIn/priceOut apply to the main model, readPriceIn/readPriceOut to the reading model.
+ */
+export function priceFor(model, ai = {}) {
+  const m = normalizeModel(model)
+  const main = normalizeModel(ai.model)
+  const read = normalizeModel(ai.readModel)
+  const o = m && m === main ? [num(ai.priceIn), num(ai.priceOut)] : m && m === read ? [num(ai.readPriceIn), num(ai.readPriceOut)] : [NaN, NaN]
+  if (Number.isFinite(o[0]) && Number.isFinite(o[1])) return { in: o[0], out: o[1], source: 'settings' }
+  const t = PRICES[m]
+  return t ? { in: t[0], out: t[1], source: 'list' } : null
+}
+
+export const estimateTokens = (chars) => Math.ceil(chars / CHARS_PER_TOKEN)
+export const usd = (inTok, outTok, p) => (p ? (inTok / 1e6) * p.in + (outTok / 1e6) * p.out : 0)
+
+// Rough sizes of the fixed parts of each prompt, in characters, and typical answers, in tokens.
+const SIZES = { understandSystem: 2600, factsSystem: 1500, writerSystem: 1500, understandOut: 90, factsOut: 380, writerOut: 260 }
+
+/**
+ * Estimate one email. `docChars` is how many characters of documents the facts step would read
+ * (0 means nothing matched). Returns calls with token counts, for a typical run and a worst case.
+ */
+export function estimateEmail({ email, docChars, settings }) {
+  const ai = settings.ai || {}
+  const readModel = ai.readModel || ai.model
+  const readP = priceFor(readModel, ai)
+  const writeP = priceFor(ai.model, ai)
+  const emailChars = `${email.subject || ''}\n${email.body || ''}`.length + 60
+  const instr = (settings.writingInstructions || '').length || 1000
+  const calls = []
+  const add = (kind, inChars, outTok) => calls.push({ kind, inTok: estimateTokens(inChars), outTok })
+  add('read', SIZES.understandSystem + emailChars, SIZES.understandOut)
+  const skip = settings.skipAIWhenNoMatch !== false && docChars === 0
+  if (!skip) {
+    if (docChars > 0) add('read', SIZES.factsSystem + docChars + emailChars, SIZES.factsOut)
+    add('write', SIZES.writerSystem + instr + emailChars + 900, SIZES.writerOut)
+  }
+  const cost = (cs) => cs.reduce((n, c) => n + usd(c.inTok, c.outTok, c.kind === 'read' ? readP : writeP), 0)
+  const typical = cost(calls)
+  // Worst case: the reply copies the documents and is rewritten once, and the workflow retries the facts and the writing once more.
+  const writes = skip ? [] : calls.filter((c) => c.kind === 'write')
+  const rewrite = writes.map((c) => ({ ...c, inTok: c.inTok + estimateTokens(emailChars + 800) }))
+  const retry = skip ? [] : calls.slice(1)
+  const high = typical + cost(rewrite) + cost(retry)
+  return { calls, typical, high, skipped: skip, unknownPrice: !readP || !writeP }
+}
+
+/** Estimate a whole import. `docCharsFor(row)` gives the document characters that row would pull in. */
+export function estimateRun(rows, docCharsFor, settings) {
+  let typical = 0; let high = 0; let calls = 0; let inTok = 0; let outTok = 0; let skipped = 0; let unknownPrice = false
+  for (const row of rows) {
+    const e = estimateEmail({ email: row, docChars: docCharsFor(row), settings })
+    typical += e.typical; high += e.high; calls += e.calls.length; unknownPrice ||= e.unknownPrice; if (e.skipped) skipped += 1
+    for (const c of e.calls) { inTok += c.inTok; outTok += c.outTok }
+  }
+  return { emails: rows.length, typical, high, calls, inTok, outTok, skipped, unknownPrice, perEmail: rows.length ? typical / rows.length : 0 }
+}
+
+export const fmtUsd = (n) => (n >= 10 ? `$${n.toFixed(0)}` : n >= 1 ? `$${n.toFixed(2)}` : n >= 0.01 ? `$${n.toFixed(3)}` : n > 0 ? '<$0.01' : '$0')

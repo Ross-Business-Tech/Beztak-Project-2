@@ -1,8 +1,10 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useApp } from '../store'
 import { CATEGORIES } from '../data/defaults'
 import { parseRequests } from '../lib/csv'
 import { computeMetrics } from '../workflow/evaluate'
+import { pickContext } from '../engine/ai'
+import { estimateRun, fmtUsd, priceFor } from '../engine/cost'
 import { Badge, Card, Empty, Field, HelpPanel, PageHeader, Segmented, fmtDate } from '../components/ui'
 
 const MAX_ROWS = 200
@@ -12,7 +14,8 @@ Riley Demo,riley.demo@example.com,PTO balance,"Hi, how many vacation days do I h
 Jordan Example,jordan.example@example.com,Concerned,"My manager keeps making inappropriate comments and I am afraid to report it.",other,yes`
 
 export default function Import() {
-  const { importRequest, evaluateRequest, saveEvalRun, evalRuns = [], toast, serverMode } = useApp()
+  const { importRequest, evaluateRequest, saveEvalRun, evalRuns = [], toast, serverMode, settings, files } = useApp()
+  const [rowCap, setRowCap] = useState(null)
   const [text, setText] = useState('')
   const [mode, setMode] = useState('evaluate')
   const [busy, setBusy] = useState(false)
@@ -21,6 +24,20 @@ export default function Import() {
   const cancel = useRef(false)
   const parsed = parseRequests(text)
   const over = parsed.rows.length > MAX_ROWS
+  const rows = parsed.rows.slice(0, Math.min(MAX_ROWS, rowCap || MAX_ROWS))
+  const aiOn = settings.ai?.engine === 'ai'
+  const limit = Number(settings.aiLimits?.importRunUsd) || 0
+  // What this run would cost: the same document search the AI does, applied to every row, priced for the models chosen in Settings.
+  const estimate = useMemo(() => {
+    if (!aiOn || !rows.length) return null
+    return estimateRun(rows, (r) => pickContext(files, `${r.subject || ''}\n${r.body || ''}`, settings).chars, settings)
+  }, [rows, files, settings, aiOn])
+  const overLimit = Boolean(estimate && limit > 0 && estimate.typical > limit)
+  // How many of the rows would fit inside the limit.
+  const fits = useMemo(() => {
+    if (!overLimit || !estimate.perEmail) return 0
+    return Math.max(0, Math.floor(limit / estimate.perEmail))
+  }, [overLimit, estimate, limit])
 
   function loadFile(e) {
     const f = e.target.files?.[0]; if (!f) return
@@ -29,8 +46,8 @@ export default function Import() {
   }
 
   async function run() {
-    const rows = parsed.rows.slice(0, MAX_ROWS)
     if (!rows.length) return
+    if (overLimit) { toast(`This run is estimated at ${fmtUsd(estimate.typical)}, over your ${fmtUsd(limit)} limit per import. Run fewer requests or raise the limit in Settings.`, 'warn'); return }
     cancel.current = false; setBusy(true); setResults(null); setProgress({ done: 0, total: rows.length })
     const out = []; let next = 0; let failed = 0
     const worker = async () => {
@@ -49,7 +66,7 @@ export default function Import() {
       setResults(done)
       if (done.length) toast(`Checked ${done.length} request${done.length === 1 ? '' : 's'}.${failed ? ` ${failed} could not be processed.` : ''}`, failed ? 'warn' : 'ok')
     } else {
-      toast(`${done.length} request${done.length === 1 ? '' : 's'} added to the Review queue.${failed ? ` ${failed} failed.` : ''}`, failed ? 'warn' : 'ok')
+      toast(`${done.length} request${done.length === 1 ? '' : 's'} sent.${serverMode ? ' The AI reads them in the background; each joins the Review queue as it finishes.' : ' Added to the Review queue.'}${failed ? ` ${failed} failed.` : ''}`, failed ? 'warn' : 'ok')
       setText('')
     }
   }
@@ -85,8 +102,10 @@ export default function Import() {
       <Card title="2. What to do with them">
         <Segmented label="Mode" value={mode} onChange={setMode} options={[{ value: 'evaluate', label: 'Check accuracy' }, { value: 'queue', label: 'Add to Review queue' }]} />
         <p className="muted small" style={{ margin: '10px 0' }}>{mode === 'evaluate' ? 'Nothing is saved to the queue. You get a scorecard. Each request is read by the AI, so this uses your AI allowance (a few cents per hundred requests with Claude Haiku).' : 'Each request is read by the AI and drafted, then waits in the Review queue for a person.'}</p>
+        {estimate && <CostEstimate estimate={estimate} settings={settings} limit={limit} overLimit={overLimit} fits={fits} onCap={() => setRowCap(fits)} capped={Boolean(rowCap)} onUncap={() => setRowCap(null)} total={parsed.rows.length} />}
+        {!aiOn && parsed.rows.length > 0 && <p className="small" style={{ marginBottom: 10 }}><Badge tone="green">Estimated cost: $0</Badge> The AI is switched off in Settings, so the simple word-matching stand-in reads these.</p>}
         <div className="row">
-          <button className="btn primary" disabled={busy || parsed.rows.length === 0} onClick={run}>{busy ? `Working... ${progress.done} of ${progress.total}` : mode === 'evaluate' ? 'Run the check' : 'Add to Review queue'}</button>
+          <button className="btn primary" disabled={busy || rows.length === 0 || overLimit} onClick={run}>{busy ? `Working... ${progress.done} of ${progress.total}` : mode === 'evaluate' ? 'Run the check' : 'Add to Review queue'}</button>
           {busy && <button className="btn" onClick={() => { cancel.current = true }}>Stop</button>}
         </div>
         {busy && <div className="meter" style={{ marginTop: 12 }} role="progressbar" aria-valuenow={progress.done} aria-valuemax={progress.total}><div style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, height: 8, background: 'var(--accent, #2f6fed)', borderRadius: 4 }} /></div>}
@@ -112,6 +131,35 @@ export default function Import() {
         </>
       )}
     </>
+  )
+}
+
+function CostEstimate({ estimate: e, settings, limit, overLimit, fits, onCap, capped, onUncap, total }) {
+  const ai = settings.ai || {}
+  const read = ai.readModel || ai.model
+  const unknown = [!priceFor(ai.model, ai) && ai.model, !priceFor(read, ai) && read].filter(Boolean)
+  const split = ai.readModel && ai.readModel !== ai.model
+  return (
+    <div className="estimate" role="note">
+      <div className="stat-row">
+        <div className="stat"><div className="v">{e.unknownPrice ? 'Unknown' : fmtUsd(e.typical)}</div><div className="k">estimated AI cost</div></div>
+        {!e.unknownPrice && <div className="stat"><div className="v">{fmtUsd(e.high)}</div><div className="k">worst case</div></div>}
+        <div className="stat"><div className="v">{e.calls.toLocaleString()}</div><div className="k">AI calls for {e.emails} request{e.emails === 1 ? '' : 's'}</div></div>
+      </div>
+      <p className="muted small">
+        {split ? <>Writing with {ai.model}, reading with {ai.readModel}.</> : <>Using {ai.model}.</>}
+        {e.skipped > 0 && <> {e.skipped} with no matching document will use the fixed hand-off reply.</>} An estimate from text length and list prices, not an invoice.
+      </p>
+      {unknown.length > 0 && <p className="small"><Badge tone="amber">No price on file</Badge> for {unknown.join(' and ')}. Enter a price in Settings → AI to see a cost.</p>}
+      {limit > 0 && (
+        <p className="small">
+          {overLimit
+            ? <><Badge tone="red">Over your {fmtUsd(limit)} limit per import</Badge> {fits > 0 ? <>About {fits} request{fits === 1 ? '' : 's'} fit. <button type="button" className="btn small" onClick={onCap}>Use only the first {fits}</button></> : 'Even one request is over it. Raise the limit in Settings.'}</>
+            : <><Badge tone="green">Within your {fmtUsd(limit)} limit per import</Badge></>}
+        </p>
+      )}
+      {capped && <p className="small">Using {e.emails} of {total} requests. <button type="button" className="btn small" onClick={onUncap}>Use all</button></p>}
+    </div>
   )
 }
 

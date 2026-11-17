@@ -14,7 +14,7 @@ export const GROUPS = {
 
 // ---- Conditions (used by If and While) ----
 export const FIELDS = {
-  confidence: { label: 'AI confidence (%)', type: 'number', help: 'How sure the AI is about its reply. Set after a Write reply block.' },
+  confidence: { label: 'AI confidence (%)', type: 'number', help: 'How likely the reply is to be accurate, as rated by the AI (not whether it fully answers). Set after a Write reply block.' },
   topic: { label: 'Topic', type: 'topic', help: 'What the email is about.' },
   riskLevel: { label: 'Highest risk found', type: 'risk', help: 'The most serious flag raised so far.' },
   flagged: { label: 'Any risk flagged', type: 'yesno', help: 'Whether any Risk filter has matched so far.' },
