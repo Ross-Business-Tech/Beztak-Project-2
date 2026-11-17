@@ -32,7 +32,6 @@ export default function Review() {
   const [filter, setFilter] = useState('open')
   const [q, setQ] = useState('')
   const [selId, setSelId] = useState(null)
-  const [navIds, setNavIds] = useState([]) // the messages shown in the list when one was opened, so the arrows follow the same order
 
   const queue = emails.filter(isOpen).sort(byQueue)
   const list = emails.filter((e) => {
@@ -46,7 +45,7 @@ export default function Review() {
   // After a case is handled, go straight to the next one that needs a person
   const next = selected ? queue.filter((e) => e.id !== selected.id)[Math.max(0, queue.findIndex((e) => e.id === selected.id))] || queue.find((e) => e.id !== selected.id) || null : null
 
-  const navList = navIds.map((id) => emails.find((e) => e.id === id)).filter(Boolean)
+  const navList = [...emails].sort(byQueue) // arrows go through every message, whatever filter is selected
   const navPos = selected ? navList.findIndex((e) => e.id === selected.id) : -1
   const prevItem = navPos > 0 ? navList[navPos - 1] : null
   const nextItem = navPos >= 0 && navPos < navList.length - 1 ? navList[navPos + 1] : null
@@ -70,7 +69,7 @@ export default function Review() {
           {list.length === 0 ? <Empty title="Nothing here">{filter === 'open' ? 'No messages are waiting for review.' : 'No messages match.'}</Empty> : (
             <div className="list">
               {list.map((e) => (
-                <button key={e.id} className="item" onClick={() => { setNavIds(list.map((x) => x.id)); setSelId(e.id) }}>
+                <button key={e.id} className="item" onClick={() => setSelId(e.id)}>
                   <div className="avatar" aria-hidden>{initials(e.name)}</div>
                   <div className="body">
                     <div className="truncate cell-title">{e.subject}</div>
