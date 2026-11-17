@@ -45,10 +45,20 @@ function anthropicTransport(ai) {
 function openAiTransport(ai, fetchImpl) {
   return async (_url, init) => {
     if (!aiConfigured(ai)) return noKey()
+    // Newer OpenAI-compatible models (and Azure-hosted ones, such as the UM GPT Toolkit) reject max_tokens and want max_completion_tokens.
+    let body = init?.body
+    try {
+      const parsed = JSON.parse(body)
+      if ('max_tokens' in parsed) {
+        parsed.max_completion_tokens = parsed.max_tokens
+        delete parsed.max_tokens
+        body = JSON.stringify(parsed)
+      }
+    } catch { /* not JSON: send as it is */ }
     return fetchImpl(`${ai.baseUrl}/chat/completions`, {
       method: 'POST', signal: init?.signal,
       headers: { 'Content-Type': 'application/json', ...(ai.apiKey ? { Authorization: `Bearer ${ai.apiKey}` } : {}) },
-      body: init?.body,
+      body,
     })
   }
 }
