@@ -8,9 +8,12 @@
 import { CATEGORIES, DEFAULT_WRITING_INSTRUCTIONS } from '../data/defaults'
 import { copyCheck } from './copycheck'
 import { tokenize } from './mockAI'
+import { rankSections } from './sections'
 
 export const DEFAULT_MODEL = 'anthropic/claude-sonnet-4.5'
 const MAX_DOC_CHARS = 90000 // about 22,000 tokens of reference text per request
+const SECTION_CHARS = 20000 // the best-matching sections of long (split) documents, at most this much text
+const MAX_SECTIONS = 8
 
 // How the model is reached. In the browser it is the site's own /api/ai route. A self-hosted server
 // replaces this with a direct call to the configured AI provider (see server/ai.js).
@@ -186,8 +189,14 @@ export async function aiDraft({ email, settings, files, ctx, tone, model }) {
     return { draft: finish(body), sources: [], confidence: Math.max(5, Math.min(97, clampPct(raw.confidence, 40))), droppedQuotes: 0, usage: { sections: 0, charsSent: 0, charsTotal: totalChars }, copy: { ratio: 0, longestRun: 0, tooClose: false } }
   }
 
-  // Step A: find the facts in the best-matching passages of the documents.
-  const picked = selectDocs(files, query, MAX_DOC_CHARS)
+  // Step A: find the facts in what is relevant. Long documents that were split into sections contribute only their
+  // best-matching sections; every other document is searched passage by passage as before.
+  const secPicked = rankSections(files.filter((f) => f.sectioned), query, { budget: SECTION_CHARS, maxSections: MAX_SECTIONS })
+  const secFiles = new Map()
+  for (const p of secPicked) { if (!secFiles.has(p.f.id)) secFiles.set(p.f.id, { f: p.f, parts: [] }); secFiles.get(p.f.id).parts.push(p) }
+  const fromSections = [...secFiles.values()].map(({ f, parts }) => ({ f, text: parts.map((p) => `[${p.heading || 'Section'}]\n${p.text}`).join('\n\n') }))
+  const used = fromSections.reduce((n, p) => n + p.text.length, 0)
+  const picked = [...fromSections, ...selectDocs(files.filter((f) => !f.sectioned), query, Math.max(0, MAX_DOC_CHARS - used))]
   const docs = new Map(picked.map(({ f, text }) => [f.id, { f, text }]))
   const docText = picked.map(({ f, text }) => `<document id="${f.id}" name="${f.name}">\n${text}\n</document>`).join('\n')
   const charsSent = picked.reduce((n, p) => n + p.text.length, 0)
@@ -208,11 +217,14 @@ ${asking ? `Return "questions": up to 3 short questions to ASK THE EMPLOYEE, but
 Return ONLY JSON: {"facts":[],"missing":"","coverage":0,"questions":[]}`,
       `<documents>\n${docText}\n</documents>\n\n${emailBlock(email)}`)
     const given = Array.isArray(rawFacts.facts) ? rawFacts.facts : []
+    const normShown = new Map()
     for (const x of given.slice(0, 8)) {
-      const f = files.find((y) => y.id === x?.fileId && y.active && y.content)
+      const d = docs.get(x?.fileId)
+      const f = d && files.find((y) => y.id === d.f.id && y.active && y.content)
       const q = norm(String(x?.quote || ''))
-      if (!f || q.length < 12 || !norm(f.content).includes(q) || !String(x?.fact || '').trim()) { droppedQuotes += 1; continue }
-      const para = (f.content.split(/\n\s*\n/).find((p) => norm(p).includes(q)) || String(x.quote)).trim()
+      if (f && !normShown.has(f.id)) normShown.set(f.id, norm(d.text))
+      if (!f || q.length < 12 || !normShown.get(f.id).includes(q) || !String(x?.fact || '').trim()) { droppedQuotes += 1; continue }
+      const para = (d.text.split(/\n\s*\n/).find((p) => norm(p).includes(q)) || String(x.quote)).trim().replace(/^\[[^\]\n]*\]\n/, '')
       facts.push({ f, fact: String(x.fact).trim(), snippet: para })
     }
     missing = String(rawFacts.missing || '').trim()
@@ -228,8 +240,8 @@ Return ONLY JSON: {"facts":[],"missing":"","coverage":0,"questions":[]}`,
   let body = String(raw.draft || '').trim()
   if (!body) throw new AIUnavailable('error', 'The AI returned an empty reply.')
 
-  // Copy check against the full text of every document that was read.
-  const sourceTexts = [...docs.values()].map((d) => d.f.content)
+  // Copy check against the text the AI was shown (not whole 8 MB handbooks).
+  const sourceTexts = picked.map((p) => p.text)
   let copy = copyCheck(body, sourceTexts)
   let rewritten = false
   if (copy.tooClose) {
@@ -251,7 +263,7 @@ Return ONLY JSON: {"facts":[],"missing":"","coverage":0,"questions":[]}`,
   return {
     draft: finish(body), sources, confidence, droppedQuotes, rewritten,
     clarify: { questions, missing },
-    usage: { sections: picked.length, charsSent, charsTotal: totalChars, used: picked.map((p) => ({ name: p.f.name })) },
+    usage: { sections: secPicked.length, charsSent, charsTotal: totalChars, used: [...secPicked.map((p) => ({ name: p.f.name, heading: p.heading })), ...picked.filter((p) => !p.f.sectioned).map((p) => ({ name: p.f.name }))] },
     copy: { ratio: Math.round(copy.ratio * 100) / 100, longestRun: copy.longestRun, tooClose: copy.tooClose },
   }
 }
