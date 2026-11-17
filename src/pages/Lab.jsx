@@ -139,7 +139,7 @@ export function Result({ email }) {
         {r.alerts?.length > 0 && <p className="small" style={{ marginBottom: 10 }}><strong>Alerts sent:</strong> {r.alerts.map((a) => `${a.role}: ${a.message}`).join(' · ')}</p>}
         <div className="two-col">
           <div><div className="muted small">Topic</div><strong>{catLabel(r.category)}</strong></div>
-          <div><div className="muted small">Confidence</div><ConfidenceMeter value={r.confidence} /></div>
+          <div><div className="muted small">Confidence {r.handoff && <Badge>Hand-off</Badge>}</div><ConfidenceMeter value={r.confidence} /></div>
         </div>
         {r.flags.length > 0 && (
           <div style={{ marginTop: 14 }}>

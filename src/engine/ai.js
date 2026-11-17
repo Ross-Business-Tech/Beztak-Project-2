@@ -137,7 +137,7 @@ Return ONLY JSON: {"category":"","flags":[],"certainty":0}`
   return {
     category: CATEGORIES.some((c) => c.id === raw.category) ? raw.category : 'other',
     flags: (Array.isArray(raw.flags) ? raw.flags : []).filter((f) => ids.has(f?.ruleId)).map((f) => ({ ruleId: f.ruleId, reason: String(f.reason || '') })),
-    certainty: Math.max(0, Math.min(100, Math.round(Number(raw.certainty)) || 0)),
+    certainty: clampPct(raw.certainty, 0),
   }
 }
 
@@ -162,7 +162,7 @@ ${flagLines}
 Write a short, warm, careful reply: acknowledge, say it is being taken seriously, and say a person will contact them privately. Give NO advice, NO policy details, NO promises about outcomes, and do not discuss the allegations. If anyone may be in danger, mention contacting local emergency services. Start with a greeting by first name and end before any signature (the system adds it).`
 
 /** The full instructions the writer receives, for the "Show full prompt" preview in Settings. */
-export const writerPromptPreview = (settings, tone) => `${writingInstructions(settings, tone)}\n\n${SECURITY}\n\n${WRITER_RULES}\n\nReturn ONLY JSON: {"draft":"","confidence":0}`
+export const writerPromptPreview = (settings, tone) => `${writingInstructions(settings, tone)}\n\n${SECURITY}\n\n${WRITER_RULES}\n\n${WRITER_FORMAT}`
 
 // Text from emails and documents must not be able to close our own labels (for example a document containing
 // "</documents>") and then speak as if it were the instructions.
@@ -170,7 +170,25 @@ const defang = (t) => String(t ?? '').replace(/<(\/?)(employee_email|documents?|
 const emailBlock = (email) => defang(`<employee_email>\nFrom: ${email.name} <${email.from}>\nSubject: ${email.subject}\n\n${email.body}\n</employee_email>`).replace(/^\u2039employee_email/, '<employee_email').replace(/\u2039\/employee_email>$/, '</employee_email>')
 // Never ask an employee for these by email, whatever the AI suggests.
 const SENSITIVE = /social security|\bssn\b|password|passcode|diagnos|medical|medication|bank account|routing number|credit card|passport|immigration|\bpin\b/i
-const clampPct = (n, d) => { const v = Math.round(Number(n)); return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : d }
+/**
+ * A rating from the AI as a whole percentage 0-100. Models sometimes answer 0.85 (a fraction) or "85%", so both are
+ * understood; anything unreadable gives `d`.
+ */
+export function clampPct(n, d) {
+  let v = typeof n === 'string' ? parseFloat(n.replace('%', '')) : Number(n)
+  if (!Number.isFinite(v)) return d
+  if (v > 0 && v <= 1) v *= 100 // 0.85 means 85%
+  return Math.max(0, Math.min(100, Math.round(v)))
+}
+
+// Confidence means "how likely is this reply to be correct", not "how fully do the documents answer". The AI is told so,
+// in these words, wherever it is asked for a rating.
+const SCALE = 'a whole number from 0 to 100 (for example 85, never 0.85)'
+const ACCURACY_RULE = `Rate accuracy only. Do NOT lower the rating because the reply sends the person to HR, asks them questions, or leaves part of the question open when that is what the facts say. Lower it only if you had to guess, the facts are ambiguous for this person, or you doubt the reply is right.`
+// What a hand-off reply ("I have passed your question to the HR team") scores: it makes no factual claim, so it cannot be wrong.
+export const HANDOFF_CONFIDENCE = 90
+const WRITER_FORMAT = `Return ONLY JSON: {"draft":"","confidence":0}
+"confidence" is ${SCALE}: how likely it is that everything you wrote is correct and consistent with the verified facts and the employee's message. ${ACCURACY_RULE}`
 
 async function ask(model, system, user) {
   const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 60000)
@@ -202,7 +220,7 @@ export async function aiFindFacts({ email, settings, files, model, retry = '', a
   const query = `${email.subject}\n${email.body}`
   const { picked, secPicked, chars: charsSent } = pickContext(files, query, settings)
   const docs = new Map(picked.map(({ f, text }) => [f.id, { f, text }]))
-  const out = { picked, secPicked, charsSent, facts: [], missing: '', coverage: 0, droppedQuotes: 0, questions: [], asked: asking }
+  const out = { picked, secPicked, charsSent, facts: [], missing: '', coverage: 0, certainty: 0, droppedQuotes: 0, questions: [], asked: asking }
   if (!picked.length) return out // nothing matches: no AI call at all
   const docText = picked.map(({ f, text }) => `<document id="${f.id}" name="${defang(f.name).replace(/"/g, "'")}">\n${defang(text)}\n</document>`).join('\n')
   const factsSystem = `You are a research assistant for an HR help desk. You read ONE employee message and passages from company documents, and return a JSON object. You do not write the reply.
@@ -212,10 +230,11 @@ ${SECURITY}
 Find the facts in the document passages that answer THIS person's question for THIS person's situation. Skip anything that does not apply to them.${retry}
 Return "facts": up to 5 items, each {"fileId": "...", "quote": "the exact words from that document, copied character for character, under 300 characters", "fact": "one plain sentence in YOUR OWN words stating what this means for this person"}.
 Return "missing": what the question needs that the documents do not say (empty string if nothing).
-Return "coverage": integer 0-100, how fully the documents answer the question (low if you are guessing).
+Return "certainty": ${SCALE}: how sure you are that the facts above are stated correctly and apply to this person. This is about correctness, not completeness. ${ACCURACY_RULE}
+Return "coverage": ${SCALE}: how much of the question the documents answer (information only; a low number does not mean your facts are wrong).
 ${asking ? `Return "questions": up to 3 short questions to ASK THE EMPLOYEE, but only when the documents show the right answer depends on a detail the message does not give (for example full-time or part-time, location, start date, which plan, dates of leave). Each must be a single plain question ending in "?". Never ask for anything the message already says, anything sensitive (medical details, ID numbers, passwords), or anything the documents do not make relevant. Use [] when nothing is needed.` : 'Return "questions": [] (asking the employee for details is switched off).'}
 
-Return ONLY JSON: {"facts":[],"missing":"","coverage":0,"questions":[]}`
+Return ONLY JSON: {"facts":[],"missing":"","certainty":0,"coverage":0,"questions":[]}`
   const userMsg = `<documents>\n${docText}\n</documents>\n\n${emailBlock(email)}`
   // Quotes are compared on the words only, so bold marks, bullets, curly quotes and line breaks do not make a true quote fail.
   const shownLoose = new Map(picked.map(({ f, text }) => [f.id, loose(text)]))
@@ -245,7 +264,8 @@ Return ONLY JSON: {"facts":[],"missing":"","coverage":0,"questions":[]}`
   }
   out.facts = checked.facts; out.droppedQuotes = checked.dropped
   out.missing = String(rawFacts.missing || '').trim()
-  out.coverage = clampPct(rawFacts.coverage, 40)
+  out.coverage = clampPct(rawFacts.coverage, 0)
+  out.certainty = clampPct(rawFacts.certainty, 70)
   if (asking && Array.isArray(rawFacts.questions)) out.questions = [...new Set(rawFacts.questions.map((q) => String(q || '').replace(/\s+/g, ' ').trim()).filter((q) => q.length >= 8 && q.length <= 180 && q.endsWith('?') && !SENSITIVE.test(q)))].slice(0, 3)
   return out
 }
@@ -283,15 +303,15 @@ export async function aiDraft({ email, settings, files, ctx, tone, model, readMo
   // A retry cannot conjure documents that do not exist, and asking the employee is not improved by asking again:
   // keep the earlier answer instead of paying for the whole process a second and third time.
   if (!ctx.careful && ctx.tries > 0 && ctx.draft && ((ctx.sources || []).length === 0 || ctx.clarify?.questions?.length)) {
-    return { draft: ctx.draft, sources: ctx.sources || [], confidence: ctx.confidence ?? 40, droppedQuotes: 0, rewritten: false, reused: true, clarify: ctx.clarify || { questions: [], missing: '' }, unverified: ctx.unverified || [], usage: ctx.usage || { sections: 0, charsSent: 0, charsTotal: totalChars }, diag: ctx.diag || null, copy: ctx.copy || { ratio: 0, longestRun: 0, tooClose: false } }
+    return { draft: ctx.draft, sources: ctx.sources || [], confidence: ctx.confidence ?? 40, droppedQuotes: 0, rewritten: false, reused: true, handoff: Boolean(ctx.handoff), clarify: ctx.clarify || { questions: [], missing: '' }, unverified: ctx.unverified || [], usage: ctx.usage || { sections: 0, charsSent: 0, charsTotal: totalChars }, diag: ctx.diag || null, copy: ctx.copy || { ratio: 0, longestRun: 0, tooClose: false } }
   }
 
   // Sensitive messages: no documents, no advice. One call with the built-in careful wording.
   if (ctx.careful) {
-    const raw = await ask(model, `${CAREFUL_RULES(settings.helpDeskName, tone, flagLines)}\n\n${SECURITY}\n\nReturn ONLY JSON: {"draft":"","confidence":0}`, emailBlock(email))
+    const raw = await ask(model, `${CAREFUL_RULES(settings.helpDeskName, tone, flagLines)}\n\n${SECURITY}\n\n${WRITER_FORMAT}`, emailBlock(email))
     const body = String(raw.draft || '').trim()
     if (!body) throw new AIUnavailable('error', 'The AI returned an empty reply.')
-    return { draft: finish(body), sources: [], confidence: Math.max(5, Math.min(97, clampPct(raw.confidence, 40))), droppedQuotes: 0, usage: { sections: 0, charsSent: 0, charsTotal: totalChars }, copy: { ratio: 0, longestRun: 0, tooClose: false } }
+    return { draft: finish(body), sources: [], confidence: Math.min(97, clampPct(raw.confidence, 85)), droppedQuotes: 0, usage: { sections: 0, charsSent: 0, charsTotal: totalChars }, copy: { ratio: 0, longestRun: 0, tooClose: false } }
   }
 
   // Step A (already running alongside the topic and risk check when the workflow started it).
@@ -300,7 +320,7 @@ export async function aiDraft({ email, settings, files, ctx, tone, model, readMo
   const f = found || await aiFindFacts({ email, settings, files, model: readModel || model, retry, asking })
   const { picked, secPicked, charsSent, facts, missing, coverage, droppedQuotes } = f
   const questions = asking ? f.questions : []
-  const diag = { passages: picked.length, sections: secPicked.length, charsSent, proposed: f.proposed ?? 0, verified: facts.length, droppedQuotes, retriedQuotes: Boolean(f.retriedQuotes), coverage, writer: null, caps: [], handoff: '' }
+  const diag = { notes: [], passages: picked.length, sections: secPicked.length, charsSent, proposed: f.proposed ?? 0, verified: facts.length, droppedQuotes, retriedQuotes: Boolean(f.retriedQuotes), coverage, writer: null, caps: [], handoff: '' }
   const usage = { sections: secPicked.length, charsSent, charsTotal: totalChars, used: [...secPicked.map((p) => ({ name: p.f.name, heading: p.heading })), ...picked.filter((p) => !p.f.sectioned).map((p) => ({ name: p.f.name }))] }
 
   // Nothing in the documents helps and there is nothing to ask: do not pay for the AI to write "I'll pass this on".
@@ -308,11 +328,11 @@ export async function aiDraft({ email, settings, files, ctx, tone, model, readMo
     diag.handoff = !picked.length
       ? 'No passage in your documents shares words with this question, so nothing was sent to the AI.'
       : `The AI read ${picked.length} document${picked.length === 1 ? '' : 's'} but found nothing it could back with a quote (${diag.proposed} fact${diag.proposed === 1 ? '' : 's'} proposed, ${diag.verified} verified${missing ? `; it said: ${missing}` : ''}).`
-    return { draft: finish(handoffReply(settings, email)), sources: [], confidence: 30, droppedQuotes, rewritten: false, handoff: true, diag, clarify: { questions: [], missing }, unverified: [], usage: { ...usage, skippedAI: true }, copy: { ratio: 0, longestRun: 0, tooClose: false } }
+    return { draft: finish(handoffReply(settings, email)), sources: [], confidence: HANDOFF_CONFIDENCE, droppedQuotes, rewritten: false, handoff: true, diag, clarify: { questions: [], missing }, unverified: [], usage: { ...usage, skippedAI: true }, copy: { ratio: 0, longestRun: 0, tooClose: false } }
   }
 
   // Step B: write from the facts only.
-  const system = `${writingInstructions(settings, tone)}\n\n${SECURITY}\n\n${WRITER_RULES}${facts.length ? '' : '\n- No document covers this question. Say you are passing it to the HR team, who will follow up within one business day. Do not answer it yourself.'}${flagLines ? `\n- This message was flagged, so stay neutral and make no commitments:\n${flagLines}` : ''}\n\nReturn ONLY JSON: {"draft":"","confidence":0}`
+  const system = `${writingInstructions(settings, tone)}\n\n${SECURITY}\n\n${WRITER_RULES}${facts.length ? '' : '\n- No document covers this question. Say you are passing it to the HR team, who will follow up within one business day. Do not answer it yourself.'}${flagLines ? `\n- This message was flagged, so stay neutral and make no commitments:\n${flagLines}` : ''}\n\n${WRITER_FORMAT}`
   const factBlock = facts.length ? facts.map((x, i) => `${i + 1}. ${defang(x.fact)}`).join('\n') : '(none found)'
   const user = `${emailBlock(email)}\n\n<verified_facts>\n${factBlock}\n</verified_facts>${missing ? `\n\n<not_covered_by_the_documents>\n${defang(missing)}\n</not_covered_by_the_documents>` : ''}${questions.length ? `\n\n<questions_to_ask>\n${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n</questions_to_ask>` : ''}${retry}`
   let raw = await ask(model, system, user)
@@ -335,17 +355,22 @@ export async function aiDraft({ email, settings, files, ctx, tone, model, readMo
 
   const sources = []
   for (const x of facts) if (!sources.some((s) => s.fileId === x.f.id && s.snippet === x.snippet)) sources.push({ fileId: x.f.id, name: x.f.name, snippet: x.snippet })
-  diag.writer = clampPct(raw.confidence, 40)
-  let confidence = Math.min(coverage || 40, diag.writer)
-  confidence = Math.max(5, Math.min(97, confidence))
+  // Confidence = how likely the reply is correct. The AI rates the facts it found and then its own reply; the score is the
+  // average of the two. How fully the documents answer the question (coverage) is shown, but it does not lower the score,
+  // so a correct reply that says "this needs HR's approval" or asks a question is not marked down for that.
+  diag.writer = clampPct(raw.confidence, 70)
+  diag.certainty = facts.length ? f.certainty : null
+  const handoff = !facts.length && !questions.length
+  let confidence = handoff ? Math.min(HANDOFF_CONFIDENCE, diag.writer) : Math.round(((facts.length ? f.certainty : diag.writer) + diag.writer) / 2)
+  confidence = Math.max(0, Math.min(97, confidence))
   const cap = (limit, why) => { if (confidence > limit) { confidence = limit; diag.caps.push(why) } }
-  if (!sources.length) cap(50, 'no quote from the documents could be verified')
-  if (copy.tooClose) cap(45, 'the reply stayed close to the documents\' wording')
+  // Handbook-style wording is a style matter: the reviewer is warned, but the facts are still right, so the score is unchanged.
+  if (copy.tooClose) diag.notes.push('the reply stayed close to the documents\' wording (flagged for the reviewer, not counted against confidence)')
   // Every number in the reply must come from the facts or from the employee's own message.
   const unverified = unsupportedFigures(body, [...facts.map((x) => `${x.fact} ${x.snippet}`), `${email.subject} ${email.body}`, ...questions])
   if (unverified.length) cap(60, `figures not found in the documents: ${unverified.join(', ')}`)
   return {
-    draft: finish(body), sources, confidence, droppedQuotes, rewritten,
+    draft: finish(body), sources, confidence, droppedQuotes, rewritten, handoff,
     clarify: { questions, missing }, unverified, usage, diag,
     copy: { ratio: Math.round(copy.ratio * 100) / 100, longestRun: copy.longestRun, tooClose: copy.tooClose },
   }

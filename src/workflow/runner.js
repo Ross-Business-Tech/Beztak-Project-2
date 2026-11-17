@@ -154,6 +154,7 @@ const RUN = {
     ctx.clarify = res.data.clarify || null
     ctx.unverified = res.data.unverified || []
     ctx.diag = res.data.diag || null
+    ctx.handoff = Boolean(res.data.handoff)
     ctx.usage = res.data.usage || null
     const how = res.engine === 'ai' ? `AI, ${res.model}` : 'simulated'
     return {
@@ -264,7 +265,7 @@ export function* execute({ email, workflow, settings, history = [] }) {
     requireConfirm: Boolean(end.requireConfirm), priority: end.priority || (ctx.careful ? 'urgent' : 'normal'), owner: end.owner || null,
     ready: Boolean(end.ready), alerts: ctx.alerts, ticketActions: ctx.ticketActions, careful: ctx.careful,
     engine: ctx.usedAI ? 'ai' : 'simulated', model: ctx.model, aiFallback: ctx.aiFallback,
-    copy: ctx.copy || null, usage: ctx.usage || null, clarify: ctx.clarify || null, unverified: ctx.unverified || [], diag: ctx.diag || null,
+    copy: ctx.copy || null, usage: ctx.usage || null, clarify: ctx.clarify || null, unverified: ctx.unverified || [], diag: ctx.diag || null, handoff: Boolean(ctx.handoff),
   }
 }
 

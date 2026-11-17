@@ -8,11 +8,14 @@ export function ConfidenceWhy({ result }) {
     <details className="why" open={result.confidence < 80}>
       <summary>Why {result.confidence}% confident?</summary>
       <ul className="small">
+        <li><strong>Confidence is how likely the reply is to be correct</strong>, not how fully the documents answer the question.</li>
         <li>{d.passages ? `Searched your documents and sent ${n(d.passages, 'document', 'documents')} (${(d.charsSent || 0).toLocaleString()} characters) to the AI.` : 'No passage in your documents shares words with the question.'}</li>
         {d.passages > 0 && <li>The AI proposed {n(d.proposed, 'fact', 'facts')}; {d.verified} could be backed by an exact quote from the document{d.retriedQuotes ? ' (it was asked a second time to quote exactly)' : ''}.</li>}
-        {d.coverage > 0 && <li>The AI rated how fully the documents answer the question at {d.coverage}%{d.writer !== null ? `, and its own reply at ${d.writer}%` : ''}.</li>}
+        {d.certainty != null && d.writer != null && <li>The AI rated its facts at {d.certainty}% and its reply at {d.writer}%; the score is the average.</li>}
+        {d.coverage > 0 && <li>The documents answer about {d.coverage}% of the question. This is shown for information and does not lower the score.</li>}
         {d.caps?.map((c, i) => <li key={i}>Held back because {c}.</li>)}
-        {d.handoff && <li><strong>Hand-off reply used:</strong> {d.handoff}</li>}
+        {d.notes?.map((c, i) => <li key={i} className="muted">Note: {c}.</li>)}
+        {d.handoff && <li><strong>Hand-off reply:</strong> {d.handoff} It makes no factual claim, so it scores high for accuracy; a person still follows up.</li>}
       </ul>
     </details>
   )

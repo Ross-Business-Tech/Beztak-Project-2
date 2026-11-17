@@ -744,3 +744,45 @@ test('the sample Cedar & Stone handbook: its test questions load in Import and t
   const found = withSection.filter(({ r, section }) => pickContext(files, `${r.subject}\n${r.body}`, DEFAULT_SETTINGS).picked.some((p) => p.text.includes(`### ${section} `)))
   assert.ok(found.length / withSection.length >= 0.95, `the answer's section was found for ${found.length} of ${withSection.length} questions`)
 })
+
+test('confidence means accuracy: fractions and percentages are read correctly, coverage and HR referrals do not lower it', async () => {
+  const ai = await import('../../src/engine/ai.js')
+  const { DEFAULT_SETTINGS } = await import('../../src/data/defaults.js')
+  assert.deepEqual([0.85, '0.9', '85%', 85, 150, -3, 'abc', undefined, 0].map((v) => ai.clampPct(v, -1)), [85, 90, 85, 85, 100, 0, -1, -1, 0], 'fractions, strings and out-of-range values')
+  const files = [{ id: 'f1', name: 'Pay.md', active: true, content: '# Raises\n\nA raise above 8% needs approval from the department director and Finance through a Manager Request. The People Team reviews every request manually.' }]
+  const email = { name: 'Lee', from: 'l@example.com', subject: 'Raise', body: 'Can I give a team member a 10% raise? What is the process?' }
+  let seenSystem = ''
+  const scripted = (r) => ai.setTransport(async (_u, init) => {
+    const m = JSON.parse(init.body).messages; const isFacts = /research assistant/.test(m[0].content)
+    if (!isFacts) seenSystem = m[0].content
+    const out = isFacts
+      ? { facts: [{ fileId: 'f1', quote: 'A raise above 8% needs approval from the department director and Finance through a Manager Request.', fact: 'A 10% raise needs director and Finance approval via a Manager Request.' }], missing: 'How long approval takes.', questions: [], ...r.facts }
+      : { draft: r.draft || 'Hi Lee,\n\nA 10% raise needs approval from your director and Finance. Submit a Manager Request, and the People Team will review it.', ...r.writer }
+    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(out) } }] }), { status: 200, headers: { 'content-type': 'application/json' } })
+  })
+  const run = (settings = DEFAULT_SETTINGS, e = email) => ai.aiDraft({ email: e, settings, files, ctx: { careful: false, flags: [], tries: 0, sources: [] }, tone: 'warm', model: 't' })
+  try {
+    // the AI answers on a 0-1 scale: this used to become 5%
+    scripted({ facts: { certainty: 0.92, coverage: 0.3 }, writer: { confidence: 0.88 } })
+    let out = await run()
+    assert.equal(out.confidence, 90, 'fractions are read as percentages: (92 + 88) / 2'); assert.equal(out.handoff, false)
+    // the documents only partly answer (coverage 30%), and the reply sends the person to HR review: still a confident, correct answer
+    scripted({ facts: { certainty: 92, coverage: 30 }, writer: { confidence: 90 } })
+    out = await run()
+    assert.equal(out.confidence, 91, 'a low coverage figure does not lower confidence'); assert.equal(out.diag.coverage, 30)
+    assert.match(seenSystem, /Rate accuracy only\. Do NOT lower the rating because the reply sends the person to HR/, 'the AI is told what the number means')
+    assert.match(seenSystem, /whole number from 0 to 100 \(for example 85, never 0\.85\)/, 'and which scale to use')
+    // a reply that copies the handbook is flagged, not marked down
+    scripted({ facts: { certainty: 92 }, writer: { confidence: 90 }, draft: 'Hi Lee,\n\nA raise above 8% needs approval from the department director and Finance through a Manager Request. The People Team reviews every request manually.' })
+    out = await run()
+    assert.equal(out.copy.tooClose, true); assert.equal(out.confidence, 91, 'wording alone does not change the score'); assert.match(out.diag.notes.join(' '), /close to the documents/)
+    // an invented figure is an accuracy risk and does lower it
+    scripted({ facts: { certainty: 92 }, writer: { confidence: 90 }, draft: 'Hi Lee,\n\nA 10% raise needs approval, and it is usually answered within 14 days.' })
+    out = await run()
+    assert.equal(out.confidence, 60); assert.match(out.diag.caps.join(' '), /figures not found/)
+    // nothing in the documents: the hand-off reply makes no claim, so it scores high and is labelled
+    scripted({ facts: { facts: [] } })
+    out = await run(DEFAULT_SETTINGS, { ...email, subject: 'Parrot', body: 'Can I bring my parrot to work?' })
+    assert.equal(out.handoff, true); assert.equal(out.confidence, ai.HANDOFF_CONFIDENCE); assert.equal(ai.HANDOFF_CONFIDENCE, 90)
+  } finally { ai.setTransport((url, init) => fetch(url, init)) }
+})

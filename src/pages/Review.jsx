@@ -158,7 +158,7 @@ function Detail({ email, next, onBack, onNext }) {
         </div>
 
         <div className="stack">
-          <Card className="o2" title={open ? 'Draft reply' : 'Reply'} actions={<ConfidenceMeter value={r.confidence} />}>
+          <Card className="o2" title={open ? 'Draft reply' : 'Reply'} actions={<span className="row" style={{ gap: 8 }}>{r.handoff && <Badge>Hand-off</Badge>}<ConfidenceMeter value={r.confidence} /></span>}>
             {highRisk && open && <div className="outcome red"><Icon name="flag" /><div><strong>High-risk: please read carefully before sending</strong><p>The AI wrote a cautious starting draft. Rewrite it in your own words if needed. It cannot be sent until you confirm below.</p></div></div>}
             {open ? (
               <div className="compose">
