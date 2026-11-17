@@ -1,55 +1,30 @@
 # HR Help Desk AI
 
-An open-source assistant for HR teams. It reads HR requests, drafts a reply from **your own policy documents** using Claude, and hands the draft to a person to approve. Sensitive topics (harassment, discrimination, legal threats, safety, mental health) always go to a person and are never auto-answered.
-
-Built for Beztak. MIT licensed.
+An assistant for HR teams, built for Beztak. It reads incoming HR requests, drafts a reply from **your own policy documents**, and hands the draft to a person to approve. MIT licensed.
 
 **Using the app?** Read the [User Guide](docs/user-guide.md).
 
-## Features
+## What the website does
 
-- **Import and evaluate:** load requests from a spreadsheet, queue them for review, or score the assistant's accuracy against expected answers.
-- **Knowledge files:** upload policies, or link one read-only Egnyte folder. Quoted passages are checked against the source document.
-- **Workflow editor:** a visual editor that decides what is flagged, escalated, tagged, assigned or sent for review. The AI reads and drafts; the workflow decides.
-- **Review queue:** a person edits and approves every reply. By default an approved reply is saved as a private note on the ticket, and nothing is emailed to an employee unless an admin turns that on.
-- **Access control:** admin and reviewer roles, an Access page, an activity log and a pause switch.
-- **Zoho Desk (optional):** pulls new tickets every few minutes.
+- **Takes in requests:** from a spreadsheet, or automatically from Zoho Desk (optional).
+- **Drafts replies:** the AI answers only from the policy files you upload or link (one read-only Egnyte folder), and quoted passages are checked against the source.
+- **Routes each request:** a visual workflow decides what is flagged, escalated, tagged, assigned or sent for review.
+- **Keeps a person in charge:** every reply is edited and approved by a reviewer. An approved reply is saved as a private note on the ticket; nothing is emailed to an employee unless an admin turns that on.
+- **Controls access:** admin and reviewer roles, an activity log and a pause switch.
 
-## Run it
+## How the AI works
 
-| | Demo | Live server |
-|---|---|---|
-| Hosting | Any static host (`npm run build`, upload `dist/`) | Docker, or Node 22.13+ |
-| Data | Sample data in the visitor's browser | SQLite on your server |
-| Sign-in | None | Yes |
-| Zoho Desk | No | Optional |
+1. A request arrives and the AI labels its topic and risk level.
+2. If it is sensitive (harassment, discrimination, legal threats, safety, mental health), it goes straight to a person and the AI does not answer it.
+3. Otherwise the AI finds the relevant policy passages and drafts a warm, plain-language reply that cites them.
+4. The workflow routes the draft to the review queue.
+5. A reviewer edits and approves it. The AI never sends anything on its own.
 
-Try the live server with a pretend Zoho:
+The AI reads and drafts; the workflow and the people decide.
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.demo.yml up --build
-```
+## Deploying
 
-Open http://localhost:8080. The first admin password is printed in the log (or set `ADMIN_PASSWORD`).
-
-Without Docker:
-
-```bash
-npm ci
-npm run build && npm run build:server
-cp .env.example .env   # edit it, then load it into your environment
-npm start
-```
-
-For production, deploy to Render ([guide](docs/deploy-render.md), `render.yaml` included) and set your Anthropic key as `AI_API_KEY`.
-
-## Development
-
-```bash
-npm run dev           # demo mode
-npm run test:server   # end-to-end tests with a pretend Zoho Desk and AI
-npm run lint
-```
+Deploy to Render ([guide](docs/deploy-render.md), `render.yaml` included) and set your Anthropic key as `AI_API_KEY`. A demo version with sample data also runs on any static host.
 
 ## Documentation
 
@@ -63,4 +38,3 @@ Review the security and privacy guide with IT and legal before using real employ
 - Only the first message of a ticket is read. Attachments and scanned PDFs are not.
 - Alerts are recorded in the activity log, not emailed.
 - Local accounts only; no single sign-on.
-- The Docker image has not yet been built on a machine with Docker.
