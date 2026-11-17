@@ -79,9 +79,7 @@ export function buildDraft({ email, category, sources, settings }) {
   if (sources.length) {
     // The stand-in cannot rewrite a policy in plain words, and pasting the handbook is worse than saying nothing,
     // so it points to the document and hands the question to a person. The matching passages stay on the case as sources.
-    const names = [...new Set(sources.map((s) => s.name.replace(/\.[a-z]+$/i, '').replace(/[-_]/g, ' ')))]
-    const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]
-    body = `Thanks for your question. Our ${list} covers this, and I want to make sure you get the right details for your situation, so I've passed it to a member of the HR team. They will follow up within one business day.`
+    body = `Thanks for your question. I want to make sure you get the right details for your situation, so I've passed it to a member of the HR team. They will follow up within one business day.`
   } else {
     const label = CATEGORIES.find((c) => c.id === category)?.label.toLowerCase() || 'question'
     body = `I want to make sure you get accurate information about your ${label} question, so I've passed it to a member of the HR team. They will follow up within one business day.`
