@@ -24,22 +24,24 @@ function useHashRoute(home) {
   return route
 }
 
-// Grouped by what people do: Work (every day), Manage (set-up, admins), Help (learning and trying things safely)
+// Grouped by what people do: Work (every day), Manage (set-up, admins), Help, Test (trying things safely), Settings
 const NAV = [
+  { group: 'Help' },
+  { to: '/help', icon: 'book', label: 'Getting started', match: (r) => r === '/help' },
   { group: 'Work' },
   { to: '/admin/review', icon: 'inbox', label: 'Review queue', badge: true, match: (r) => r === '/admin/review' },
-  { to: '/admin/import', icon: 'upload', label: 'Import and evaluate', key: 'import', match: (r) => r === '/admin/import' },
   { group: 'Manage' },
   { to: '/admin', icon: 'chart', label: 'Dashboard', key: 'dashboard', match: (r) => r === '/admin' },
   { to: '/admin/workflow', icon: 'workflow', label: 'Workflow', key: 'workflow', match: (r) => r === '/admin/workflow' || r === '/admin/flags' },
   { to: '/admin/files', icon: 'folder', label: 'Knowledge files', key: 'files', match: (r) => r === '/admin/files' },
+  { group: 'Test' },
+  { to: '/lab', icon: 'mail', label: 'Test emails', key: 'lab', match: (r) => r === '/lab' },
+  { to: '/lab/docs', icon: 'file', label: 'Test a document', key: 'labDocs', match: (r) => r === '/lab/docs' },
+  { to: '/admin/import', icon: 'upload', label: 'Import and evaluate', key: 'import', match: (r) => r === '/admin/import' },
+  { group: 'Settings' },
   { to: '/admin/access', icon: 'lock', label: 'Access', admin: true, match: (r) => r === '/admin/access' },
   { to: '/admin/settings', icon: 'gear', label: 'Settings', admin: true, match: (r) => r === '/admin/settings' },
   { to: '/admin/activity', icon: 'log', label: 'Activity log', key: 'activity', match: (r) => r === '/admin/activity' },
-  { group: 'Help' },
-  { to: '/help', icon: 'book', label: 'Getting started', match: (r) => r === '/help' },
-  { to: '/lab', icon: 'mail', label: 'Test emails', key: 'lab', match: (r) => r === '/lab' },
-  { to: '/lab/docs', icon: 'file', label: 'Test a document', key: 'labDocs', match: (r) => r === '/lab/docs' },
 ]
 
 // Hide pages a reviewer cannot open, and any group heading left with nothing under it.
