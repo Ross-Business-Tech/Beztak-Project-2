@@ -597,7 +597,7 @@ test('when nothing in the documents helps, no AI call is spent on writing (and t
     log.length = 0
     out = await run({ ...DEFAULT_SETTINGS, handoffText: 'Hello {{firstName}}, {{helpDeskName}} will get back to you.' }, ptoFiles, { ...priya, subject: 'Pet insurance', body: 'Do you cover my parrot?' })
     assert.equal(log.length, 0, 'no document matches, so no AI call at all')
-    assert.match(out.draft, /Hello Priya,\n\nHR Help Desk will get back to you\./, 'the hand-off wording comes from Settings')
+    assert.match(out.draft, /Hello Priya, HR Help Desk will get back to you\./, 'the hand-off wording comes from Settings')
     // switched off: the writer is used as before
     log.length = 0
     out = await run({ ...DEFAULT_SETTINGS, skipAIWhenNoMatch: false })
