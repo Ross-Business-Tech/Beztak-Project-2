@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../store'
 import { DEFAULT_MODEL, testConnection } from '../engine/ai'
 import { Badge, Card, HelpPanel, Icon, Field, Modal, PageHeader, Segmented, SettingRow, Toggle } from '../components/ui'
+import { WritingInstructions } from '../components/WritingInstructions'
 import { EgnyteCard, PasswordCard, ZohoCard } from '../components/ServerAdmin'
 
 export default function Settings() {
@@ -16,7 +17,7 @@ export default function Settings() {
       <PageHeader title="Settings" subtitle="Changes save automatically and apply to the next email." />
       <HelpPanel id="settings" steps={[
         'AI engine chooses whether a real AI model or the simple word-matching stand-in reads each message. Use Check the AI connection to confirm it is working.',
-        'Reply style controls the tone, signature and AI disclosure footer on every message the AI writes.',
+        'Reply style controls the tone, signature and AI disclosure footer on every message the AI writes. Writing instructions (below it) is the editable prompt that tells the AI how to word replies, with a box to test it.',
         'Connection to Zoho Desk (your ticketing system) shows whether tickets are flowing in, and what happens when a reply is approved. Reporting sets how time saved is estimated.',
         'Routing rules, flagging and automatic sending are in the Workflow, not here.',
       ]} note="Changes save automatically and apply to the next email processed." />
@@ -80,6 +81,8 @@ export default function Settings() {
         </SettingRow>
         {s.includeFooter && <Field label="Footer text">{(id) => <textarea id={id} rows={2} value={s.footer} onChange={(e) => set({ footer: e.target.value })} />}</Field>}
       </Card>
+
+      <WritingInstructions />
 
         </>
       )}

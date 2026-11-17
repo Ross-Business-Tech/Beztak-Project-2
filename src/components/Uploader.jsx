@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react'
 import { useApp } from '../store'
 import { FILE_FOLDERS } from '../data/defaults'
+import { indexSections } from '../engine/sections'
 import { Field, Icon, Modal } from './ui'
 
 const TEXT_EXT = /\.(txt|md|markdown|csv|json|html?|rtf)$/i
-const MAX_TEXT = 60000
+const MAX_TEXT = 150000 // long handbooks are fine: they are split into sections and only the matching ones go to the AI
 
 /** Drop zone + "paste text" option. Text files are read so the simulated AI can search them. */
 export function Uploader({ test = false, folder = 'Other' }) {
@@ -21,7 +22,7 @@ export function Uploader({ test = false, folder = 'Other' }) {
         try { content = (await f.text()).slice(0, MAX_TEXT) } catch { content = null }
       }
       addFile({
-        name: f.name, folder, size: f.size, type: f.type || 'file', active: true, test, extracted: content !== null, content,
+        name: f.name, folder, size: f.size, type: f.type || 'file', active: true, test, extracted: content !== null, content, sections: content ? indexSections(content) : [],
         description: test ? 'Uploaded in the Test Lab' : '',
       })
       log('file', `File "${f.name}" uploaded${test ? ' (test)' : ''}`)
@@ -55,7 +56,7 @@ function PasteModal({ test, folder, onClose }) {
   const [fold, setFold] = useState(folder)
   function save() {
     const fileName = (name.trim() || 'Pasted-document') + (/\.\w+$/.test(name) ? '' : '.txt')
-    addFile({ name: fileName, folder: fold, size: new Blob([text]).size, type: 'text/plain', active: true, test, extracted: true, content: text.slice(0, MAX_TEXT), description: 'Pasted text' })
+    addFile({ name: fileName, folder: fold, size: new Blob([text]).size, type: 'text/plain', active: true, test, extracted: true, content: text.slice(0, MAX_TEXT), sections: indexSections(text.slice(0, MAX_TEXT)), description: 'Pasted text' })
     log('file', `Document "${fileName}" added from pasted text${test ? ' (test)' : ''}`)
     toast(`Added ${fileName}`)
     onClose()
@@ -64,7 +65,7 @@ function PasteModal({ test, folder, onClose }) {
     <Modal title="Paste a document" onClose={onClose} wide>
       <Field label="Document name">{(id) => <input id={id} type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Bereavement-Policy" />}</Field>
       <Field label="Folder">{(id) => <select id={id} value={fold} onChange={(e) => setFold(e.target.value)}>{FILE_FOLDERS.map((f) => <option key={f}>{f}</option>)}</select>}</Field>
-      <Field label="Text" hint="Separate paragraphs with a blank line. The AI looks for answers paragraph by paragraph.">
+      <Field label="Text" hint="Put a heading on its own line above each topic (for example ## Bereavement leave). The document is split into sections at its headings, and the AI reads only the sections that match each question.">
         {(id) => <textarea id={id} rows={9} value={text} onChange={(e) => setText(e.target.value)} placeholder="Employees receive 3 days of paid bereavement leave for immediate family…" />}
       </Field>
       <div className="modal-actions">

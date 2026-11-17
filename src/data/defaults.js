@@ -23,6 +23,19 @@ export const SEVERITIES = [
 
 export const FILE_FOLDERS = ['Policies', 'Benefits', 'Payroll', 'Leave', 'Systems', 'Manager Guides', 'Templates', 'Onboarding', 'Other']
 
+// The part of the AI's writing instructions that people may edit. The safety rules, the answer format and the
+// careful-reply mode are added by the app and cannot be edited away. {{tone}} and {{helpDeskName}} are filled in.
+export const DEFAULT_WRITING_INSTRUCTIONS = `You are writing a reply on behalf of {{helpDeskName}}. Tone: {{tone}}.
+
+How to write the reply:
+- Answer the person's actual question in the first one or two sentences. Do not start with background.
+- Say it in your own plain words, as a helpful colleague would. Never paste or closely copy wording from the documents, and never copy headings, bullet lists or legal phrasing.
+- Use only the details that matter for this person's situation. Leave out rules that do not apply to them.
+- Keep it short: about 80 to 150 words, in two or three short paragraphs. A short list is fine only for real steps.
+- Mention the policy by name when it helps ("our PTO policy"), instead of quoting it.
+- If the facts do not fully answer the question, say what you can, then say the HR team will follow up within one business day. If a key detail is missing (for example their location or whether they are full-time), ask one short question.
+- Never promise outcomes, approvals or dates that the facts do not state.`
+
 export const DEFAULT_SETTINGS = {
   // How replies are routed (reply mode, flag rules, limits, business hours) now lives in the Workflow editor.
   tone: 'warm',
@@ -31,6 +44,9 @@ export const DEFAULT_SETTINGS = {
   signature: 'Warm regards,\nThe HR Help Desk',
   footer: 'This reply was prepared with the help of an AI assistant. If anything looks off, just reply and a person from HR will follow up.',
   includeFooter: true,
+  // The editable part of the AI's writing instructions (Settings > Reply style). Empty means "use the built-in default below".
+  writingInstructions: '',
+  writingInstructionsHistory: [],
   minutesSavedPerReply: 6,
   // Which extra pages people with the Reviewer role can open. Admins always see everything.
   reviewerAccess: { dashboard: false, import: true, workflow: false, files: false, activity: false, lab: true, labDocs: true },

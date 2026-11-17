@@ -167,6 +167,8 @@ export function Result({ email }) {
       )}
 
       <Card title="Sources used">
+        {r.copy?.tooClose && <p className="small" style={{ marginBottom: 8 }}><Badge tone="amber">Close to handbook wording</Badge> The reply stayed close to the documents' wording, so its confidence was lowered.</p>}
+        {r.usage?.charsTotal > 0 && <p className="muted small" style={{ marginBottom: 8 }}>The AI read {r.usage.sections} section{r.usage.sections === 1 ? '' : 's'} ({Math.round(r.usage.charsSent / 1000)}k of {Math.round(r.usage.charsTotal / 1000)}k characters of your documents).</p>}
         {r.sources.length === 0 ? <p className="muted">No document supported an answer. Try uploading one in the Test a document tab.</p> : r.sources.map((s, i) => (
           <div key={i} style={{ marginBottom: 8 }}><strong>{s.name}</strong><div className="quote">{s.snippet}</div></div>
         ))}
