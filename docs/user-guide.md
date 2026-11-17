@@ -69,6 +69,130 @@ The current setting is **Save as a private note on the ticket**. Zoho Desk must 
 | **Dashboard** | View volumes, automation rate, and work needing attention. |
 | **Activity log** | Review recorded changes and actions. |
 
+### Workflow designs
+
+The **Workflow** page shows how each request is handled as a map of connected steps. You can start from one of four ready-made designs using **Starter designs**. Each design is a different balance between AI speed and human control.
+
+| Design | Best for |
+| --- | --- |
+| Balanced (the starter design) | Day-to-day use, once you trust the drafts |
+| Automatic with safeguards | Mature use, only after thorough accuracy testing |
+| A person reviews everything | Getting started |
+| Triage only (no AI replies) | Building trust before using drafts |
+
+#### Balanced (the starter design)
+
+**What it does:** Every message is read and checked for risk. The design then sorts it into one of four paths:
+
+1. **Critical risks** (harassment, discrimination, retaliation, safety, mental-health crises, legal threats): the HR Director is alerted, the ticket is tagged and marked Escalated, the AI writes a short, careful reply that gives no advice, and the case goes to **urgent review**. The reviewer must confirm before sending.
+2. **Sensitive topics** (accommodation, hardship, termination, pay disputes, immigration): the AI drafts a reply and a person reviews it in the normal queue.
+3. **Everything else:** the AI drafts a reply from your policy documents. If it is unsure (confidence below 80%), it tries again, up to two more times.
+4. **Safe to send?** A reply is prepared for sending only if confidence is at least 80%, the topic is time off, benefits, policy or onboarding, and a policy passage backs it up. Otherwise it goes to the review queue.
+
+**Who approves:** A person approves every reply, including the safe ones.
+
+**Use it when:** You want the standard setup, with extra care on risky messages.
+
+#### Automatic with safeguards
+
+**What it does:** It is the same as Balanced, except that a reply passing the "Safe to send?" check is sent without a person. Risky and sensitive messages still go to a person.
+
+**Who approves:** Nobody, for safe topics. A person is still involved for everything else.
+
+**Use it when:** You have run **Check accuracy** on your own documents and trust the results. This is not available on this installation, because automatic sending is switched off on the server. A technical administrator would have to enable it.
+
+#### A person reviews everything
+
+**What it does:** Every message is read and checked for risk. Risky messages trigger an alert to the HR Director, get a careful no-advice draft, and go to urgent review with required confirmation. All other messages get a normal AI draft and go to the review queue.
+
+**Who approves:** A person, on every message. Nothing is ever sent automatically.
+
+**Use it when:** You are just starting out. It is the safest design.
+
+#### Triage only (no AI replies)
+
+**What it does:** The AI only reads and sorts. Risky messages are assigned to the HR Director as urgent, with required confirmation. Everything else goes to the review queue with no draft, so reviewers write their own replies.
+
+**Who approves:** A person writes and approves every reply.
+
+**Use it when:** You want to see how well the AI sorts and flags messages before you rely on its drafts.
+
+#### Customizing a design
+
+Any design can be changed after you load it:
+
+- Add, remove or reword risk rules, and change who is notified.
+- Change the confidence level or the topics required for a reply to count as safe.
+- Change the reply tone for each drafting step.
+- Add steps that tag, change the status of, or assign Zoho Desk tickets.
+
+Use the **design check** to find paths that could send a flagged or unchecked message without a person. Then run **Check accuracy** to confirm the new design behaves as you expect before your team relies on it.
+
+### Workflow building blocks
+
+Each step on the Workflow map is a block. Blocks connect with arrows. Some blocks have more than one exit, such as **Flagged** and **Clear**, so a message can take different paths. Click a block to see its settings.
+
+#### Start
+
+| Block | What it does |
+| --- | --- |
+| **Email received** | Where every request begins. In normal use it is a ticket pulled from Zoho Desk, and in the Test Lab it is the message you write. Every workflow has exactly one, and it cannot be deleted. |
+
+#### AI
+
+| Block | What it does |
+| --- | --- |
+| **Understand with AI** | The AI reads the whole message and works out the topic. It also looks for hidden risk by meaning, so a message that never uses the word "harassment" can still be caught. Put it before your risk filters, because without it the filters only check for words. |
+| **Write reply with AI** | The AI drafts the reply using only your Knowledge files and quotes its sources. For a message a risk filter marked as careful, it writes a short, warm reply that gives no advice. You can choose its tone (from Settings, warm, professional or concise). Place it again after a **While** block to let the AI try again. |
+
+#### Filters
+
+| Block | What it does |
+| --- | --- |
+| **Risk filter** | Checks whether a message touches a sensitive subject, such as harassment or a legal threat. Each rule has trigger words and a plain description, so the AI can also catch it by meaning. Each rule also has a severity and a person to notify. Messages that match leave by **Flagged** and the rest leave by **Clear**. Turn on **Careful reply** to give flagged messages a cautious, no-advice draft. |
+| **Text filter** | A simple check for words in the subject, the message or the sender address. Use it to spot spam, VIP senders or a particular product. It does not mark the message as risky. Messages leave by **Match** or **No match**. |
+
+#### Logic
+
+| Block | What it does |
+| --- | --- |
+| **If / Else** | Asks a question and sends the message down **Yes** or **No**. You can combine conditions so that all must be true, or any one is enough. For example: if confidence is at least 80% and the topic is time off, go to Yes. |
+| **While (repeat)** | Repeats a step while a condition is true, such as writing the reply again while confidence is below 80%. A maximum number of repeats (up to five) prevents endless loops. When the condition stops being true, or the maximum is reached, the message leaves by **Done**. |
+| **Route by topic** | Gives each topic you choose its own exit, such as payroll to one path and benefits to another. Topics you don't choose leave by **Anything else**. |
+
+Conditions can check the AI's confidence, the topic, the highest risk found, whether a risk was flagged, whether a supporting document was found, whether the reply asks the employee for details, the sender's email or domain, the subject, the message text, the hour received, how many replies have been written, and how many automatic replies this sender has had in 24 hours. That last one stops back-and-forth loops with one person.
+
+#### Actions
+
+| Block | What it does |
+| --- | --- |
+| **Send alert** | Notifies a person or team, such as the HR Director, without ending the case. Alerts currently appear in the case and the Activity log. They are not emailed. The message then carries on to the next block. |
+
+#### Ticket (Zoho Desk)
+
+These blocks update the ticket and then carry on to the next block. Until Zoho Desk is connected, they only record what they would have done, and you can see that on each case.
+
+| Block | What it does |
+| --- | --- |
+| **Set ticket status** | Changes the ticket's status to Open, Pending, Answered, Escalated or Closed. |
+| **Tag ticket** | Adds labels so staff can filter and search. It can add the name of every risk that was flagged, plus any fixed tags you list. |
+| **Assign ticket** | Assigns the ticket to a person or team and carries on. This is different from **Escalate / assign owner**, which ends the case. |
+
+#### Finish the case
+
+Every path ends at one of these blocks. They have no exits.
+
+| Block | What it does |
+| --- | --- |
+| **Email sent** | Prepares the reply for the employee. With **A person approves first** on, the reply goes to the Review queue as ready to send. Turned off, it sends automatically, which is not available on this installation. If no reply has been written yet, the case is held for a person. |
+| **Send to review queue** | Puts the case and the AI draft in the Review queue for a person to read, edit and send. It can be marked **Urgent**. **Reviewer must confirm** adds a tick box that must be ticked before Send turns on, and it is always required for careful, high-risk replies. |
+| **Escalate / assign owner** | Marks the case as escalated and suggests who should own it. It appears at the top of the Review queue, and any draft is kept for the owner to rewrite. |
+| **Close without reply** | Ends the case with no reply, for example spam or an out-of-scope message. The case stays in the Review queue under **Handled**. |
+
+#### Reading the exits
+
+Exit labels are colour-coded as well as named, so paths are easy to tell apart. **Flagged** and **No** are red, **Clear**, **Yes** and **Done** are green, and **Repeat**, **Match** and topic paths are blue.
+
 ### Importing requests and checking accuracy
 
 In **Import and evaluate**, choose:
