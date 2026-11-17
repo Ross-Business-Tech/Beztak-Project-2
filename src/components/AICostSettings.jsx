@@ -1,11 +1,32 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../store'
 import { DEPTHS } from '../engine/ai'
 import { fmtUsd, priceFor } from '../engine/cost'
 import { DEFAULT_HANDOFF } from '../engine/ai'
 import { Badge, Card, Field, Segmented, SettingRow, Toggle } from './ui'
 
-const numOrEmpty = (v) => (v === '' ? '' : Math.max(0, Number(v) || 0))
+/**
+ * A number box that lets you type freely ("0.", an empty box, "05") and saves only when what you typed is a valid number.
+ * `empty` is what an empty box means: '' (not set) for prices, 0 (no limit) for limits.
+ */
+function NumberBox({ value, onCommit, empty = '', width = 100, label, placeholder }) {
+  const show = (v) => (v === '' || v === null || v === undefined || (empty === 0 && Number(v) === 0) ? '' : String(v))
+  const [text, setText] = useState(show(value))
+  const editing = useRef(false)
+  // Follow changes made elsewhere (a preset loaded, another admin), but never while this box is being typed in.
+  useEffect(() => { if (!editing.current) setText(show(value)) }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <input type="text" inputMode="decimal" style={{ width }} aria-label={label} placeholder={placeholder} value={text}
+      onFocus={() => { editing.current = true }}
+      onChange={(e) => {
+        const t = e.target.value.replace(/[^0-9.]/g, '')
+        setText(t)
+        if (t === '') onCommit(empty)
+        else if (/^\d*\.?\d*$/.test(t) && t !== '.') onCommit(Math.max(0, Number(t)))
+      }}
+      onBlur={() => { editing.current = false; setText(show(value)) }} />
+  )
+}
 
 function PriceLine({ model, ai, inKey, outKey, set }) {
   const p = priceFor(model, ai)
@@ -14,8 +35,8 @@ function PriceLine({ model, ai, inKey, outKey, set }) {
       <strong>{model || '(no model)'}</strong>{' '}
       {p ? <span className="muted">{p.source === 'settings' ? 'your price' : 'built-in price'}: ${p.in} in / ${p.out} out per million tokens</span> : <Badge tone="amber">No price on file</Badge>}
       <div className="row" style={{ gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-        <label className="small">Your input price <input type="number" min={0} step="0.01" style={{ width: 90 }} aria-label={`Input price per million tokens for ${model}`} value={ai[inKey] ?? ''} placeholder="auto" onChange={(e) => set({ [inKey]: numOrEmpty(e.target.value) })} /></label>
-        <label className="small">Your output price <input type="number" min={0} step="0.01" style={{ width: 90 }} aria-label={`Output price per million tokens for ${model}`} value={ai[outKey] ?? ''} placeholder="auto" onChange={(e) => set({ [outKey]: numOrEmpty(e.target.value) })} /></label>
+        <label className="small">Your input price <NumberBox width={90} label={`Input price per million tokens for ${model}`} value={ai[inKey]} placeholder="auto" onCommit={(v) => set({ [inKey]: v })} /></label>
+        <label className="small">Your output price <NumberBox width={90} label={`Output price per million tokens for ${model}`} value={ai[outKey]} placeholder="auto" onCommit={(v) => set({ [outKey]: v })} /></label>
         <span className="muted small">US dollars per million tokens. Leave blank to use the built-in price.</span>
       </div>
     </div>
@@ -64,11 +85,11 @@ export function CostsAndLimits() {
         <span className="small">{usage ? <><strong>{fmtUsd(usage.usd)}</strong> · {usage.calls.toLocaleString()} calls{usage.unpriced > 0 ? <> · <Badge tone="amber">{usage.unpriced} calls had no price on file</Badge></> : null}</> : 'Not available yet'}</span>
       </SettingRow>
       <Field label="Daily spending limit (US dollars)" hint="When today's estimated spend reaches this, the AI pauses until tomorrow and new messages go to a person using the simple word-matching writer. Leave 0 for no limit.">
-        {(id) => <input id={id} type="number" min={0} step="0.5" style={{ width: 120 }} value={lim.dailyUsd || 0} onChange={(e) => setLim({ dailyUsd: Math.max(0, Number(e.target.value) || 0) }, `Daily AI limit set to $${Math.max(0, Number(e.target.value) || 0)}`)} />}
+        {() => <NumberBox empty={0} width={120} label="Daily spending limit" placeholder="0 = no limit" value={lim.dailyUsd} onCommit={(v) => setLim({ dailyUsd: v })} />}
       </Field>
       {lim.dailyUsd > 0 && usage && <div className="meter" aria-hidden="true" style={{ height: 8, background: 'var(--line, #ddd)', borderRadius: 4, overflow: 'hidden', margin: '-4px 0 12px' }}><div style={{ width: `${pct}%`, height: '100%', background: pct > 85 ? 'var(--red, #c0392b)' : 'var(--blue, #2563eb)' }} /></div>}
       <Field label="Limit per import (US dollars)" hint="Import and evaluate shows its estimated cost first, and will not start a run estimated above this. Leave 0 for no limit.">
-        {(id) => <input id={id} type="number" min={0} step="0.5" style={{ width: 120 }} value={lim.importRunUsd || 0} onChange={(e) => setLim({ importRunUsd: Math.max(0, Number(e.target.value) || 0) }, `Per-import AI limit set to $${Math.max(0, Number(e.target.value) || 0)}`)} />}
+        {() => <NumberBox empty={0} width={120} label="Limit per import" placeholder="0 = no limit" value={lim.importRunUsd} onCommit={(v) => setLim({ importRunUsd: v })} />}
       </Field>
     </Card>
   )
