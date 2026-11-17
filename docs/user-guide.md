@@ -21,6 +21,19 @@ Sign in with the email and password your administrator gave you. Reviewers open 
 
 Harassment, discrimination, legal, safety and mental-health topics always go to a person.
 
+## Step by step: your first request
+
+1. **Sign in** and open the **Review queue** (reviewers land here).
+2. **Pick a tab:** *Needs review*, *Flagged*, *Handled* or *All*. Use the search box to find a sender or subject. Each row shows the sender's initials, how long the case has waited, and tags such as **Critical** or **Urgent**.
+3. **Open the top case.** The most urgent are listed first.
+4. **Read the email**, then the draft reply below it.
+5. **Check Sources** to confirm the reply matches your policy.
+6. **Edit the reply** so it says what you would say.
+7. **Send / approve.** The next case opens automatically.
+8. **Repeat** until no messages are waiting for review.
+
+*Admins, to add requests first:* open **Import and evaluate**, click **Use an example** (or paste your own spreadsheet), choose **Add to Review queue**, then click the button below it. They appear in the queue within moments.
+
 ## Reviewing requests
 
 1. Open the **Review queue**. The most urgent, longest-waiting cases are first.
