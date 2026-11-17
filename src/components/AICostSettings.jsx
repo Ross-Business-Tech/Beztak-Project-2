@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../store'
-import { DEPTHS } from '../engine/ai'
+import { DEFAULT_HANDOFF, DEPTHS } from '../engine/ai'
 import { fmtUsd, priceFor } from '../engine/cost'
-import { DEFAULT_HANDOFF } from '../engine/ai'
 import { Badge, Card, Field, Segmented, SettingRow, Toggle } from './ui'
 
 /**
@@ -28,42 +27,57 @@ function NumberBox({ value, onCommit, empty = '', width = 100, label, placeholde
   )
 }
 
-function PriceLine({ model, ai, inKey, outKey, set }) {
-  const p = priceFor(model, ai)
+/** The optional cheaper model for the reading steps. Sits beside the main Model box. */
+export function ReadingModelField({ s, set }) {
   return (
-    <div className="small" style={{ margin: '4px 0 10px' }}>
-      <strong>{model || '(no model)'}</strong>{' '}
-      {p ? <span className="muted">{p.source === 'settings' ? 'your price' : 'built-in price'}: ${p.in} in / ${p.out} out per million tokens</span> : <Badge tone="amber">No price on file</Badge>}
-      <div className="row" style={{ gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-        <label className="small">Your input price <NumberBox width={90} label={`Input price per million tokens for ${model}`} value={ai[inKey]} placeholder="auto" onCommit={(v) => set({ [inKey]: v })} /></label>
-        <label className="small">Your output price <NumberBox width={90} label={`Output price per million tokens for ${model}`} value={ai[outKey]} placeholder="auto" onCommit={(v) => set({ [outKey]: v })} /></label>
-        <span className="muted small">US dollars per million tokens. Leave blank to use the built-in price.</span>
-      </div>
-    </div>
+    <Field label="Reading model (optional)" hint="A smaller, cheaper model for reading. The model on the left only writes the reply.">
+      {(id) => <input id={id} type="text" value={s.ai.readModel || ''} onChange={(e) => set({ ai: { ...s.ai, readModel: e.target.value } })} placeholder="Same as Model, e.g. claude-haiku-5-5" />}
+    </Field>
   )
 }
 
-/** Extra AI settings: a cheaper model for reading, how much of the documents to read, and prices. Shown inside the AI engine card. */
-export function ReadingSettings({ s, set }) {
+const DEPTH_NOTE = {
+  light: 'Reads the 4 best-matching sections of a long document. Fastest and cheapest.',
+  standard: 'Reads the 6 best-matching sections of a long document. A good balance.',
+  deep: 'Reads the 8 best-matching sections of a long document. Slower, for answers spread across many places.',
+}
+
+/** How much of the documents the AI reads, and the prices behind the cost estimates. */
+export function ReadingDepthAndPrices({ s, set }) {
   const ai = s.ai
   const patch = (p, note) => set({ ai: { ...ai, ...p } }, note)
   const read = (ai.readModel || '').trim()
+  const depth = ai.readDepth || 'standard'
   return (
     <>
-      <Field label="Reading model (optional)" hint="A smaller, faster, cheaper model for the reading steps: working out the topic and risks, and finding facts in your documents. The model above only writes the reply. Leave empty to use one model for everything.">
-        {(id) => <input id={id} type="text" value={ai.readModel || ''} onChange={(e) => patch({ readModel: e.target.value })} placeholder="Same as the model above, for example claude-haiku-5-5" />}
-      </Field>
-      <Field label="How much of your documents the AI reads" hint="Light reads the 4 best-matching sections of a long document, Standard 6, Deep 8 (short documents are cut back in the same proportion). Less is faster and cheaper; more helps when answers are scattered across many documents.">
-        {() => <Segmented label="Reading depth" value={ai.readDepth || 'standard'} onChange={(v) => patch({ readDepth: v }, `Reading depth set to ${DEPTHS[v].label}`)}
+      <Field label="How much of your documents the AI reads" hint={DEPTH_NOTE[depth]}>
+        {() => <Segmented label="Reading depth" value={depth} onChange={(v) => patch({ readDepth: v }, `Reading depth set to ${DEPTHS[v].label}`)}
           options={Object.entries(DEPTHS).map(([value, d]) => ({ value, label: d.label }))} />}
       </Field>
-      <details style={{ margin: '4px 0 12px' }}>
-        <summary className="small"><strong>Prices used for cost estimates</strong></summary>
-        <p className="muted small" style={{ margin: '6px 0' }}>Used for the Import cost estimate and the daily limit. The app knows Claude prices; for any other model, enter the price from its provider.</p>
-        <PriceLine model={ai.model} ai={ai} inKey="priceIn" outKey="priceOut" set={(p) => patch(p)} />
-        {read && read !== (ai.model || '').trim() && <PriceLine model={read} ai={ai} inKey="readPriceIn" outKey="readPriceOut" set={(p) => patch(p)} />}
+      <details className="plain">
+        <summary>Prices used for cost estimates</summary>
+        <div className="plain-body">
+          <p className="muted small" style={{ marginBottom: 10 }}>Claude prices are built in. For any other model, enter its price per million tokens (US dollars).</p>
+          <PriceLine model={ai.model} ai={ai} inKey="priceIn" outKey="priceOut" set={patch} />
+          {read && read !== (ai.model || '').trim() && <PriceLine model={read} ai={ai} inKey="readPriceIn" outKey="readPriceOut" set={patch} />}
+        </div>
       </details>
     </>
+  )
+}
+
+function PriceLine({ model, ai, inKey, outKey, set }) {
+  const p = priceFor(model, ai)
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div className="small"><strong>{model || '(no model)'}</strong>{' '}
+        {p ? <span className="muted">{p.source === 'settings' ? 'your price' : 'built-in'}: ${p.in} in / ${p.out} out</span> : <Badge tone="amber">No price on file</Badge>}
+      </div>
+      <div className="row" style={{ gap: 12, marginTop: 6 }}>
+        <label className="small">Input <NumberBox width={90} label={`Input price per million tokens for ${model}`} value={ai[inKey]} placeholder="auto" onCommit={(v) => set({ [inKey]: v })} /></label>
+        <label className="small">Output <NumberBox width={90} label={`Output price per million tokens for ${model}`} value={ai[outKey]} placeholder="auto" onCommit={(v) => set({ [outKey]: v })} /></label>
+      </div>
+    </div>
   )
 }
 
@@ -77,20 +91,24 @@ export function CostsAndLimits() {
     return () => { alive = false }
   }, [aiUsage, s.aiLimits?.dailyUsd])
   const lim = s.aiLimits || { dailyUsd: 0, importRunUsd: 0 }
-  const setLim = (patch, note) => updateSettings({ aiLimits: { ...lim, ...patch } }, note)
+  const setLim = (patch) => updateSettings({ aiLimits: { ...lim, ...patch } })
   const pct = usage && lim.dailyUsd > 0 ? Math.min(100, Math.round((usage.usd / lim.dailyUsd) * 100)) : 0
   return (
     <Card title="Cost limits" hint="Guards against a surprise bill. Amounts are estimates from text length and list prices.">
-      <SettingRow title="Today's AI use" hint="Resets at midnight UTC. Counts every AI call the app makes, including the test buttons.">
-        <span className="small">{usage ? <><strong>{fmtUsd(usage.usd)}</strong> · {usage.calls.toLocaleString()} calls{usage.unpriced > 0 ? <> · <Badge tone="amber">{usage.unpriced} calls had no price on file</Badge></> : null}</> : 'Not available yet'}</span>
-      </SettingRow>
-      <Field label="Daily spending limit (US dollars)" hint="When today's estimated spend reaches this, the AI pauses until tomorrow and new messages go to a person using the simple word-matching writer. Leave 0 for no limit.">
-        {() => <NumberBox empty={0} width={120} label="Daily spending limit" placeholder="0 = no limit" value={lim.dailyUsd} onCommit={(v) => setLim({ dailyUsd: v })} />}
-      </Field>
-      {lim.dailyUsd > 0 && usage && <div className="meter" aria-hidden="true" style={{ height: 8, background: 'var(--line, #ddd)', borderRadius: 4, overflow: 'hidden', margin: '-4px 0 12px' }}><div style={{ width: `${pct}%`, height: '100%', background: pct > 85 ? 'var(--red, #c0392b)' : 'var(--blue, #2563eb)' }} /></div>}
-      <Field label="Limit per import (US dollars)" hint="Import and evaluate shows its estimated cost first, and will not start a run estimated above this. Leave 0 for no limit.">
-        {() => <NumberBox empty={0} width={120} label="Limit per import" placeholder="0 = no limit" value={lim.importRunUsd} onCommit={(v) => setLim({ importRunUsd: v })} />}
-      </Field>
+      <div className="stat-row" style={{ marginBottom: 14 }}>
+        <div className="stat"><div className="v">{usage ? fmtUsd(usage.usd) : '—'}</div><div className="k">spent today (resets at midnight UTC)</div></div>
+        <div className="stat"><div className="v">{usage ? usage.calls.toLocaleString() : '—'}</div><div className="k">AI calls today</div></div>
+        {usage?.unpriced > 0 && <div className="stat"><div className="v">{usage.unpriced}</div><div className="k">calls with no price on file</div></div>}
+      </div>
+      {lim.dailyUsd > 0 && usage && <div className={`limit-bar ${pct > 85 ? 'hot' : ''}`} aria-hidden="true" style={{ marginBottom: 14 }}><span style={{ width: `${pct}%` }} /></div>}
+      <div className="two-col">
+        <Field label="Daily spending limit ($)" hint="Pauses the AI until tomorrow when reached. 0 = no limit.">
+          {() => <NumberBox empty={0} width={130} label="Daily spending limit" placeholder="0" value={lim.dailyUsd} onCommit={(v) => setLim({ dailyUsd: v })} />}
+        </Field>
+        <Field label="Limit per import ($)" hint="Blocks an import estimated above this. 0 = no limit.">
+          {() => <NumberBox empty={0} width={130} label="Limit per import" placeholder="0" value={lim.importRunUsd} onCommit={(v) => setLim({ importRunUsd: v })} />}
+        </Field>
+      </div>
     </Card>
   )
 }
@@ -101,16 +119,18 @@ export function HandoffCard() {
   const on = s.skipAIWhenNoMatch !== false
   const text = s.handoffText || ''
   return (
-    <Card title="When the documents have no answer" hint="Saves AI cost: the AI is not asked to write a reply it has nothing to base on.">
-      <SettingRow title="Skip the AI and send the hand-off reply" hint="If no document matches the question, or the AI finds nothing usable in the matching ones, the wording below is used. It still goes through your Workflow, so a person reviews it.">
-        <Toggle label="Skip the AI when no document matches" checked={on} onChange={(v) => updateSettings({ skipAIWhenNoMatch: v }, `Skipping the AI when no document matches turned ${v ? 'on' : 'off'}`)} />
+    <Card title="When the documents have no answer">
+      <SettingRow title="Use a fixed hand-off reply" hint="If nothing in the documents answers the question, skip the AI and use the wording below. A person still reviews it, and it saves AI cost.">
+        <Toggle label="Use a fixed hand-off reply when no document matches" checked={on} onChange={(v) => updateSettings({ skipAIWhenNoMatch: v }, `Fixed hand-off reply turned ${v ? 'on' : 'off'}`)} />
       </SettingRow>
       {on && (
-        <Field label="Hand-off reply" hint="You can use {{firstName}} and {{helpDeskName}}. The signature and footer are added afterwards. Leave empty to use the built-in wording.">
-          {(id) => <textarea id={id} rows={5} value={text || DEFAULT_HANDOFF} onChange={(e) => updateSettings({ handoffText: e.target.value === DEFAULT_HANDOFF ? '' : e.target.value })} maxLength={600} />}
-        </Field>
+        <>
+          <Field label="Hand-off reply" hint="You can use {{firstName}} and {{helpDeskName}}. The signature and footer are added after.">
+            {(id) => <textarea id={id} rows={4} value={text || DEFAULT_HANDOFF} onChange={(e) => updateSettings({ handoffText: e.target.value === DEFAULT_HANDOFF ? '' : e.target.value })} maxLength={600} />}
+          </Field>
+          {text && <button className="btn small" onClick={() => updateSettings({ handoffText: '' }, 'Hand-off reply reset to the built-in wording')}>Reset to built-in wording</button>}
+        </>
       )}
-      {on && text && <button className="btn small" onClick={() => updateSettings({ handoffText: '' }, 'Hand-off reply reset to the built-in wording')}>Reset to built-in wording</button>}
     </Card>
   )
 }

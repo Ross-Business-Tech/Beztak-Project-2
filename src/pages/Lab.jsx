@@ -178,8 +178,12 @@ export function Result({ email }) {
 
       <Card title="Sources used">
         <ConfidenceWhy result={r} />
-        {r.unverified?.length > 0 && <p className="small" style={{ marginBottom: 8 }}><Badge tone="red">Check these figures</Badge> {r.unverified.join(', ')} are not in the documents or the employee's message.</p>}
-        {r.copy?.tooClose && <p className="small" style={{ marginBottom: 8 }}><Badge tone="amber">Close to handbook wording</Badge> The reply stayed close to the documents' wording, so its confidence was lowered.</p>}
+        {(r.unverified?.length > 0 || r.copy?.tooClose) && (
+          <div className="checks">
+            {r.unverified?.length > 0 && <p className="small"><Badge tone="red">Check these figures</Badge> {r.unverified.join(', ')} are not in the documents or the employee's message.</p>}
+            {r.copy?.tooClose && <p className="small"><Badge tone="amber">Close to handbook wording</Badge> The reply stayed close to the documents' wording, so its confidence was lowered.</p>}
+          </div>
+        )}
         {r.sources.length === 0 ? <p className="muted">No document supported an answer. Try uploading one in the Test a document tab.</p> : r.sources.map((s, i) => (
           <div key={i} style={{ marginBottom: 8 }}><strong>{s.name}</strong><div className="quote">{s.snippet}</div></div>
         ))}

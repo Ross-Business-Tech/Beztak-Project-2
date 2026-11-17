@@ -457,12 +457,12 @@ test('the reply asks the employee for missing details, and reviewers can see and
 test('a big handbook that was split into sections sends only the matching sections to the AI', async () => {
   const ai = await import('../../src/engine/ai.js')
   const { DEFAULT_SETTINGS } = await import('../../src/data/defaults.js')
-  const { prepareDocument } = await import('../../src/lib/uploadLimits.js')
+  const { prepareDocument } = await import('../../src/lib/prepareDocument.js')
   const filler = (n, t) => Array.from({ length: n }, (_, i) => `## ${i}.1 ${t} ${i}\n\nThis section explains the ${t} procedure number ${i} for parking, badges, printers and lunch rooms in some detail so it is long enough to count as a section.`).join('\n\n')
   const text = `# Handbook\n\n${filler(400, 'Office')}\n\n## 7.4 Bereavement Leave\n\nBereavement leave grants three paid days for a close family member, taken within two weeks of the loss.\n\n${filler(400, 'Travel')}`
   assert.ok(text.length > 60000)
-  const doc = prepareDocument(text, { split: true, existing: [], serverMode: true })
-  assert.equal(doc.ok, true); assert.equal(doc.sectioned, true); assert.ok(doc.sections.length > 20)
+  const doc = prepareDocument(text, { split: true })
+  assert.equal(doc.sectioned, true); assert.ok(doc.sections.length > 20)
   const file = { id: 'big', name: 'handbook.md', active: true, content: doc.content, sectioned: true, sections: doc.sections }
   const email = { name: 'Sam', from: 's@example.com', subject: 'Bereavement', body: 'How many bereavement leave days do I get?' }
   const sent = []
@@ -483,19 +483,20 @@ test('a big handbook that was split into sections sends only the matching sectio
   } finally { ai.setTransport((url, init) => fetch(url, init)) }
 })
 
-test('upload limits: oversize files and a full library are refused, and unsplit long text is cut with a warning', async () => {
-  const { prepareDocument, MAX_FILE_BYTES, PLAIN_CHARS } = await import('../../src/lib/uploadLimits.js')
-  const small = prepareDocument('# Short\n\nA short policy.', { split: true, existing: [], serverMode: true })
-  assert.equal(small.ok, true); assert.equal(small.sectioned, false, 'short documents are never split'); assert.equal(small.warning, '')
+test('uploads have no size limit of their own: documents are kept whole, and only long ones can be split', async () => {
+  const { prepareDocument, SPLIT_ABOVE } = await import('../../src/lib/prepareDocument.js')
+  const small = prepareDocument('# Short\n\nA short policy.', { split: true })
+  assert.equal(small.sectioned, false, 'short documents are never split'); assert.equal(small.content, '# Short\n\nA short policy.')
   const long = `# Title\n\n${'## Topic\n\nSome policy words here. '.repeat(4000)}`
-  const cut = prepareDocument(long, { split: false, existing: [], serverMode: true })
-  assert.equal(cut.ok, true); assert.equal(cut.content.length, PLAIN_CHARS); assert.match(cut.warning, /Only the first 60,000 of/)
-  const huge = prepareDocument('x'.repeat(MAX_FILE_BYTES + 1), { split: true, existing: [], serverMode: true })
-  assert.equal(huge.ok, false); assert.match(huge.error, /limit is 15 MB per file/)
-  const full = prepareDocument(long, { split: true, existing: [{ id: 'a', content: 'y'.repeat(29_900_000) }], serverMode: true })
-  assert.equal(full.ok, false); assert.match(full.error, /not enough room/)
-  const demo = prepareDocument(long, { split: true, existing: [{ id: 'a', content: 'y'.repeat(4_100_000) }], serverMode: false })
-  assert.equal(demo.ok, false, 'the browser demo has a smaller allowance')
+  assert.ok(long.length > SPLIT_ABOVE)
+  const off = prepareDocument(long, { split: false })
+  assert.equal(off.content.length, long.length, 'with splitting off, the whole document is still kept'); assert.equal(off.sectioned, false)
+  const on = prepareDocument(long, { split: true })
+  assert.equal(on.content.length, long.length); assert.equal(on.sectioned, true); assert.ok(on.sections.length > 1)
+  const huge = `# Handbook\n\n${'## Section\n\nA long paragraph of policy text for a very large handbook. '.repeat(200000)}`
+  assert.ok(huge.length > 14_000_000)
+  const big = prepareDocument(huge, { split: true })
+  assert.equal(big.content.length, huge.length, 'a 14 MB document is not cut or refused'); assert.ok(big.sectioned)
 })
 
 test('safety checks: invented figures are caught, injected labels are neutralised, retries are not repeated, flagged mail never asks questions', async () => {
@@ -610,8 +611,8 @@ test('reading depth changes how much of the documents is sent', async () => {
   const para = (i) => `Vacation rule ${i}: employees may request vacation days through the portal and managers approve vacation requests promptly ${'blah '.repeat(60)}`
   const text = Array.from({ length: 12 }, (_, i) => `## Vacation ${i}\n\n${para(i)}`).join('\n\n')
   const big = `# Handbook\n\n${text}\n\n${'filler words about nothing '.repeat(4000)}`
-  const { prepareDocument } = await import('../../src/lib/uploadLimits.js')
-  const doc = prepareDocument(big, { split: true, existing: [], serverMode: true })
+  const { prepareDocument } = await import('../../src/lib/prepareDocument.js')
+  const doc = prepareDocument(big, { split: true })
   const files = [{ id: 'b', name: 'handbook.md', active: true, content: doc.content, sectioned: doc.sectioned, sections: doc.sections }]
   const chars = (d) => pickContext(files, 'vacation days request', { ...DEFAULT_SETTINGS, ai: { ...DEFAULT_SETTINGS.ai, readDepth: d } }).chars
   assert.ok(chars('light') < chars('standard') && chars('standard') <= chars('deep'), 'light < standard <= deep')

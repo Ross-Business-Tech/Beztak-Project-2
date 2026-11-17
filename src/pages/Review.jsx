@@ -139,8 +139,12 @@ function Detail({ email, next, onBack, onNext }) {
           )}
           <Fold className="o4" title="Sources" summary={r.sources.length ? `${r.sources.length} quoted source${r.sources.length === 1 ? '' : 's'}` : 'No supporting document found'}>
             <ConfidenceWhy result={r} />
-            {r.unverified?.length > 0 && <p className="small" style={{ marginBottom: 8 }}><Badge tone="red">Check these figures</Badge> {r.unverified.join(', ')} appear in the reply but not in the documents or the employee's message. Confirm them before approving.</p>}
-            {r.copy?.tooClose && <p className="small" style={{ marginBottom: 8 }}><Badge tone="amber">Close to handbook wording</Badge> The AI stayed close to the document's own words even after a rewrite. Please check the tone and reword if needed.</p>}
+            {(r.unverified?.length > 0 || r.copy?.tooClose) && (
+              <div className="checks">
+                {r.unverified?.length > 0 && <p className="small"><Badge tone="red">Check these figures</Badge> {r.unverified.join(', ')} appear in the reply but not in the documents or the employee's message. Confirm them before approving.</p>}
+                {r.copy?.tooClose && <p className="small"><Badge tone="amber">Close to handbook wording</Badge> The AI stayed close to the document's own words even after a rewrite. Please check the tone and reword if needed.</p>}
+              </div>
+            )}
             {r.sources.length === 0 ? <p className="muted">No supporting document found.</p> : r.sources.map((s, i) => <div key={i} style={{ marginBottom: 8 }}><strong>{s.name}</strong><div className="quote">{s.snippet}</div></div>)}
           </Fold>
           <Fold className="o6" title="Case notes" hint="Internal only. Never sent to the employee." summary={(email.notes || []).length ? `${email.notes.length} note${email.notes.length === 1 ? '' : 's'}` : 'No notes yet'}>

@@ -138,18 +138,27 @@ function CostEstimate({ estimate: e, settings, limit, overLimit, fits, onCap, ca
   const ai = settings.ai || {}
   const read = ai.readModel || ai.model
   const unknown = [!priceFor(ai.model, ai) && ai.model, !priceFor(read, ai) && read].filter(Boolean)
+  const split = ai.readModel && ai.readModel !== ai.model
   return (
-    <div className="guardrail" role="note" style={{ display: 'block', marginBottom: 12 }}>
-      <strong>Estimated AI cost: {e.unknownPrice ? 'unknown' : fmtUsd(e.typical)}</strong>
-      {!e.unknownPrice && <span className="muted small"> (up to about {fmtUsd(e.high)} if many replies need rewriting)</span>}
-      <p className="small" style={{ margin: '6px 0 0' }}>
-        {e.emails} request{e.emails === 1 ? '' : 's'} · about {e.calls.toLocaleString()} AI calls and {Math.round((e.inTok + e.outTok) / 1000).toLocaleString()}k tokens · writing: {ai.model}{ai.readModel && ai.readModel !== ai.model ? `, reading: ${ai.readModel}` : ''}
-        {e.skipped > 0 && <> · {e.skipped} with no matching document will skip the writing call</>}.
+    <div className="estimate" role="note">
+      <div className="stat-row">
+        <div className="stat"><div className="v">{e.unknownPrice ? 'Unknown' : fmtUsd(e.typical)}</div><div className="k">estimated AI cost</div></div>
+        {!e.unknownPrice && <div className="stat"><div className="v">{fmtUsd(e.high)}</div><div className="k">worst case</div></div>}
+        <div className="stat"><div className="v">{e.calls.toLocaleString()}</div><div className="k">AI calls for {e.emails} request{e.emails === 1 ? '' : 's'}</div></div>
+      </div>
+      <p className="muted small">
+        {split ? <>Writing with {ai.model}, reading with {ai.readModel}.</> : <>Using {ai.model}.</>}
+        {e.skipped > 0 && <> {e.skipped} with no matching document will use the fixed hand-off reply.</>} An estimate from text length and list prices, not an invoice.
       </p>
-      {unknown.length > 0 && <p className="small" style={{ margin: '6px 0 0' }}><Badge tone="amber">No price on file</Badge> for {unknown.join(' and ')}. Enter its price per million tokens in Settings → AI to see a cost.</p>}
-      {limit > 0 && <p className="small" style={{ margin: '6px 0 0' }}>Your limit per import is {fmtUsd(limit)}. {overLimit ? <><Badge tone="red">Over the limit</Badge> {fits > 0 ? <>About {fits} request{fits === 1 ? '' : 's'} fit. <button type="button" className="btn small" onClick={onCap}>Use only the first {fits}</button></> : 'Even one request is over it: raise the limit in Settings.'}</> : <Badge tone="green">Within the limit</Badge>}</p>}
-      {capped && <p className="small" style={{ margin: '6px 0 0' }}>Using {e.emails} of {total} requests. <button type="button" className="btn small" onClick={onUncap}>Use all</button></p>}
-      <p className="muted small" style={{ margin: '6px 0 0' }}>An estimate from text length and list prices, not an invoice.</p>
+      {unknown.length > 0 && <p className="small"><Badge tone="amber">No price on file</Badge> for {unknown.join(' and ')}. Enter a price in Settings → AI to see a cost.</p>}
+      {limit > 0 && (
+        <p className="small">
+          {overLimit
+            ? <><Badge tone="red">Over your {fmtUsd(limit)} limit per import</Badge> {fits > 0 ? <>About {fits} request{fits === 1 ? '' : 's'} fit. <button type="button" className="btn small" onClick={onCap}>Use only the first {fits}</button></> : 'Even one request is over it. Raise the limit in Settings.'}</>
+            : <><Badge tone="green">Within your {fmtUsd(limit)} limit per import</Badge></>}
+        </p>
+      )}
+      {capped && <p className="small">Using {e.emails} of {total} requests. <button type="button" className="btn small" onClick={onUncap}>Use all</button></p>}
     </div>
   )
 }

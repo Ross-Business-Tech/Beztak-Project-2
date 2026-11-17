@@ -3,7 +3,7 @@ import { useApp } from '../store'
 import { DEFAULT_MODEL, testConnection } from '../engine/ai'
 import { Badge, Card, HelpPanel, Icon, Field, Modal, PageHeader, Segmented, SettingRow, Toggle } from '../components/ui'
 import { WritingInstructions } from '../components/WritingInstructions'
-import { CostsAndLimits, HandoffCard, ReadingSettings } from '../components/AICostSettings'
+import { CostsAndLimits, HandoffCard, ReadingDepthAndPrices, ReadingModelField } from '../components/AICostSettings'
 import { EgnyteCard, PasswordCard, ZohoCard } from '../components/ServerAdmin'
 
 export default function Settings() {
@@ -44,10 +44,13 @@ export default function Settings() {
         </div>
         {s.ai.engine === 'ai' && (
           <div style={{ marginTop: 16 }}>
-            <Field label="Model" hint={serverMode ? 'The model name for the AI service set on the server: for example claude-haiku-5-5 (Claude) or gpt-5-mini (OpenAI). The key and provider are set on the server.' : 'An OpenRouter model name. Leave the default unless your instructor suggests another.'}>
-              {(id) => <input id={id} type="text" value={s.ai.model} onChange={(e) => set({ ai: { ...s.ai, model: e.target.value } })} placeholder={DEFAULT_MODEL} />}
-            </Field>
-            <ReadingSettings s={s} set={set} />
+            <div className="two-col">
+              <Field label="Model" hint={serverMode ? 'The model that writes replies, as your AI service names it (for example claude-haiku-5-5 or gpt-5-mini). The key and provider are set on the server.' : 'An OpenRouter model name. Leave the default unless your instructor suggests another.'}>
+                {(id) => <input id={id} type="text" value={s.ai.model} onChange={(e) => set({ ai: { ...s.ai, model: e.target.value } })} placeholder={DEFAULT_MODEL} />}
+              </Field>
+              <ReadingModelField s={s} set={set} />
+            </div>
+            <ReadingDepthAndPrices s={s} set={set} />
             <div className="row">
               <button className="btn" disabled={check === 'busy'} onClick={async () => {
                 setCheck('busy')

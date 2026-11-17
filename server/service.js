@@ -62,7 +62,7 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
       const active = new Map(value.filter((f) => f?.source === 'egnyte').map((f) => [f.id, Boolean(f.active)]))
       if (active.size) db.kvSet('egnyte_files', egnyteFiles().map((f) => (active.has(f.id) ? { ...f, active: active.get(f.id) } : f)))
       value = value.filter((f) => f?.source !== 'egnyte')
-      if (JSON.stringify(value).length > 30_000_000) throw new HttpError(413, 'The knowledge files are too large (30 MB maximum).')
+      if (JSON.stringify(value).length > cfg.limits.filesBytes) throw new HttpError(413, `The knowledge files are too large (${Math.round(cfg.limits.filesBytes / 1_000_000)} MB maximum). An administrator can raise MAX_FILES_MB on the server.`)
     } else throw new HttpError(404, 'Unknown setting.')
     db.kvSet(key, value)
     return value

@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useApp } from '../store'
 import { FILE_FOLDERS } from '../data/defaults'
-import { Uploader, UploadLimits } from '../components/Uploader'
+import { Uploader } from '../components/Uploader'
 import { rankSections } from '../engine/sections'
 import { Badge, Card, HelpPanel, Empty, Modal, PageHeader, Toggle, fmtSize } from '../components/ui'
 
 const PREVIEW_CHARS = 30000 // long documents would freeze the page if shown whole
 
 export default function Files() {
-  const { files, updateFile, deleteFile, toast, log, serverMode } = useApp()
+  const { files, updateFile, deleteFile, toast, log } = useApp()
   const [folder, setFolder] = useState('All')
   const [q, setQ] = useState('')
   const [showUpload, setShowUpload] = useState(false)
@@ -34,7 +34,6 @@ export default function Files() {
         'Use View to read a document (long ones show a preview). Use the folder filter and search to find files.',
         'Delete removes a file permanently, so prefer turning it off if you may need it again.',
       ]} note="Keep documents current and clearly written. Short documents are searched paragraph by paragraph. Long handbooks can be split into sections when you upload them: use clear headings and one topic per section." />
-      <UploadLimits files={files} serverMode={serverMode} />
       <div className="tiles" style={{ gridTemplateColumns: 'repeat(3, minmax(0,1fr))' }}>
         <div className="tile"><div className="num">{files.length}</div><div className="lbl">Total files</div></div>
         <div className="tile"><div className="num">{readable}</div><div className="lbl">In use by the AI</div></div>
