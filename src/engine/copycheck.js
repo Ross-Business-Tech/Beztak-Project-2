@@ -7,7 +7,7 @@ const words = (t) => String(t || '').toLowerCase().replace(/[’']/g, '').match(
 
 const SHINGLE = 6 // a run of 6 identical words in a row counts as copied
 
-export const COPY_LIMITS = { ratio: 0.3, run: 16 }
+export const COPY_LIMITS = { ratio: 0.2, run: 10 }
 
 /**
  * How much of `draft` is copied from `sources` (an array of document texts).
