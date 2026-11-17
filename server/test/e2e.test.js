@@ -628,8 +628,13 @@ test('costs: prices, the import estimate, the daily meter and the daily limit', 
   const { DEFAULT_SETTINGS } = await import('../../src/data/defaults.js')
   assert.deepEqual(cost.priceFor('claude-haiku-5-5', {}), { in: 0.1, out: 0.5, source: 'list' })
   assert.equal(cost.priceFor('anthropic/claude-sonnet-4.5', {}).in, 3, 'OpenRouter-style names and dots are understood')
-  assert.equal(cost.priceFor('gpt-5-mini', {}), null, 'an unknown model has no price')
-  assert.deepEqual(cost.priceFor('gpt-5-mini', { model: 'gpt-5-mini', priceIn: 0.25, priceOut: 2 }), { in: 0.25, out: 2, source: 'settings' }, 'a price typed into Settings is used')
+  assert.deepEqual(cost.priceFor('gpt-5-mini', {}), { in: 0.25, out: 2, source: 'list' }, 'OpenAI models are in the price list')
+  assert.deepEqual(cost.priceFor('openai/gpt-5.6-terra', {}), { in: 2, out: 12, source: 'list' }, 'provider prefixes and dots are understood')
+  assert.equal(cost.priceFor('gpt-4o-2024-08-06', {}).out, 10, 'a dated OpenAI name finds its base model')
+  assert.equal(cost.priceFor('gpt-5-6-sol', {}).out, 30); assert.equal(cost.priceFor('gpt-6-luna', {}).in, 0.1)
+  assert.equal(cost.priceFor('some-local-model', {}), null, 'an unknown model has no price')
+  assert.deepEqual(cost.priceFor('some-local-model', { model: 'some-local-model', priceIn: 0.25, priceOut: 2 }), { in: 0.25, out: 2, source: 'settings' }, 'a price typed into Settings is used')
+  assert.deepEqual(cost.priceFor('gpt-5-mini', { model: 'gpt-5-mini', priceIn: 0.3, priceOut: 2.4 }), { in: 0.3, out: 2.4, source: 'settings' }, 'and it overrides the list')
   const base = { ...DEFAULT_SETTINGS, ai: { ...DEFAULT_SETTINGS.ai, model: 'claude-sonnet-5-5', readModel: '' } }
   const cheap = { ...base, ai: { ...base.ai, readModel: 'claude-haiku-5-5' } }
   const e1 = cost.estimateEmail({ email: priya, docChars: 12000, settings: base }); const e2 = cost.estimateEmail({ email: priya, docChars: 12000, settings: cheap })

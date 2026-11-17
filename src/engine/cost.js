@@ -1,18 +1,30 @@
 // What the AI costs: a price list, and an estimate of what an email (or a whole import) will use.
 // Figures are estimates (about 4 characters per token) so people can plan and set limits; the provider's invoice is the truth.
 
-// US dollars per million tokens: [input, output]. Anthropic's own API rates. A model that is not listed here gets its
-// price from the fields in Settings, and without one the app cannot show a cost for it.
+// US dollars per million tokens: [input, output]. List prices from Anthropic and OpenAI, checked November 2026; the
+// providers change prices from time to time, so Settings lets you type your own. A model that is not listed here gets its
+// price from those fields, and without one the app cannot show a cost for it. Keys are written the way normalizeModel()
+// spells names: lower case, dots as dashes, no provider prefix, no date.
 export const PRICES = {
+  // Anthropic
   'claude-fable-5-2': [8, 40], 'claude-fable-5-1': [10, 50], 'claude-fable-5': [10, 50],
   'claude-opus-5-5': [4, 20], 'claude-opus-5': [5, 25], 'claude-opus-4-8': [5, 25], 'claude-opus-4-7': [5, 25], 'claude-opus-4-6': [5, 25],
   'claude-sonnet-5-5': [2, 10], 'claude-sonnet-5': [2, 10], 'claude-sonnet-4-6': [3, 15], 'claude-sonnet-4-5': [3, 15],
   'claude-haiku-5-5': [0.1, 0.5], 'claude-haiku-4-5': [1, 5],
+  // OpenAI: GPT-6 and 6.1
+  'gpt-6-astra': [10, 50], 'gpt-6-sol': [2, 10], 'gpt-6-luna': [0.1, 0.5], 'gpt-6-1-sol': [2, 10], 'gpt-6-1-terra': [1, 5],
+  // OpenAI: GPT-5.6 (Sol is shown at its list price; a lower promotional price runs until late November 2026)
+  'gpt-5-6-sol': [5, 30], 'gpt-5-6-terra': [2, 12], 'gpt-5-6-luna': [0.2, 1.2],
+  // OpenAI: GPT-5.x and earlier
+  'gpt-5-5': [5, 30], 'gpt-5-4': [2.5, 15], 'gpt-5-4-mini': [0.75, 4.5], 'gpt-5-4-nano': [0.2, 1.25],
+  'gpt-5-3-codex': [1.75, 14], 'gpt-5-1-codex-mini': [0.25, 2], 'gpt-5-codex': [1.25, 10],
+  'gpt-5': [1.25, 10], 'gpt-5-mini': [0.25, 2], 'gpt-5-nano': [0.05, 0.4],
+  'gpt-4-1': [2, 8], 'gpt-4-1-mini': [0.4, 1.6], 'gpt-4-1-nano': [0.1, 0.4], 'gpt-4o': [2.5, 10], 'gpt-4o-mini': [0.15, 0.6],
 }
 export const CHARS_PER_TOKEN = 4
 
-/** "anthropic/claude-sonnet-4.5" and "claude-sonnet-4-5-20250929" both become "claude-sonnet-4-5". */
-export const normalizeModel = (name) => String(name || '').trim().toLowerCase().replace(/^anthropic\//, '').replace(/\./g, '-').replace(/-\d{8}$/, '')
+/** "anthropic/claude-sonnet-4.5", "claude-sonnet-4-5-20250929", "openai/gpt-5.6-terra" and "gpt-4o-2024-08-06" become "claude-sonnet-4-5", "gpt-5-6-terra", "gpt-4o". */
+export const normalizeModel = (name) => String(name || '').trim().toLowerCase().replace(/^[a-z0-9_-]+\//, '').replace(/\./g, '-').replace(/-\d{8}$/, '').replace(/-\d{4}-\d{2}-\d{2}$/, '')
 
 const num = (v) => (v === '' || v === null || v === undefined ? NaN : Number(v))
 

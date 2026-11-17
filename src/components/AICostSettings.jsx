@@ -57,7 +57,7 @@ export function ReadingDepthAndPrices({ s, set }) {
       <details className="plain">
         <summary>Prices used for cost estimates</summary>
         <div className="plain-body">
-          <p className="muted small" style={{ marginBottom: 10 }}>Claude prices are built in. For any other model, enter its price per million tokens (US dollars).</p>
+          <p className="muted small" style={{ marginBottom: 10 }}>Claude and OpenAI list prices are built in. For any other model, or if your price differs, enter it per million tokens (US dollars).</p>
           <PriceLine model={ai.model} ai={ai} inKey="priceIn" outKey="priceOut" set={patch} />
           {read && read !== (ai.model || '').trim() && <PriceLine model={read} ai={ai} inKey="readPriceIn" outKey="readPriceOut" set={patch} />}
         </div>
