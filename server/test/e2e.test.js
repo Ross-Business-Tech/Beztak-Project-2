@@ -673,3 +673,44 @@ test('on the server, test emails return at once as "Writing" and finish in the b
     assert.deepEqual((await t.api('GET', '/api/state')).json.settings.aiLimits, { dailyUsd: 0, importRunUsd: 0 }, 'nonsense limits become "no limit"')
   } finally { t.stop() }
 })
+
+test('quotes survive markdown and line breaks, a failed quote is asked for again, and a low score explains itself', async () => {
+  const ai = await import('../../src/engine/ai.js')
+  const { DEFAULT_SETTINGS } = await import('../../src/data/defaults.js')
+  const files = [{ id: 'f1', name: 'Leave.md', active: true, content: '## 7.4 Bereavement Leave\n\n**Policy statement.** Employees receive **three (3)** paid days of\nbereavement leave for a *close* family member.\n\n- Notify your manager “as soon as possible”.' }]
+  const email = { name: 'Sam Lee', from: 's@example.com', subject: 'Bereavement leave', body: 'How many bereavement leave days do I get for a family member?' }
+  const run = async (quotes) => {
+    const calls = []
+    ai.setTransport(async (_u, init) => {
+      const m = JSON.parse(init.body).messages
+      const kind = /research assistant/.test(m[0].content) ? 'facts' : 'write'; calls.push(kind)
+      const out = kind === 'facts'
+        ? { facts: (quotes[Math.min(calls.filter((c) => c === 'facts').length, quotes.length) - 1] || []).map((q) => ({ fileId: 'f1', quote: q, fact: 'Three paid days.' })), missing: 'Nothing about step-relatives.', coverage: 85, questions: [] }
+        : { draft: 'Hi Sam,\n\nYou get three paid days.', confidence: 90 }
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(out) } }] }), { status: 200, headers: { 'content-type': 'application/json' } })
+    })
+    const out = await ai.aiDraft({ email, settings: DEFAULT_SETTINGS, files, ctx: { careful: false, flags: [], tries: 0, sources: [] }, tone: 'warm', model: 't' })
+    return { out, calls }
+  }
+  try {
+    // the AI drops the bold marks and joins the lines: still a true quote
+    let r = await run([['Employees receive three (3) paid days of bereavement leave for a close family member']])
+    assert.equal(r.out.sources.length, 1, 'a quote without the markdown marks is accepted'); assert.equal(r.calls.filter((c) => c === 'facts').length, 1)
+    assert.equal(r.out.diag.verified, 1); assert.equal(r.out.diag.retriedQuotes, false)
+    // a made-up first quote, an exact second one
+    r = await run([['Staff get five paid days of bereavement leave'], ['Employees receive three (3) paid days of bereavement leave']])
+    assert.equal(r.calls.filter((c) => c === 'facts').length, 2, 'asked a second time to quote exactly'); assert.equal(r.out.sources.length, 1); assert.equal(r.out.diag.retriedQuotes, true)
+    // never verifiable: hand-off, and the reason is spelled out
+    r = await run([['Staff get five paid days of bereavement leave']])
+    assert.equal(r.out.handoff, true); assert.match(r.out.diag.handoff, /found nothing it could back with a quote \(2 facts proposed, 0 verified/)
+    assert.equal(r.calls.filter((c) => c === 'write').length, 0)
+    // a capped score names its cause
+    ai.setTransport(async (_u, init) => {
+      const m = JSON.parse(init.body).messages; const facts = /research assistant/.test(m[0].content)
+      const out = facts ? { facts: [{ fileId: 'f1', quote: 'three (3) paid days of bereavement leave', fact: 'Three days.' }], missing: '', coverage: 90, questions: [] } : { draft: 'Hi Sam,\n\nYou get 12 paid days.', confidence: 95 }
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(out) } }] }), { status: 200, headers: { 'content-type': 'application/json' } })
+    })
+    const capped = await ai.aiDraft({ email, settings: DEFAULT_SETTINGS, files, ctx: { careful: false, flags: [], tries: 0, sources: [] }, tone: 'warm', model: 't' })
+    assert.equal(capped.confidence, 60); assert.match(capped.diag.caps.join(' '), /figures not found in the documents: 12/)
+  } finally { ai.setTransport((url, init) => fetch(url, init)) }
+})
