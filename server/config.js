@@ -2,6 +2,8 @@
 const env = process.env
 const bool = (v, d) => (v === undefined || v === '' ? d : /^(1|true|yes|on)$/i.test(String(v)))
 const int = (v, d) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : d }
+const OPENROUTER_BASE = 'https://openrouter.ai/api/v1'
+const OPENAI_BASE = 'https://api.openai.com/v1'
 
 // Zoho runs separate data centres. Pick the one your Zoho Desk account lives in (check the web address you sign in at).
 const ZOHO_DOMAINS = { us: 'com', com: 'com', eu: 'eu', in: 'in', au: 'com.au', jp: 'jp', ca: 'zohocloud.ca', sa: 'zoho.sa', uk: 'zoho.uk', cn: 'com.cn' }
@@ -12,9 +14,18 @@ export function loadConfig(e = env) {
   const region = String(e.ZOHO_REGION || 'us').toLowerCase()
   const tld = ZOHO_DOMAINS[region] || region
   const zohoRoot = tld.startsWith('zoho') ? tld : `zoho.${tld}`
-  // The AI is Claude through Anthropic's own API by default. Set AI_PROVIDER=openai to use any OpenAI-compatible service instead.
+  // The AI is Claude through Anthropic's own API by default. Set AI_PROVIDER=openai to use OpenAI itself (an OpenAI or
+  // "Codex" key) or any OpenAI-compatible service. With AI_PROVIDER=openai and no AI_BASE_URL, an OpenRouter key
+  // (sk-or-...) goes to OpenRouter and any other key goes straight to OpenAI.
   const provider = String(e.AI_PROVIDER || 'anthropic').toLowerCase() === 'openai' ? 'openai' : 'anthropic'
-  const aiBase = (e.AI_BASE_URL || (provider === 'anthropic' ? 'https://api.anthropic.com' : 'https://openrouter.ai/api/v1')).replace(/\/+$/, '')
+  const rawKey = e.AI_API_KEY || (provider === 'anthropic' ? e.ANTHROPIC_API_KEY : (e.OPENAI_API_KEY || e.OPENROUTER_API_KEY)) || ''
+  const apiKey = rawKey.trim()
+  const openAiDefault = apiKey.startsWith('sk-or-') ? OPENROUTER_BASE : OPENAI_BASE
+  const aiBase = (e.AI_BASE_URL || (provider === 'anthropic' ? 'https://api.anthropic.com' : openAiDefault)).replace(/\/+$/, '')
+  // OpenAI's own service is reached through its Responses API, which every current OpenAI model (including Codex) accepts.
+  // AI_API=responses or AI_API=chat overrides this (for example for a gateway in front of OpenAI).
+  const apiStyle = String(e.AI_API || '').toLowerCase()
+  const openAiDirect = provider === 'openai' && (apiStyle ? apiStyle === 'responses' : /^https:\/\/api\.openai\.com(\/|$)/.test(aiBase))
   return {
     port: int(e.PORT, 8080),
     dataDir: e.DATA_DIR || './data',
@@ -29,10 +40,11 @@ export function loadConfig(e = env) {
     ai: {
       provider,
       baseUrl: aiBase,
-      apiKey: e.AI_API_KEY || (provider === 'anthropic' ? e.ANTHROPIC_API_KEY : e.OPENROUTER_API_KEY) || '',
-      defaultModel: e.AI_MODEL || (provider === 'anthropic' ? 'claude-haiku-5-5' : 'anthropic/claude-sonnet-4.5'),
-      // A local OpenAI-compatible model (Ollama, vLLM) needs no key. Claude always does.
-      allowNoKey: provider === 'openai' && bool(e.AI_ALLOW_NO_KEY, aiBase !== 'https://openrouter.ai/api/v1'),
+      api: openAiDirect ? 'responses' : provider === 'openai' ? 'chat' : 'messages',
+      apiKey,
+      defaultModel: e.AI_MODEL || (provider === 'anthropic' ? 'claude-haiku-5-5' : openAiDirect ? 'gpt-5-mini' : 'anthropic/claude-sonnet-4.5'),
+      // A local OpenAI-compatible model (Ollama, vLLM) needs no key. Claude, OpenAI and OpenRouter always do.
+      allowNoKey: provider === 'openai' && !openAiDirect && bool(e.AI_ALLOW_NO_KEY, aiBase !== OPENROUTER_BASE),
     },
     ticketing: {
       adapter: String(e.TICKETING_ADAPTER || 'none').toLowerCase(), // none | zohodesk
@@ -42,6 +54,8 @@ export function loadConfig(e = env) {
       departmentId: e.ZOHO_DEPARTMENT_ID || '',
     },
     // Egnyte (optional): a folder of documents the AI may answer from. Read-only.
+    // The most knowledge-file text the server will accept in one save. Raise it if your documents are larger.
+    limits: { filesBytes: Math.max(5, int(e.MAX_FILES_MB, 30)) * 1_000_000 },
     egnyte: (() => {
       const domain = egnyteDomain(e.EGNYTE_DOMAIN)
       return {

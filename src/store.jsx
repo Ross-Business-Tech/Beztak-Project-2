@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { DEFAULT_SETTINGS, SAMPLE_FILES, SCENARIOS, SEED_EMAILS } from './data/defaults'
 import { statusFromDecision } from './engine/mockAI'
 import { runWorkflow, runWorkflowSync } from './workflow/runner'
+import { configureUsage, readUsage, setUsageStore } from './engine/usage'
 import { makeDefaultWorkflow, rulesOf } from './workflow/defaults'
 import { summarizeResult } from './workflow/evaluate'
 
@@ -43,11 +44,17 @@ function load() {
     const raw = localStorage.getItem(KEY)
     if (raw) {
       const d = JSON.parse(raw)
-      return { ...makeSeed(), ...d, settings: { ...DEFAULT_SETTINGS, ...d.settings, ai: { ...DEFAULT_SETTINGS.ai, ...(d.settings?.ai || {}) }, integrations: { ...DEFAULT_SETTINGS.integrations, ...(d.settings?.integrations || {}) } } }
+      return { ...makeSeed(), ...d, settings: { ...DEFAULT_SETTINGS, ...d.settings, ai: { ...DEFAULT_SETTINGS.ai, ...(d.settings?.ai || {}) }, aiLimits: { ...DEFAULT_SETTINGS.aiLimits, ...(d.settings?.aiLimits || {}) }, integrations: { ...DEFAULT_SETTINGS.integrations, ...(d.settings?.integrations || {}) } } }
     }
   } catch { /* fall through */ }
   return makeSeed()
 }
+
+// The demo keeps today's AI use in the browser (the live server keeps it in its database).
+setUsageStore({
+  read: () => { try { return JSON.parse(localStorage.getItem('hr-ai-usage')) } catch { return null } },
+  write: (v) => { try { localStorage.setItem('hr-ai-usage', JSON.stringify(v)) } catch { /* only a guide */ } },
+})
 
 export function AppProvider({ children }) {
   const [data, setData] = useState(load)
@@ -81,6 +88,7 @@ export function AppProvider({ children }) {
 
   const actions = useMemo(() => ({
     toast, log,
+    async aiUsage() { configureUsage(dataRef.current.settings); return { ...readUsage(), limit: Number(dataRef.current.settings.aiLimits?.dailyUsd) || 0 } },
     updateSettings(patch, note) {
       if (!adminOnly()) return
       setData((d) => ({ ...d, settings: { ...d.settings, ...patch } }))

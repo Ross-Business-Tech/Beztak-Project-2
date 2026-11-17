@@ -60,11 +60,12 @@ export function createApp(cfg, { fetchImpl = fetch, seedSampleFiles = false, log
     user: ctx.user, settings: svc.getSettings(), workflow: svc.getWorkflow(), files: svc.getFiles(),
     emails: db.listEmails(500), activity: db.listActivity(300), status: svc.status(), evalRuns: db.kvGet('eval_runs', []),
   }))
-  route('POST', '/api/emails/import', 'any', (ctx) => svc.importRequest(ctx.body.row, ctx.user.username))
+  route('POST', '/api/emails/import', 'any', (ctx) => svc.importRequest(ctx.body.row, ctx.user.username, { async: Boolean(ctx.body.async) }))
+  route('GET', '/api/ai/usage', 'any', () => svc.aiUsage())
   route('POST', '/api/eval/one', 'any', (ctx) => svc.evaluateRequest(ctx.body.row))
   route('POST', '/api/eval/runs', 'any', (ctx) => svc.saveEvalRun(ctx.body.run, ctx.user.username), 6_000_000)
   route('GET', '/api/emails', 'any', () => ({ emails: db.listEmails(500), activity: db.listActivity(300), status: svc.status() }))
-  route('PUT', '/api/config/:key', 'admin', (ctx) => { svc.putConfig(ctx.params.key, ctx.body.value, ctx.user.username); return { ok: true } }, 30_000_000)
+  route('PUT', '/api/config/:key', 'admin', (ctx) => { svc.putConfig(ctx.params.key, ctx.body.value, ctx.user.username); return { ok: true } }, cfg.limits.filesBytes + 1_000_000)
 
   route('POST', '/api/emails/test', 'any', (ctx) => svc.testEmail(ctx.body, ctx.user.username))
   route('DELETE', '/api/emails/tests', 'admin', () => { db.deleteTestEmails(); return { ok: true } })
@@ -86,8 +87,11 @@ export function createApp(cfg, { fetchImpl = fetch, seedSampleFiles = false, log
 
   // The browser's "test AI connection" button goes through here. The key never reaches the browser.
   route('POST', '/api/ai', 'any', async (ctx) => {
+    svc.aiBudgetCheck()
     const r = await aiTransport('/api/ai', { body: JSON.stringify(ctx.body), signal: AbortSignal.timeout(60_000) })
-    ctx.raw = { status: r.status, body: await r.text() }
+    const text = await r.text()
+    if (r.ok) svc.aiRecord(ctx.body, text)
+    ctx.raw = { status: r.status, body: text }
   })
 
   route('GET', '/api/users', 'admin', () => ({ users: db.listUsers() }))

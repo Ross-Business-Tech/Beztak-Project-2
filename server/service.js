@@ -2,6 +2,7 @@
 import { runWorkflow } from '../src/workflow/runner'
 import { statusFromDecision } from '../src/engine/mockAI'
 import { setTransport } from '../src/engine/ai'
+import { budgetMessage, budgetState, configureUsage, readUsage, recordUsage, setUsageStore } from '../src/engine/usage'
 import { DEFAULT_SETTINGS, SAMPLE_FILES } from '../src/data/defaults'
 import { makeDefaultWorkflow } from '../src/workflow/defaults'
 import { createAdapter } from './adapters/index.js'
@@ -18,6 +19,8 @@ export class HttpError extends Error { constructor(status, message) { super(mess
 
 export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = false } = {}) {
   setTransport(makeTransport(cfg.ai, fetchImpl))
+  // Today's AI use and the daily spending limit are kept in the database, so every visitor and every restart shares one total.
+  setUsageStore({ read: () => db.kvGet('ai_usage', null), write: (v) => db.kvSet('ai_usage', v) })
   const adapter = createAdapter(cfg)
   const egnyte = cfg.egnyte.baseUrl || cfg.egnyte.token ? createEgnyteClient(cfg.egnyte, fetchImpl) : null
   let syncing = false
@@ -28,7 +31,7 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
   // ---- stored documents ----
   const getSettings = () => {
     const d = db.kvGet('settings', {})
-    return { ...DEFAULT_SETTINGS, ...d, ai: { ...DEFAULT_SETTINGS.ai, model: cfg.ai.defaultModel, ...(d.ai || {}) }, integrations: { ...DEFAULT_SETTINGS.integrations, ...(d.integrations || {}), zoho: { ...DEFAULT_SETTINGS.integrations.zoho, ...(d.integrations?.zoho || {}) }, egnyte: { ...DEFAULT_SETTINGS.integrations.egnyte, ...(d.integrations?.egnyte || {}) } } }
+    return { ...DEFAULT_SETTINGS, ...d, ai: { ...DEFAULT_SETTINGS.ai, model: cfg.ai.defaultModel, ...(d.ai || {}) }, aiLimits: { ...DEFAULT_SETTINGS.aiLimits, ...(d.aiLimits || {}) }, integrations: { ...DEFAULT_SETTINGS.integrations, ...(d.integrations || {}), zoho: { ...DEFAULT_SETTINGS.integrations.zoho, ...(d.integrations?.zoho || {}) }, egnyte: { ...DEFAULT_SETTINGS.integrations.egnyte, ...(d.integrations?.egnyte || {}) } } }
   }
   const getWorkflow = () => db.kvGet('workflow') || makeDefaultWorkflow()
   // Knowledge files = the ones people uploaded + (when Egnyte is switched on) copies synced from the linked Egnyte folder.
@@ -40,6 +43,8 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
   function putConfig(key, value, actor) {
     if (key === 'settings') {
       if (!value || typeof value !== 'object' || Array.isArray(value)) throw new HttpError(400, 'Settings must be an object.')
+      const lim = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.min(n, 100000) : 0 }
+      value = { ...value, aiLimits: { dailyUsd: lim(value.aiLimits?.dailyUsd), importRunUsd: lim(value.aiLimits?.importRunUsd) } }
       const eg = value.integrations?.egnyte
       if (eg) {
         let folderPath
@@ -57,7 +62,7 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
       const active = new Map(value.filter((f) => f?.source === 'egnyte').map((f) => [f.id, Boolean(f.active)]))
       if (active.size) db.kvSet('egnyte_files', egnyteFiles().map((f) => (active.has(f.id) ? { ...f, active: active.get(f.id) } : f)))
       value = value.filter((f) => f?.source !== 'egnyte')
-      if (JSON.stringify(value).length > 30_000_000) throw new HttpError(413, 'The knowledge files are too large (30 MB maximum).')
+      if (JSON.stringify(value).length > cfg.limits.filesBytes) throw new HttpError(413, `The knowledge files are too large (${Math.round(cfg.limits.filesBytes / 1_000_000)} MB maximum). An administrator can raise MAX_FILES_MB on the server.`)
     } else throw new HttpError(404, 'Unknown setting.')
     db.kvSet(key, value)
     return value
@@ -125,6 +130,7 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
   // ---- running one message through the workflow ----
   async function processEmail(email, { exclude } = {}) {
     const settings = getSettings()
+    configureUsage(settings)
     const history = db.listEmails(200).filter((e) => e.id !== exclude)
     const result = await runWorkflow({ email, workflow: getWorkflow(), settings, files: getFiles(), history })
     let status = statusFromDecision(result.decision)
@@ -192,14 +198,55 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
   }
 
   // ---- reviewer actions ----
-  const need = (id) => { const e = db.getEmail(id); if (!e) throw new HttpError(404, 'That message no longer exists.'); return e }
+  const need = (id) => { const e = db.getEmail(id); if (!e) throw new HttpError(404, 'That message no longer exists.'); if (e.status === 'processing') throw new HttpError(409, 'The AI is still working on this message. Try again in a moment.'); return e }
+
+  // ---- background work: answer the request now, let the AI finish afterwards ----
+  // A few messages are read at a time, so an import of 200 requests cannot flood the AI service or its rate limits.
+  const JOBS_AT_ONCE = 3
+  const jobs = []; let running = 0
+  function enqueue(fn) {
+    jobs.push(fn)
+    const pump = () => {
+      while (running < JOBS_AT_ONCE && jobs.length) {
+        const job = jobs.shift(); running += 1
+        job().catch((e) => console.error('background job failed', e.message)).finally(() => { running -= 1; pump() })
+      }
+    }
+    pump()
+  }
+  const emptyResult = () => ({ category: 'other', flags: [], confidence: 0, sources: [], draft: '', decision: 'review', reasons: ['The AI is still working on this message. It will appear here when it is done.'], trace: [], path: [], requireConfirm: false, priority: 'normal', owner: null, ready: false, alerts: [], ticketActions: [], careful: false, engine: 'simulated', model: null })
+  /** Save a placeholder now ("Writing...") and finish the real work in the background. Returns the placeholder. */
+  function processLater(email, after) {
+    const placeholder = { ...email, result: emptyResult(), status: 'processing', finalReply: null, history: [{ at: nowIso(), text: 'Received. The AI is reading it now.' }] }
+    db.putEmail(placeholder)
+    enqueue(async () => {
+      let rec
+      try { rec = await processEmail(email) } catch (e) {
+        rec = { ...placeholder, status: 'pending_review', result: { ...emptyResult(), reasons: [`Processing failed (${e.message}). A person should review this message.`] }, history: [...placeholder.history, { at: nowIso(), text: `Processing failed: ${e.message}` }] }
+      }
+      db.putEmail(rec)
+      after(rec)
+    })
+    return placeholder
+  }
+  /** Messages left "Writing..." by a restart can never finish: hand them to a person. */
+  function sweepProcessing() {
+    for (const e of db.listEmails(500).filter((x) => x.status === 'processing')) {
+      db.putEmail({ ...e, status: 'pending_review', result: { ...e.result, reasons: ['The server restarted while the AI was working on this. Use Regenerate to try again.'] }, history: [...e.history, { at: nowIso(), text: 'The server restarted before the AI finished, so a person must check this.' }] })
+    }
+  }
+  sweepProcessing()
 
   async function testEmail(input, actor) {
     const email = { id: uid('e'), attachments: [], name: clip(input.name || 'Test Person', 120), from: clip(input.from || 'test.person@example.com', 200), subject: clip(input.subject || '(no subject)', 300), body: clip(input.body || '', MAX_BODY), receivedAt: nowIso(), source: 'test' }
+    const done = (rec) => {
+      log('email', `Test email "${rec.subject}" processed: ${rec.status.replace('_', ' ')}`, actor)
+      rec.result.alerts.forEach((a) => log('alert', `Alert to ${a.role}: ${a.message} ("${rec.subject}")`, actor))
+    }
+    if (input.async) return processLater(email, done)
     const rec = await processEmail(email)
     db.putEmail(rec)
-    log('email', `Test email "${rec.subject}" processed: ${rec.status.replace('_', ' ')}`, actor)
-    rec.result.alerts.forEach((a) => log('alert', `Alert to ${a.role}: ${a.message} ("${rec.subject}")`, actor))
+    done(rec)
     return rec
   }
 
@@ -210,11 +257,15 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
     const t = Date.parse(row.receivedAt)
     return { id: uid('e'), attachments: [], source, name: clip(row.name || 'Employee', 120), from: clip(row.from || 'unknown@example.com', 200), subject: clip(row.subject || body.slice(0, 60), 300), body, receivedAt: Number.isFinite(t) ? new Date(t).toISOString() : nowIso() }
   }
-  async function importRequest(row, actor) {
+  async function importRequest(row, actor, { async: later = false } = {}) {
+    const done = (rec) => {
+      log('email', `Imported request "${rec.subject}" processed: ${rec.status.replace('_', ' ')}`, actor)
+      rec.result.alerts.forEach((a) => log('alert', `Alert to ${a.role}: ${a.message} ("${rec.subject}")`, actor))
+    }
+    if (later) return processLater(buildEmail(row, 'import'), done)
     const rec = await processEmail(buildEmail(row, 'import'))
     db.putEmail(rec)
-    log('email', `Imported request "${rec.subject}" processed: ${rec.status.replace('_', ' ')}`, actor)
-    rec.result.alerts.forEach((a) => log('alert', `Alert to ${a.role}: ${a.message} ("${rec.subject}")`, actor))
+    done(rec)
     return rec
   }
   /** Runs the whole workflow on one request and returns a summary. Nothing is stored, so it never touches the review queue. */
@@ -310,5 +361,13 @@ export function createService(cfg, db, { fetchImpl = fetch, seedSampleFiles = fa
   }
   const stop = () => { if (timer) clearInterval(timer); if (egTimer) clearInterval(egTimer); timer = null; egTimer = null }
 
-  return { adapter, getSettings, getWorkflow, getFiles, putConfig, log, processEmail, ingestOnce, testEmail, importRequest, evaluateRequest, saveEvalRun, resolve, addNote, saveDraft, regenerate, deleteEmail, status, testTicketing, egnyteSync, egnyteFolders, testEgnyte, purgeEgnyte, start, stop }
+  // The browser's own AI calls (the Settings test buttons) pass through the same limit and the same daily total.
+  const aiBudgetCheck = () => { configureUsage(getSettings()); const b = budgetState(); if (b.over) throw new HttpError(429, budgetMessage(b)) }
+  const aiRecord = (body, text) => {
+    let usage; let out = ''
+    try { const j = JSON.parse(text); usage = j.usage; out = j.choices?.[0]?.message?.content || '' } catch { /* not JSON */ }
+    recordUsage({ model: body?.model, inChars: JSON.stringify(body?.messages || '').length, outChars: out.length, usage })
+  }
+  const aiUsage = () => { configureUsage(getSettings()); const u = readUsage(); return { ...u, limit: getSettings().aiLimits.dailyUsd } }
+  return { adapter, aiUsage, aiBudgetCheck, aiRecord, getSettings, getWorkflow, getFiles, putConfig, log, processEmail, ingestOnce, testEmail, importRequest, evaluateRequest, saveEvalRun, resolve, addNote, saveDraft, regenerate, deleteEmail, status, testTicketing, egnyteSync, egnyteFolders, testEgnyte, purgeEgnyte, start, stop }
 }

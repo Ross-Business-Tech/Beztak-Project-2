@@ -23,6 +23,20 @@ export const SEVERITIES = [
 
 export const FILE_FOLDERS = ['Policies', 'Benefits', 'Payroll', 'Leave', 'Systems', 'Manager Guides', 'Templates', 'Onboarding', 'Other']
 
+// The part of the AI's writing instructions that people may edit. The safety rules, the answer format and the
+// careful-reply mode are added by the app and cannot be edited away. {{tone}} and {{helpDeskName}} are filled in.
+export const DEFAULT_WRITING_INSTRUCTIONS = `You are writing a reply on behalf of {{helpDeskName}}. Tone: {{tone}}.
+
+How to write the reply:
+- Answer the person's actual question in the first one or two sentences. Do not start with background.
+- Say it in your own plain words, as a helpful colleague would. Never paste or closely copy wording from the documents, and never copy headings, bullet lists or legal phrasing.
+- Use only the details that matter for this person's situation. Leave out rules that do not apply to them.
+- Keep it short: about 80 to 150 words, in two or three short paragraphs. A short list is fine only for real steps.
+- Mention the policy by name when it helps ("our PTO policy"), instead of quoting it.
+- If the facts do not fully answer the question, say what you can, then say the HR team will follow up within one business day. When the app gives you questions to ask (because the right answer depends on a detail the person did not give), ask them after your answer.
+- Reply in the language the person wrote in.
+- Never promise outcomes, approvals or dates that the facts do not state.`
+
 export const DEFAULT_SETTINGS = {
   // How replies are routed (reply mode, flag rules, limits, business hours) now lives in the Workflow editor.
   tone: 'warm',
@@ -31,6 +45,12 @@ export const DEFAULT_SETTINGS = {
   signature: 'Warm regards,\nThe HR Help Desk',
   footer: 'This reply was prepared with the help of an AI assistant. If anything looks off, just reply and a person from HR will follow up.',
   includeFooter: true,
+  // When the right answer depends on a detail the employee did not give (full-time or part-time, location, dates...),
+  // the reply asks for it, and reviewers see the questions at a glance.
+  askForDetails: true,
+  // The editable part of the AI's writing instructions (Settings > Reply style). Empty means "use the built-in default below".
+  writingInstructions: '',
+  writingInstructionsHistory: [],
   minutesSavedPerReply: 6,
   // Which extra pages people with the Reviewer role can open. Admins always see everything.
   reviewerAccess: { dashboard: false, import: true, workflow: false, files: false, activity: false, lab: true, labDocs: true },
@@ -41,7 +61,15 @@ export const DEFAULT_SETTINGS = {
     { id: 'p_rev2', email: 'reviewer.two@example.com', role: 'reviewer' },
   ],
   // 'ai' = real AI model (falls back to the simulation if unreachable); 'simulated' = word matching only
-  ai: { engine: 'ai', model: 'anthropic/claude-sonnet-4.5' },
+  // model writes the reply. readModel (optional, cheaper and faster) reads the email and the documents; empty = same model.
+  // readDepth: how much of the documents the AI reads per email (light, standard, deep). price*: dollars per million tokens, only
+  // needed for a model the app has no price for; empty = use the built-in price list.
+  ai: { engine: 'ai', model: 'anthropic/claude-sonnet-4.5', readModel: '', readDepth: 'standard', priceIn: '', priceOut: '', readPriceIn: '', readPriceOut: '' },
+  // When the documents have nothing on a question, do not pay the AI to write a reply: use handoffText (empty = built-in wording).
+  skipAIWhenNoMatch: true,
+  handoffText: '',
+  // Spending guards, in US dollars (0 = no limit). dailyUsd stops the AI for the rest of the day; importRunUsd stops one import from starting.
+  aiLimits: { dailyUsd: 0, importRunUsd: 0 },
   integrations: {
     // Zoho Desk is the ticketing system: tickets come in from it and results go back to the ticket.
     //  enabled: pull new tickets (turn off to pause everything)

@@ -16,6 +16,9 @@ const MAX_UNPACKED = 300000
 
 // ---------------- checking untrusted workflows ----------------
 const str = (v, d = '', max = 400) => (typeof v === 'string' ? v.slice(0, max) : d)
+// A price per million tokens, or '' when not a sensible number. A spending limit in dollars (0 = none).
+const price = (v) => { const n = Number(v); return v === '' || v === null || v === undefined || !Number.isFinite(n) || n < 0 || n > 10000 ? '' : n }
+const usdLimit = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? Math.min(n, 100000) : 0 }
 const strs = (v, max = 60) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string').map((x) => x.slice(0, 120)).slice(0, max) : [])
 const oneOf = (v, list, d) => (list.includes(v) ? v : d)
 const bool = (v, d) => (typeof v === 'boolean' ? v : d)
@@ -90,8 +93,16 @@ export function sanitizeSettings(raw) {
     tone: oneOf(raw.tone, ['warm', 'professional', 'concise'], d.tone),
     helpDeskName: str(raw.helpDeskName, d.helpDeskName, 80), replyToAddress: str(raw.replyToAddress, d.replyToAddress, 120),
     signature: str(raw.signature, d.signature, 400), footer: str(raw.footer, d.footer, 500), includeFooter: bool(raw.includeFooter, d.includeFooter),
+    askForDetails: bool(raw.askForDetails, d.askForDetails), writingInstructions: str(raw.writingInstructions, '', 2000), writingInstructionsHistory: [],
     minutesSavedPerReply: Math.max(1, Math.min(60, Math.round(Number(raw.minutesSavedPerReply)) || d.minutesSavedPerReply)),
-    ai: { engine: oneOf(raw.ai?.engine, ['ai', 'simulated'], d.ai.engine), model },
+    skipAIWhenNoMatch: bool(raw.skipAIWhenNoMatch, d.skipAIWhenNoMatch), handoffText: str(raw.handoffText, '', 600),
+    ai: {
+      engine: oneOf(raw.ai?.engine, ['ai', 'simulated'], d.ai.engine), model,
+      readModel: typeof raw.ai?.readModel === 'string' && /^[\w.\-/:]{1,100}$/.test(raw.ai.readModel) ? raw.ai.readModel : '',
+      readDepth: oneOf(raw.ai?.readDepth, ['light', 'standard', 'deep'], d.ai.readDepth),
+      priceIn: price(raw.ai?.priceIn), priceOut: price(raw.ai?.priceOut), readPriceIn: price(raw.ai?.readPriceIn), readPriceOut: price(raw.ai?.readPriceOut),
+    },
+    aiLimits: { dailyUsd: usdLimit(raw.aiLimits?.dailyUsd), importRunUsd: usdLimit(raw.aiLimits?.importRunUsd) },
     integrations: { egnyte: d.integrations.egnyte, zoho: { enabled: bool(z.enabled, false), applyTicketActions: bool(z.applyTicketActions, true), noteDraftOnArrival: bool(z.noteDraftOnArrival, true), onApprove: oneOf(z.onApprove, ['internal_note', 'send_reply', 'none'], 'internal_note') } },
   }
 }

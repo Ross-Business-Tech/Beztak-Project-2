@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useApp } from '../store'
 import { DEFAULT_MODEL, testConnection } from '../engine/ai'
 import { Badge, Card, HelpPanel, Icon, Field, Modal, PageHeader, Segmented, SettingRow, Toggle } from '../components/ui'
+import { WritingInstructions } from '../components/WritingInstructions'
+import { CostsAndLimits, HandoffCard, ReadingDepthAndPrices, ReadingModelField } from '../components/AICostSettings'
 import { EgnyteCard, PasswordCard, ZohoCard } from '../components/ServerAdmin'
 
 export default function Settings() {
@@ -16,7 +18,7 @@ export default function Settings() {
       <PageHeader title="Settings" subtitle="Changes save automatically and apply to the next email." />
       <HelpPanel id="settings" steps={[
         'AI engine chooses whether a real AI model or the simple word-matching stand-in reads each message. Use Check the AI connection to confirm it is working.',
-        'Reply style controls the tone, signature and AI disclosure footer on every message the AI writes.',
+        'Reply style controls the tone, signature and AI disclosure footer on every message the AI writes. Writing instructions (below it) is the editable prompt that tells the AI how to word replies, with a box to test it.',
         'Connection to Zoho Desk (your ticketing system) shows whether tickets are flowing in, and what happens when a reply is approved. Reporting sets how time saved is estimated.',
         'Routing rules, flagging and automatic sending are in the Workflow, not here.',
       ]} note="Changes save automatically and apply to the next email processed." />
@@ -42,13 +44,17 @@ export default function Settings() {
         </div>
         {s.ai.engine === 'ai' && (
           <div style={{ marginTop: 16 }}>
-            <Field label="Model" hint={serverMode ? 'The Claude model name, for example claude-haiku-5-5. The key and provider are set on the server.' : 'An OpenRouter model name. Leave the default unless your instructor suggests another.'}>
-              {(id) => <input id={id} type="text" value={s.ai.model} onChange={(e) => set({ ai: { ...s.ai, model: e.target.value } })} placeholder={DEFAULT_MODEL} />}
-            </Field>
+            <div className="two-col">
+              <Field label="Model" hint={serverMode ? 'The model that writes replies, as your AI service names it (for example claude-haiku-5-5 or gpt-5-mini). The key and provider are set on the server.' : 'An OpenRouter model name. Leave the default unless your instructor suggests another.'}>
+                {(id) => <input id={id} type="text" value={s.ai.model} onChange={(e) => set({ ai: { ...s.ai, model: e.target.value } })} placeholder={DEFAULT_MODEL} />}
+              </Field>
+              <ReadingModelField s={s} set={set} />
+            </div>
+            <ReadingDepthAndPrices s={s} set={set} />
             <div className="row">
               <button className="btn" disabled={check === 'busy'} onClick={async () => {
                 setCheck('busy')
-                try { await testConnection(s.ai.model); setCheck({ ok: true }) } catch (e) { setCheck({ ok: false, msg: e.message }) }
+                try { await testConnection(s.ai.model); if ((s.ai.readModel || '').trim() && s.ai.readModel.trim() !== (s.ai.model || '').trim()) await testConnection(s.ai.readModel); setCheck({ ok: true }) } catch (e) { setCheck({ ok: false, msg: e.message }) }
               }}>{check === 'busy' ? 'Checking...' : 'Check the AI connection'}</button>
               {check && check !== 'busy' && (check.ok ? <Badge tone="green">Connected</Badge> : <span className="muted small"><Badge tone="red">Not connected</Badge> {check.msg} Messages will use the simulated engine until this works.</span>)}
             </div>
@@ -56,6 +62,8 @@ export default function Settings() {
           </div>
         )}
       </Card>
+
+      <CostsAndLimits />
 
       <Card title="Where did the reply rules go?">
         <p>How replies are routed now lives in the <a href="#/admin/workflow">Workflow</a>. There you decide, with blocks, what is flagged as high-risk (Risk filters), whether replies send automatically or wait for a person (the Email sent block), who gets alerted, and how confident the AI must be before anything is sent.</p>
@@ -75,11 +83,18 @@ export default function Settings() {
         </div>
         <Field label="Tone">{() => <Segmented label="Tone" value={s.tone} onChange={(v) => set({ tone: v })} options={[{ value: 'warm', label: 'Warm' }, { value: 'professional', label: 'Professional' }, { value: 'concise', label: 'Concise' }]} />}</Field>
         <Field label="Signature">{(id) => <textarea id={id} rows={3} value={s.signature} onChange={(e) => set({ signature: e.target.value })} />}</Field>
+        <SettingRow title="Ask the employee for missing details" hint="When the right answer depends on something the person did not say (full-time or part-time, location, dates), the first reply asks for it. Reviewers see the questions at a glance. The AI never asks about medical details or personal ID numbers.">
+          <Toggle label="Ask for missing details" checked={s.askForDetails !== false} onChange={(v) => set({ askForDetails: v }, `Asking for missing details ${v ? 'turned on' : 'turned off'}`)} />
+        </SettingRow>
         <SettingRow title="Add an AI disclosure footer" hint="Tells people an AI helped write the reply.">
           <Toggle label="Footer" checked={s.includeFooter} onChange={(v) => set({ includeFooter: v })} />
         </SettingRow>
         {s.includeFooter && <Field label="Footer text">{(id) => <textarea id={id} rows={2} value={s.footer} onChange={(e) => set({ footer: e.target.value })} />}</Field>}
       </Card>
+
+      <WritingInstructions />
+
+      <HandoffCard />
 
         </>
       )}
