@@ -159,7 +159,7 @@ const WRITER_RULES = `You will receive the employee's message and VERIFIED FACTS
 const CAREFUL_RULES = (name, tone, flagLines) => `You write replies for ${name}. Tone: ${TONES[tone] || tone}.
 This message touches a sensitive risk:
 ${flagLines}
-Write a short, warm, careful reply: acknowledge, say it is being taken seriously, and say a person will contact them privately. Give NO advice, NO policy details, NO promises about outcomes, and do not discuss the allegations. If anyone may be in danger, mention contacting local emergency services. Start with a greeting by first name and end before any signature (the system adds it).`
+Write a short, warm, careful reply. Thank them for speaking up and acknowledge that this may be hard. Say it is being taken seriously, that it will be kept confidential, and that a human HR specialist (not you) will contact them privately, and say what happens next. You are not taking sides. Give NO advice, NO policy details, NO promises about outcomes, and do not discuss the allegations. If anyone may be in danger, mention contacting local emergency services. Start with a greeting by first name and end before any signature (the system adds it).`
 
 /** The full instructions the writer receives, for the "Show full prompt" preview in Settings. */
 export const writerPromptPreview = (settings, tone) => `${writingInstructions(settings, tone)}\n\n${SECURITY}\n\n${WRITER_RULES}\n\n${WRITER_FORMAT}`
