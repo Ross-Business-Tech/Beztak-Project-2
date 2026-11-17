@@ -7,6 +7,7 @@
 
 import { CATEGORIES, DEFAULT_WRITING_INSTRUCTIONS } from '../data/defaults'
 import { copyCheck } from './copycheck'
+import { unsupportedFigures } from './figures'
 import { tokenize } from './mockAI'
 import { rankSections } from './sections'
 
@@ -151,7 +152,10 @@ Write a short, warm, careful reply: acknowledge, say it is being taken seriously
 /** The full instructions the writer receives, for the "Show full prompt" preview in Settings. */
 export const writerPromptPreview = (settings, tone) => `${writingInstructions(settings, tone)}\n\n${SECURITY}\n\n${WRITER_RULES}\n\nReturn ONLY JSON: {"draft":"","confidence":0}`
 
-const emailBlock = (email) => `<employee_email>\nFrom: ${email.name} <${email.from}>\nSubject: ${email.subject}\n\n${email.body}\n</employee_email>`
+// Text from emails and documents must not be able to close our own labels (for example a document containing
+// "</documents>") and then speak as if it were the instructions.
+const defang = (t) => String(t ?? '').replace(/<(\/?)(employee_email|documents?|section|verified_facts|questions_to_ask|not_covered_by_the_documents|previous_draft)\b/gi, '\u2039$1$2')
+const emailBlock = (email) => defang(`<employee_email>\nFrom: ${email.name} <${email.from}>\nSubject: ${email.subject}\n\n${email.body}\n</employee_email>`).replace(/^\u2039employee_email/, '<employee_email').replace(/\u2039\/employee_email>$/, '</employee_email>')
 // Never ask an employee for these by email, whatever the AI suggests.
 const SENSITIVE = /social security|\bssn\b|password|passcode|diagnos|medical|medication|bank account|routing number|credit card|passport|immigration|\bpin\b/i
 const clampPct = (n, d) => { const v = Math.round(Number(n)); return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : d }
@@ -181,6 +185,12 @@ export async function aiDraft({ email, settings, files, ctx, tone, model }) {
     return parts.join('\n\n')
   }
 
+  // A retry cannot conjure documents that do not exist, and asking the employee is not improved by asking again:
+  // keep the earlier answer instead of paying for the whole process a second and third time.
+  if (!ctx.careful && ctx.tries > 0 && ctx.draft && ((ctx.sources || []).length === 0 || ctx.clarify?.questions?.length)) {
+    return { draft: ctx.draft, sources: ctx.sources || [], confidence: ctx.confidence ?? 40, droppedQuotes: 0, rewritten: false, reused: true, clarify: ctx.clarify || { questions: [], missing: '' }, unverified: ctx.unverified || [], usage: ctx.usage || { sections: 0, charsSent: 0, charsTotal: totalChars }, copy: ctx.copy || { ratio: 0, longestRun: 0, tooClose: false } }
+  }
+
   // Sensitive messages: no documents, no advice. One call with the built-in careful wording.
   if (ctx.careful) {
     const raw = await ask(model, `${CAREFUL_RULES(settings.helpDeskName, tone, flagLines)}\n\n${SECURITY}\n\nReturn ONLY JSON: {"draft":"","confidence":0}`, emailBlock(email))
@@ -198,10 +208,11 @@ export async function aiDraft({ email, settings, files, ctx, tone, model }) {
   const used = fromSections.reduce((n, p) => n + p.text.length, 0)
   const picked = [...fromSections, ...selectDocs(files.filter((f) => !f.sectioned), query, Math.max(0, MAX_DOC_CHARS - used))]
   const docs = new Map(picked.map(({ f, text }) => [f.id, { f, text }]))
-  const docText = picked.map(({ f, text }) => `<document id="${f.id}" name="${f.name}">\n${text}\n</document>`).join('\n')
+  const docText = picked.map(({ f, text }) => `<document id="${f.id}" name="${defang(f.name).replace(/"/g, "'")}">\n${defang(text)}\n</document>`).join('\n')
   const charsSent = picked.reduce((n, p) => n + p.text.length, 0)
 
-  const asking = settings.askForDetails !== false
+  // Never ask questions on a flagged message (a complaint, a termination, a medical matter): a person handles those.
+  const asking = settings.askForDetails !== false && !ctx.flags.length
   let facts = []; let missing = ''; let coverage = 0; let droppedQuotes = 0; let questions = []
   if (picked.length) {
     const rawFacts = await ask(model, `You are a research assistant for an HR help desk. You read ONE employee message and passages from company documents, and return a JSON object. You do not write the reply.
@@ -234,8 +245,8 @@ Return ONLY JSON: {"facts":[],"missing":"","coverage":0,"questions":[]}`,
 
   // Step B: write from the facts only.
   const system = `${writingInstructions(settings, tone)}\n\n${SECURITY}\n\n${WRITER_RULES}${facts.length ? '' : '\n- No document covers this question. Say you are passing it to the HR team, who will follow up within one business day. Do not answer it yourself.'}${flagLines ? `\n- This message was flagged, so stay neutral and make no commitments:\n${flagLines}` : ''}\n\nReturn ONLY JSON: {"draft":"","confidence":0}`
-  const factBlock = facts.length ? facts.map((x, i) => `${i + 1}. ${x.fact}`).join('\n') : '(none found)'
-  const user = `${emailBlock(email)}\n\n<verified_facts>\n${factBlock}\n</verified_facts>${missing ? `\n\n<not_covered_by_the_documents>\n${missing}\n</not_covered_by_the_documents>` : ''}${questions.length ? `\n\n<questions_to_ask>\n${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n</questions_to_ask>` : ''}${retry}`
+  const factBlock = facts.length ? facts.map((x, i) => `${i + 1}. ${defang(x.fact)}`).join('\n') : '(none found)'
+  const user = `${emailBlock(email)}\n\n<verified_facts>\n${factBlock}\n</verified_facts>${missing ? `\n\n<not_covered_by_the_documents>\n${defang(missing)}\n</not_covered_by_the_documents>` : ''}${questions.length ? `\n\n<questions_to_ask>\n${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n</questions_to_ask>` : ''}${retry}`
   let raw = await ask(model, system, user)
   let body = String(raw.draft || '').trim()
   if (!body) throw new AIUnavailable('error', 'The AI returned an empty reply.')
@@ -260,9 +271,12 @@ Return ONLY JSON: {"facts":[],"missing":"","coverage":0,"questions":[]}`,
   confidence = Math.max(5, Math.min(97, confidence))
   if (!sources.length) confidence = Math.min(confidence, 50)
   if (copy.tooClose) confidence = Math.min(confidence, 45)
+  // Every number in the reply must come from the facts or from the employee's own message.
+  const unverified = unsupportedFigures(body, [...facts.map((x) => `${x.fact} ${x.snippet}`), `${email.subject} ${email.body}`, ...questions])
+  if (unverified.length) confidence = Math.min(confidence, 60)
   return {
     draft: finish(body), sources, confidence, droppedQuotes, rewritten,
-    clarify: { questions, missing },
+    clarify: { questions, missing }, unverified,
     usage: { sections: secPicked.length, charsSent, charsTotal: totalChars, used: [...secPicked.map((p) => ({ name: p.f.name, heading: p.heading })), ...picked.filter((p) => !p.f.sectioned).map((p) => ({ name: p.f.name }))] },
     copy: { ratio: Math.round(copy.ratio * 100) / 100, longestRun: copy.longestRun, tooClose: copy.tooClose },
   }

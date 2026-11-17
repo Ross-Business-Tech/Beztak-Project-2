@@ -34,6 +34,7 @@ How to write the reply:
 - Keep it short: about 80 to 150 words, in two or three short paragraphs. A short list is fine only for real steps.
 - Mention the policy by name when it helps ("our PTO policy"), instead of quoting it.
 - If the facts do not fully answer the question, say what you can, then say the HR team will follow up within one business day. When the app gives you questions to ask (because the right answer depends on a detail the person did not give), ask them after your answer.
+- Reply in the language the person wrote in.
 - Never promise outcomes, approvals or dates that the facts do not state.`
 
 export const DEFAULT_SETTINGS = {
