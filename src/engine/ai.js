@@ -152,7 +152,7 @@ export function writingInstructions(settings, tone) {
 // What the app always adds around the editable instructions. Editing the instructions can never remove these.
 const WRITER_RULES = `You will receive the employee's message and VERIFIED FACTS taken from the company's documents. Rules that always apply:
 - The verified facts are your only source of information. Use no other policy, number, date or eligibility rule, and invent nothing.
-- Write the reply in your own words. The facts are notes for you, not text to paste. Never quote the handbook or any document, never put document wording in quotation marks, and never reuse a run of more than a few words from them. Say it the way you would explain it to a colleague over coffee.
+- Write the reply in your own words. The facts are notes for you, not text to paste.
 - Start with a greeting by first name and end before any signature (the system adds it).
 - If <questions_to_ask> is given: answer what the facts already support first, then ask exactly those questions as a short numbered list, and say you will finish the answer once they reply. Ask nothing else.`
 
@@ -345,10 +345,9 @@ export async function aiDraft({ email, settings, files, ctx, tone, model, readMo
   const sourceTexts = picked.map((p) => p.text)
   let copy = copyCheck(body, sourceTexts)
   let rewritten = false
-  // Still too close to the handbook? Ask for a fresh rewrite (up to twice) and keep whichever version is furthest from it.
-  for (let attempt = 0; attempt < 2 && copy.tooClose; attempt += 1) {
+  if (copy.tooClose) {
     rewritten = true
-    raw = await ask(model, system, `${user}\n\n<previous_draft>\n${body}\n</previous_draft>\nThat draft copies wording from the company documents${copy.copied.length ? `, for example: "${copy.copied[0]}"` : ''}. Rewrite it completely in your own plain words, shorter, answering the question directly. Do not reuse phrases from the facts or documents, and do not quote them.`)
+    raw = await ask(model, system, `${user}\n\n<previous_draft>\n${body}\n</previous_draft>\nThat draft copies wording from the company documents${copy.copied.length ? `, for example: "${copy.copied[0]}"` : ''}. Rewrite it completely in your own plain words, shorter, answering the question directly. Do not reuse phrases from the facts or documents.`)
     const again = String(raw.draft || '').trim()
     if (again) { const c2 = copyCheck(again, sourceTexts); if (c2.ratio <= copy.ratio) { body = again; copy = c2 } }
   }
