@@ -2,6 +2,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
+import { existsSync } from 'node:fs'
 import { createMockZoho } from '../mock-zoho.js'
 import { createMockEgnyte } from '../mock-egnyte.js'
 import { loadConfig } from '../config.js'
@@ -713,4 +714,27 @@ test('quotes survive markdown and line breaks, a failed quote is asked for again
     const capped = await ai.aiDraft({ email, settings: DEFAULT_SETTINGS, files, ctx: { careful: false, flags: [], tries: 0, sources: [] }, tone: 'warm', model: 't' })
     assert.equal(capped.confidence, 60); assert.match(capped.diag.caps.join(' '), /figures not found in the documents: 12/)
   } finally { ai.setTransport((url, init) => fetch(url, init)) }
+})
+
+// The sample handbook and its questions are kept out of the repository; this check runs only where they are present.
+const haveSampleHandbook = existsSync('testing/cedar-and-stone-handbook.md') && existsSync('testing/cedar-and-stone-test-questions.csv')
+test('the sample Cedar & Stone handbook: its test questions load in Import and the right section is found for almost all of them', { skip: !haveSampleHandbook && 'sample handbook files not present' }, async () => {
+  const { readFileSync } = await import('node:fs')
+  const { parseRequests } = await import('../../src/lib/csv.js')
+  const { indexSections } = await import('../../src/engine/sections.js')
+  const { pickContext } = await import('../../src/engine/ai.js')
+  const { DEFAULT_SETTINGS } = await import('../../src/data/defaults.js')
+  const handbook = readFileSync('testing/cedar-and-stone-handbook.md', 'utf8') // run from the project folder (npm run test:server)
+  const csv = readFileSync('testing/cedar-and-stone-test-questions.csv', 'utf8')
+  const parsed = parseRequests(csv)
+  assert.equal(parsed.problems.length, 0, `the file loads cleanly: ${parsed.problems.join('; ')}`)
+  assert.ok(parsed.rows.length >= 50)
+  assert.ok(parsed.rows.every((r) => r.expectedTopic), 'every row has a valid expected topic')
+  assert.ok(parsed.rows.some((r) => r.expectedRisk === true) && parsed.rows.some((r) => r.expectedRisk === false))
+  const files = [{ id: 'h', name: 'cedar-and-stone-handbook.md', active: true, content: handbook, sectioned: true, sections: indexSections(handbook) }]
+  const rows = csv.split('\n').slice(1).filter(Boolean)
+  const withSection = parsed.rows.map((r, i) => ({ r, section: (rows[i].match(/,(\d+\.\d+)$/) || [])[1] })).filter((x) => x.section)
+  assert.ok(withSection.length >= 50, 'rows name the handbook section that holds the answer')
+  const found = withSection.filter(({ r, section }) => pickContext(files, `${r.subject}\n${r.body}`, DEFAULT_SETTINGS).picked.some((p) => p.text.includes(`### ${section} `)))
+  assert.ok(found.length / withSection.length >= 0.95, `the answer's section was found for ${found.length} of ${withSection.length} questions`)
 })

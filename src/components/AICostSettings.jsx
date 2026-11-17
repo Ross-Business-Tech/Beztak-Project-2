@@ -53,7 +53,7 @@ export function ReadingSettings({ s, set }) {
       <Field label="Reading model (optional)" hint="A smaller, faster, cheaper model for the reading steps: working out the topic and risks, and finding facts in your documents. The model above only writes the reply. Leave empty to use one model for everything.">
         {(id) => <input id={id} type="text" value={ai.readModel || ''} onChange={(e) => patch({ readModel: e.target.value })} placeholder="Same as the model above, for example claude-haiku-5-5" />}
       </Field>
-      <Field label="How much of your documents the AI reads" hint="Light reads the 4 best-matching sections of a long document, Standard 5, Deep 8 (short documents are cut back in the same proportion). Less is faster and cheaper; more helps when answers are scattered across many documents.">
+      <Field label="How much of your documents the AI reads" hint="Light reads the 4 best-matching sections of a long document, Standard 6, Deep 8 (short documents are cut back in the same proportion). Less is faster and cheaper; more helps when answers are scattered across many documents.">
         {() => <Segmented label="Reading depth" value={ai.readDepth || 'standard'} onChange={(v) => patch({ readDepth: v }, `Reading depth set to ${DEPTHS[v].label}`)}
           options={Object.entries(DEPTHS).map(([value, d]) => ({ value, label: d.label }))} />}
       </Field>

@@ -4,7 +4,7 @@
 // sees a handful of small, clearly labelled sections instead. The split happens when a file is added
 // (`indexSections`), and is computed on the fly for older files and files synced from other systems.
 
-import { tokenize } from './mockAI'
+import { docTerms, queryTerms } from './terms'
 
 const MIN_CHARS = 220 // a section shorter than this is joined to its neighbour
 const MAX_CHARS = 2600 // a section longer than this is cut at a paragraph break
@@ -108,9 +108,7 @@ export function sectionsOf(f) {
   return spans.map((s) => ({ heading: s.heading, text: f.content.slice(s.start, s.end).trim() }))
 }
 
-// "vacations" should match "vacation": a very light stem is enough for this.
-const stem = (w) => (w.length > 4 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w)
-const terms = (text) => tokenize(text).map(stem)
+const terms = docTerms
 
 // The words of every section are worked out once per file and kept, so a big handbook is not re-read for every email.
 const indexMemo = new Map()
@@ -136,7 +134,7 @@ function indexOf(f) {
  * Nothing that shares no words with the message is returned, so an unrelated question sends no text at all.
  */
 export function rankSections(files, query, { budget = 16000, maxSections = 6 } = {}) {
-  const q = [...new Set(terms(query))]
+  const q = [...new Set(queryTerms(query))]
   if (!q.length) return []
   const all = []
   for (const f of files) {
