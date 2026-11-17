@@ -50,6 +50,7 @@ function EmailTab() {
       const sent = await sendTestEmail({ ...form, from: form.from.trim() || 'test.employee@example.com', name: form.name.trim() || 'Test Employee' })
       if (!sent) return
       setSelId(sent.id)
+      if (sent.status === 'processing') { toast('Sent. The AI is working on it and the result will appear on the right in a moment.'); return }
       toast(sent.result.aiFallback ? 'Processed with the simulated engine. The AI was not reachable.' : 'Test email processed. See the result on the right.', sent.result.aiFallback ? 'warn' : 'ok')
     } finally { setBusy(false) }
   }
@@ -101,7 +102,9 @@ function EmailTab() {
       </div>
 
       <div className="stack">
-        {selected ? <Result email={selected} /> : (
+        {selected?.status === 'processing' ? (
+          <Card title="The AI is working on it"><p className="muted">Reading the message, searching your documents and writing a reply. This usually takes 10 to 30 seconds. You can leave this page and come back.</p></Card>
+        ) : selected ? <Result email={selected} /> : (
           <Card><Empty title="The AI's answer will appear here">Send a test email, or pick an example, to see the draft, what got flagged, and why the AI decided what it did.</Empty></Card>
         )}
       </div>

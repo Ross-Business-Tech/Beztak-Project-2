@@ -26,7 +26,8 @@ function initials(name) {
 }
 
 export default function Review() {
-  const { emails } = useApp()
+  const { emails: allEmails } = useApp()
+  const emails = allEmails.filter((e) => e.status !== 'processing') // still being written: it joins the queue when it is done
   const [filter, setFilter] = useState('open')
   const [q, setQ] = useState('')
   const [selId, setSelId] = useState(null)

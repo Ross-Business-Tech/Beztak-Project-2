@@ -152,7 +152,8 @@ test('Claude Haiku through the Anthropic API: right model, key stays on the serv
       const body = JSON.parse(b)
       seen.push({ url: req.url, key: req.headers.authorization, version: req.headers['anthropic-version'], body })
       const triage = String(body.system).includes('triage assistant')
-      const out = triage ? { category: 'time_off', flags: [], certainty: 90 } : { draft: 'Hi there,\n\nHere is your answer.', sources: [], confidence: 85 }
+      const research = String(body.system).includes('research assistant')
+      const out = triage ? { category: 'time_off', flags: [], certainty: 90 } : research ? { facts: [{ fileId: 'f_pto', quote: 'Up to 5 unused PTO days roll over into the next calendar year.', fact: 'You can carry over five days.' }], missing: '', coverage: 90, questions: [] } : { draft: 'Hi there,\n\nHere is your answer.', sources: [], confidence: 85 }
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ id: 'msg_1', type: 'message', role: 'assistant', model: body.model, content: [{ type: 'text', text: JSON.stringify(out) }], stop_reason: 'end_turn', stop_sequence: null, usage: { input_tokens: 10, output_tokens: 10 } }))
     })
@@ -164,8 +165,9 @@ test('Claude Haiku through the Anthropic API: right model, key stays on the serv
     const r = await t.api('POST', '/api/emails/test', { name: 'Test Person', from: 'tp@example.com', subject: 'Vacation days', body: 'How many vacation days do I get?' })
     assert.equal(r.status, 200)
     assert.equal(r.json.result.engine, 'ai', 'the AI answered (not the simple fallback writer)')
-    assert.match(r.json.result.draft, /Here is your answer/)
-    assert.ok(seen.length >= 2)
+    // this server has no documents, so nothing is spent on writing: the hand-off wording from Settings is used
+    assert.match(r.json.result.draft, /passed your question to a member of the HR team/)
+    assert.ok(seen.length >= 1)
     for (const c of seen) {
       assert.equal(c.url, '/v1/messages'); assert.equal(c.key, 'Bearer sk-ant-test'); assert.ok(c.version)
       assert.equal(c.body.model, 'claude-haiku-5-5', 'defaults to Claude Haiku 5.5')
@@ -187,7 +189,8 @@ test('an OpenAI (Codex) key goes to OpenAI through the Responses API, with no un
       const body = JSON.parse(b)
       seen.push({ url: req.url, key: req.headers.authorization, body })
       const triage = String(body.instructions).includes('triage assistant')
-      const out = triage ? { category: 'time_off', flags: [], certainty: 90 } : { draft: 'Hi there,\n\nHere is your OpenAI answer.', sources: [], confidence: 85 }
+      const research = String(body.instructions).includes('research assistant')
+      const out = triage ? { category: 'time_off', flags: [], certainty: 90 } : research ? { facts: [{ fileId: 'f_pto', quote: 'Up to 5 unused PTO days roll over into the next calendar year.', fact: 'You can carry over five days.' }], missing: '', coverage: 90, questions: [] } : { draft: 'Hi there,\n\nHere is your OpenAI answer.', sources: [], confidence: 85 }
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ id: 'resp_1', object: 'response', status: 'completed', output: [{ type: 'reasoning', summary: [] }, { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: JSON.stringify(out) }] }] }))
     })
@@ -205,8 +208,8 @@ test('an OpenAI (Codex) key goes to OpenAI through the Responses API, with no un
     const r = await t.api('POST', '/api/emails/test', { name: 'Test Person', from: 'tp@example.com', subject: 'Vacation days', body: 'How many vacation days do I get?' })
     assert.equal(r.status, 200)
     assert.equal(r.json.result.engine, 'ai', 'the AI answered (not the simple fallback writer)')
-    assert.match(r.json.result.draft, /OpenAI answer/)
-    assert.ok(seen.length >= 2)
+    assert.match(r.json.result.draft, /passed your question to a member of the HR team/)
+    assert.ok(seen.length >= 1)
     for (const c of seen) {
       assert.equal(c.body.model, 'gpt-5-codex-mini', 'the model chosen in Settings')
       assert.equal(c.url, '/v1/responses'); assert.equal(c.key, 'Bearer sk-proj-test')
@@ -525,4 +528,148 @@ test('safety checks: invented figures are caught, injected labels are neutralise
     const flagged = await run({ flags: [{ ruleId: 'x', name: 'Termination', reason: 'asks about firing' }] })
     assert.deepEqual(flagged.clarify.questions, [], 'no questions are asked on a flagged message')
   } finally { ai.setTransport((url, init) => fetch(url, init)) }
+})
+
+// ---- speed and cost controls ----
+const ptoFiles = [{ id: 'f1', name: 'PTO.md', active: true, content: '# PTO\n\nUp to 5 unused PTO days roll over into the next calendar year. Any days above that are lost on January 1.' }]
+function scriptedAI(ai, { delayUnderstand = 0, facts = true } = {}) {
+  const log = []
+  ai.setTransport(async (_u, init) => {
+    const m = JSON.parse(init.body).messages; const system = m[0].content
+    const kind = /triage assistant/.test(system) ? 'understand' : /research assistant/.test(system) ? 'facts' : 'write'
+    const entry = { kind, model: JSON.parse(init.body).model, start: Date.now(), user: m[1].content }; log.push(entry)
+    if (kind === 'understand' && delayUnderstand) await new Promise((r) => setTimeout(r, delayUnderstand))
+    const out = kind === 'understand' ? { category: 'time_off', flags: [], certainty: 90 }
+      : kind === 'facts' ? { facts: facts ? [{ fileId: 'f1', quote: 'Up to 5 unused PTO days roll over into the next calendar year.', fact: 'Five days roll over.' }] : [], missing: '', coverage: facts ? 90 : 0, questions: [] }
+        : { draft: 'Hi Priya,\n\nYou can keep five days.', confidence: 90 }
+    entry.end = Date.now()
+    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(out) } }], usage: { prompt_tokens: 1000, completion_tokens: 200 } }), { status: 200, headers: { 'content-type': 'application/json' } })
+  })
+  return log
+}
+const priya = { id: 'e1', name: 'Priya N', from: 'p@example.com', subject: 'PTO rollover', body: 'How many PTO days roll over into next year?', receivedAt: new Date().toISOString() }
+
+test('finding facts starts at the same moment as the topic check, not after it', async () => {
+  const ai = await import('../../src/engine/ai.js')
+  const { runWorkflow } = await import('../../src/workflow/runner.js')
+  const { makeDefaultWorkflow } = await import('../../src/workflow/defaults.js')
+  const { DEFAULT_SETTINGS } = await import('../../src/data/defaults.js')
+  const log = scriptedAI(ai, { delayUnderstand: 80 })
+  try {
+    const result = await runWorkflow({ email: priya, workflow: makeDefaultWorkflow(), settings: DEFAULT_SETTINGS, files: ptoFiles, history: [] })
+    const understand = log.find((c) => c.kind === 'understand'); const facts = log.find((c) => c.kind === 'facts')
+    assert.ok(facts.start < understand.end, 'the facts call began before the topic call finished')
+    assert.equal(log.filter((c) => c.kind === 'facts').length, 1, 'and its answer was reused rather than asked for again')
+    assert.match(result.draft, /keep five days/)
+  } finally { ai.setTransport((url, init) => fetch(url, init)) }
+})
+
+test('a cheaper reading model reads, the main model writes', async () => {
+  const ai = await import('../../src/engine/ai.js')
+  const { runWorkflow } = await import('../../src/workflow/runner.js')
+  const { makeDefaultWorkflow } = await import('../../src/workflow/defaults.js')
+  const { DEFAULT_SETTINGS } = await import('../../src/data/defaults.js')
+  const log = scriptedAI(ai)
+  try {
+    const settings = { ...DEFAULT_SETTINGS, ai: { ...DEFAULT_SETTINGS.ai, model: 'big-model', readModel: 'small-model' } }
+    await runWorkflow({ email: priya, workflow: makeDefaultWorkflow(), settings, files: ptoFiles, history: [] })
+    assert.deepEqual([...new Set(log.filter((c) => c.kind !== 'write').map((c) => c.model))], ['small-model'])
+    assert.deepEqual([...new Set(log.filter((c) => c.kind === 'write').map((c) => c.model))], ['big-model'])
+    log.length = 0
+    await runWorkflow({ email: priya, workflow: makeDefaultWorkflow(), settings: { ...settings, ai: { ...settings.ai, readModel: '' } }, files: ptoFiles, history: [] })
+    assert.deepEqual([...new Set(log.map((c) => c.model))], ['big-model'], 'empty reading model means one model for everything')
+  } finally { ai.setTransport((url, init) => fetch(url, init)) }
+})
+
+test('when nothing in the documents helps, no AI call is spent on writing (and the wording is editable)', async () => {
+  const ai = await import('../../src/engine/ai.js')
+  const { DEFAULT_SETTINGS } = await import('../../src/data/defaults.js')
+  const log = scriptedAI(ai, { facts: false })
+  try {
+    const run = (settings, files = ptoFiles, email = priya) => ai.aiDraft({ email, settings, files, ctx: { careful: false, flags: [], tries: 0, sources: [] }, tone: 'warm', model: 't' })
+    // documents match, the AI finds no usable fact
+    let out = await run(DEFAULT_SETTINGS)
+    assert.equal(out.handoff, true); assert.match(out.draft, /Hi Priya,/); assert.match(out.draft, /passed your question to a member of the HR team/)
+    assert.equal(log.filter((c) => c.kind === 'write').length, 0, 'the writing call was skipped')
+    // nothing matches at all: not even the facts call is made
+    log.length = 0
+    out = await run({ ...DEFAULT_SETTINGS, handoffText: 'Hello {{firstName}}, {{helpDeskName}} will get back to you.' }, ptoFiles, { ...priya, subject: 'Pet insurance', body: 'Do you cover my parrot?' })
+    assert.equal(log.length, 0, 'no document matches, so no AI call at all')
+    assert.match(out.draft, /Hello Priya, HR Help Desk will get back to you\./, 'the hand-off wording comes from Settings')
+    // switched off: the writer is used as before
+    log.length = 0
+    out = await run({ ...DEFAULT_SETTINGS, skipAIWhenNoMatch: false })
+    assert.equal(log.filter((c) => c.kind === 'write').length, 1)
+  } finally { ai.setTransport((url, init) => fetch(url, init)) }
+})
+
+test('reading depth changes how much of the documents is sent', async () => {
+  const { pickContext, DEPTHS } = await import('../../src/engine/ai.js')
+  const { DEFAULT_SETTINGS } = await import('../../src/data/defaults.js')
+  const para = (i) => `Vacation rule ${i}: employees may request vacation days through the portal and managers approve vacation requests promptly ${'blah '.repeat(60)}`
+  const text = Array.from({ length: 12 }, (_, i) => `## Vacation ${i}\n\n${para(i)}`).join('\n\n')
+  const big = `# Handbook\n\n${text}\n\n${'filler words about nothing '.repeat(4000)}`
+  const { prepareDocument } = await import('../../src/lib/uploadLimits.js')
+  const doc = prepareDocument(big, { split: true, existing: [], serverMode: true })
+  const files = [{ id: 'b', name: 'handbook.md', active: true, content: doc.content, sectioned: doc.sectioned, sections: doc.sections }]
+  const chars = (d) => pickContext(files, 'vacation days request', { ...DEFAULT_SETTINGS, ai: { ...DEFAULT_SETTINGS.ai, readDepth: d } }).chars
+  assert.ok(chars('light') < chars('standard') && chars('standard') <= chars('deep'), 'light < standard <= deep')
+  assert.ok(chars('light') <= DEPTHS.light.secChars)
+})
+
+test('costs: prices, the import estimate, the daily meter and the daily limit', async () => {
+  const cost = await import('../../src/engine/cost.js')
+  const usage = await import('../../src/engine/usage.js')
+  const ai = await import('../../src/engine/ai.js')
+  const { runWorkflow } = await import('../../src/workflow/runner.js')
+  const { makeDefaultWorkflow } = await import('../../src/workflow/defaults.js')
+  const { DEFAULT_SETTINGS } = await import('../../src/data/defaults.js')
+  assert.deepEqual(cost.priceFor('claude-haiku-5-5', {}), { in: 0.1, out: 0.5, source: 'list' })
+  assert.equal(cost.priceFor('anthropic/claude-sonnet-4.5', {}).in, 3, 'OpenRouter-style names and dots are understood')
+  assert.equal(cost.priceFor('gpt-5-mini', {}), null, 'an unknown model has no price')
+  assert.deepEqual(cost.priceFor('gpt-5-mini', { model: 'gpt-5-mini', priceIn: 0.25, priceOut: 2 }), { in: 0.25, out: 2, source: 'settings' }, 'a price typed into Settings is used')
+  const base = { ...DEFAULT_SETTINGS, ai: { ...DEFAULT_SETTINGS.ai, model: 'claude-sonnet-5-5', readModel: '' } }
+  const cheap = { ...base, ai: { ...base.ai, readModel: 'claude-haiku-5-5' } }
+  const e1 = cost.estimateEmail({ email: priya, docChars: 12000, settings: base }); const e2 = cost.estimateEmail({ email: priya, docChars: 12000, settings: cheap })
+  assert.ok(e1.typical > 0 && e1.high > e1.typical, 'a worst case above the typical case')
+  assert.ok(e2.typical < e1.typical, 'a cheaper reading model lowers the estimate')
+  const none = cost.estimateEmail({ email: priya, docChars: 0, settings: base })
+  assert.equal(none.calls.length, 1, 'no matching document: only the topic check is paid for'); assert.equal(none.skipped, true)
+  const run = cost.estimateRun([priya, priya, priya], () => 12000, base)
+  assert.ok(Math.abs(run.typical - 3 * e1.typical) < 1e-9)
+
+  // the meter counts calls, and the daily limit stops further calls
+  let saved = null
+  usage.setUsageStore({ read: () => saved, write: (v) => { saved = v } })
+  const log = scriptedAI(ai)
+  try {
+    const settings = { ...base, ai: { ...base.ai, model: 'claude-opus-5-5' }, aiLimits: { dailyUsd: 0.02, importRunUsd: 0 } }
+    const r1 = await runWorkflow({ email: priya, workflow: makeDefaultWorkflow(), settings, files: ptoFiles, history: [] })
+    assert.equal(saved.calls, 3, 'every AI call is counted'); assert.ok(saved.usd > 0.02, 'and priced')
+    assert.equal(saved.inTok, saved.calls * 1000, 'token counts from the provider are used')
+    assert.equal(r1.engine, 'ai')
+    const before = log.length
+    const r2 = await runWorkflow({ email: priya, workflow: makeDefaultWorkflow(), settings, files: ptoFiles, history: [] })
+    assert.equal(log.length - before, 0, 'once the limit is reached the AI is not called again')
+    assert.equal(r2.engine, 'simulated'); assert.match(r2.aiFallback || '', /daily AI spending limit/)
+  } finally { usage.setUsageStore(null); ai.setTransport((url, init) => fetch(url, init)) }
+})
+
+test('on the server, test emails return at once as "Writing" and finish in the background', async () => {
+  const t = await setup({ TICKETING_ADAPTER: 'none' })
+  try {
+    await t.api('POST', '/api/login', { username: 'admin', password: 'correct-horse-battery' })
+    const r = await t.api('POST', '/api/emails/test', { name: 'Tester', from: 't@example.com', subject: 'Vacation', body: 'How many vacation days do I get?', async: true })
+    assert.equal(r.status, 200); assert.equal(r.json.status, 'processing'); assert.equal(r.json.result.draft, '')
+    assert.equal((await t.api('POST', `/api/emails/${r.json.id}/resolve`, { kind: 'send', text: 'x' })).status, 409, 'cannot act on a message the AI is still writing')
+    let rec = null
+    for (let i = 0; i < 60; i++) { rec = (await t.api('GET', '/api/emails')).json.emails.find((e) => e.id === r.json.id); if (rec && rec.status !== 'processing') break; await new Promise((x) => setTimeout(x, 50)) }
+    assert.notEqual(rec.status, 'processing', 'the background job finished'); assert.ok(rec.result.draft.length > 0)
+    const u = (await t.api('GET', '/api/ai/usage')).json
+    assert.ok(u.calls >= 1 && typeof u.usd === 'number', 'the server keeps a daily total')
+    // the daily limit is saved and applied
+    const s = (await t.api('GET', '/api/state')).json.settings
+    assert.equal((await t.api('PUT', '/api/config/settings', { value: { ...s, aiLimits: { dailyUsd: -5, importRunUsd: 'abc' } } })).status, 200)
+    assert.deepEqual((await t.api('GET', '/api/state')).json.settings.aiLimits, { dailyUsd: 0, importRunUsd: 0 }, 'nonsense limits become "no limit"')
+  } finally { t.stop() }
 })

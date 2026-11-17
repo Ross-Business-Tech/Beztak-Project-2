@@ -42,6 +42,17 @@ export function ServerProvider({ initial, children }) {
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', tick) }
   }, [])
 
+  // While the AI is still writing something, check back every few seconds so the result appears by itself.
+  const anyProcessing = data.emails.some((e) => e.status === 'processing')
+  useEffect(() => {
+    if (!anyProcessing) return undefined
+    const t = setInterval(async () => {
+      if (document.hidden) return
+      try { const r = await api('GET', '/api/emails'); setData((d) => ({ ...d, emails: r.emails, activity: r.activity, status: r.status })) } catch { /* next time */ }
+    }, 2500)
+    return () => clearInterval(t)
+  }, [anyProcessing])
+
   const saveNow = useCallback(async (key) => {
     clearTimeout(timers.current[key]); delete timers.current[key]
     // Documents copied from Egnyte are owned by the sync; only their on/off switch goes back to the server.
@@ -80,18 +91,18 @@ export function ServerProvider({ initial, children }) {
     // A loaded preset never changes the Zoho Desk connection or the AI model, so a shared preset cannot turn on sending or switch models.
     loadWorkflow(workflow, label, settings) {
       if (!adminOnly()) return
-      setData((d) => ({ ...d, designBackup: { workflow: d.workflow, settings: d.settings }, workflow, settings: settings ? { ...settings, integrations: d.settings.integrations, ai: d.settings.ai } : d.settings }))
+      setData((d) => ({ ...d, designBackup: { workflow: d.workflow, settings: d.settings }, workflow, settings: settings ? { ...settings, integrations: d.settings.integrations, ai: d.settings.ai, aiLimits: d.settings.aiLimits } : d.settings }))
       save('workflow'); if (settings) save('settings')
       log('workflow', `Workflow${settings ? ' and settings' : ''} replaced by "${label}"`)
     },
     restoreWorkflow() {
       if (!adminOnly()) return
-      setData((d) => (d.designBackup ? { ...d, workflow: d.designBackup.workflow, settings: { ...d.designBackup.settings, integrations: d.settings.integrations, ai: d.settings.ai }, designBackup: { workflow: d.workflow, settings: d.settings } } : d))
+      setData((d) => (d.designBackup ? { ...d, workflow: d.designBackup.workflow, settings: { ...d.designBackup.settings, integrations: d.settings.integrations, ai: d.settings.ai, aiLimits: d.settings.aiLimits }, designBackup: { workflow: d.workflow, settings: d.settings } } : d))
       save('workflow'); save('settings'); log('workflow', 'Previous design restored')
     },
 
     async sendTestEmail(input) {
-      try { await flush(); const rec = await api('POST', '/api/emails/test', input); replace(rec); return rec } catch (e) { fail(e); return null }
+      try { await flush(); const rec = await api('POST', '/api/emails/test', { ...input, async: true }); replace(rec); return rec } catch (e) { fail(e); return null }
     },
     async resolveEmail(id, kind, text) {
       try {
@@ -100,7 +111,7 @@ export function ServerProvider({ initial, children }) {
         return { ok: true, message: kind === 'send' ? last.replace(/^Reviewed and approved by [^;]+; /, 'Done: ') : 'Closed without a reply' }
       } catch (e) { return fail(e) }
     },
-    async importRequest(row) { try { const rec = await api('POST', '/api/emails/import', { row }); replace(rec); return rec } catch (e) { fail(e); return null } },
+    async importRequest(row) { try { const rec = await api('POST', '/api/emails/import', { row, async: true }); replace(rec); return rec } catch (e) { fail(e); return null } },
     async evaluateRequest(row) { try { return await api('POST', '/api/eval/one', { row }) } catch (e) { fail(e); return null } },
     async saveEvalRun(run) { try { const saved = await api('POST', '/api/eval/runs', { run }); setData((d) => ({ ...d, evalRuns: [saved, ...d.evalRuns].slice(0, 20) })); return saved } catch (e) { fail(e); return null } },
     async addNote(id, text) { try { replace(await api('POST', `/api/emails/${id}/note`, { text })) } catch (e) { fail(e) } },
@@ -127,6 +138,7 @@ export function ServerProvider({ initial, children }) {
         try { const st = await api('GET', '/api/emails'); const at = st.status?.egnyte?.lastSync?.at || ''; setData((d) => ({ ...d, status: st.status })); if (at !== seenEgnyteSync.current || tries > 15) { clearInterval(t); if (at !== seenEgnyteSync.current) { seenEgnyteSync.current = at; reloadFilesRef.current?.() } } } catch { clearInterval(t) }
       }, 2000)
     },
+    async aiUsage() { try { return await api('GET', '/api/ai/usage') } catch { return null } },
     async refresh() { const r = await api('GET', '/api/emails'); setData((d) => ({ ...d, emails: r.emails, activity: r.activity, status: r.status })) },
     async signOut() { try { await api('POST', '/api/logout', {}) } finally { window.dispatchEvent(new Event('hr-signed-out')) } },
   // eslint-disable-next-line react-hooks/exhaustive-deps

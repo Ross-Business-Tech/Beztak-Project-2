@@ -7,7 +7,8 @@
 
 import { CATEGORIES } from '../data/defaults'
 import { buildDraft, buildSensitiveDraft, checkFlags, classify, matchKeywords, searchFiles } from '../engine/mockAI'
-import { aiDraft, aiUnderstand } from '../engine/ai'
+import { aiDraft, aiFindFacts, aiUnderstand } from '../engine/ai'
+import { configureUsage } from '../engine/usage'
 import { BLOCKS, FIELDS, RISK_LEVELS, describeCondition, portsOf, titleOf } from './blocks'
 
 const MAX_STEPS = 60
@@ -283,14 +284,36 @@ function simulate(req, { email, settings, files }) {
   return { data: { draft, sources: ctx.careful ? [] : sources, confidence }, engine: 'simulated' }
 }
 
-async function viaAI(req, input) {
+async function viaAI(req, input, prefetch) {
   const model = (input.settings.ai?.model || '').trim() || undefined
+  // The cheaper, faster model (if one is chosen in Settings) does the reading; the main model does the writing.
+  const readModel = (input.settings.ai?.readModel || '').trim() || model
   if (req.need === 'understand') {
-    const data = await aiUnderstand({ email: input.email, settings: input.settings, rules: req.rules, model })
+    const data = await aiUnderstand({ email: input.email, settings: input.settings, rules: req.rules, model: readModel })
     return { data, engine: 'ai', model: model || 'default model' }
   }
-  const data = await aiDraft({ email: input.email, settings: input.settings, files: input.files, ctx: req.ctx, tone: req.tone, model })
+  // Step A of writing started when the workflow did, so the answer is usually ready by now.
+  let found
+  if (prefetch && req.ctx.tries === 0 && !req.ctx.careful) {
+    const p = await prefetch
+    if (p.err) throw p.err
+    found = p.found
+  }
+  const data = await aiDraft({ email: input.email, settings: input.settings, files: input.files, ctx: req.ctx, tone: req.tone, model, readModel, found })
   return { data, engine: 'ai', model: model || 'default model' }
+}
+
+/**
+ * Start finding facts in the documents at the same moment the workflow starts reading the email's topic, instead
+ * of one after the other. It only runs when the workflow writes a reply, and never rejects: a failure is handed back.
+ */
+function startPrefetch(input) {
+  if (!input.workflow.nodes.some((n) => n.data.kind === 'ai_draft')) return null
+  const model = (input.settings.ai?.model || '').trim() || undefined
+  const readModel = (input.settings.ai?.readModel || '').trim() || model
+  const asking = input.settings.askForDetails !== false
+  return aiFindFacts({ email: input.email, settings: input.settings, files: input.files, model: readModel, asking })
+    .then((found) => ({ found }), (err) => ({ err }))
 }
 
 /** Run with the simulated stand-in only (instant). Used for sample data. */
@@ -305,12 +328,14 @@ export function runWorkflowSync(input) {
 export async function runWorkflow(input) {
   const gen = execute(input)
   const useAI = input.settings.ai?.engine === 'ai'
+  if (useAI) configureUsage(input.settings)
+  const prefetch = useAI ? startPrefetch(input) : null
   let down = null
   let step = gen.next()
   while (!step.done) {
     let res = null
     if (useAI && !down) {
-      try { res = await viaAI(step.value, input) } catch (e) { down = e?.message || 'The AI could not be reached.' }
+      try { res = await viaAI(step.value, input, prefetch) } catch (e) { down = e?.message || 'The AI could not be reached.' }
     }
     if (!res) res = { ...simulate(step.value, input), note: useAI ? down : undefined }
     step = gen.next(res)

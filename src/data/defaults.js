@@ -61,7 +61,15 @@ export const DEFAULT_SETTINGS = {
     { id: 'p_rev2', email: 'reviewer.two@example.com', role: 'reviewer' },
   ],
   // 'ai' = real AI model (falls back to the simulation if unreachable); 'simulated' = word matching only
-  ai: { engine: 'ai', model: 'anthropic/claude-sonnet-4.5' },
+  // model writes the reply. readModel (optional, cheaper and faster) reads the email and the documents; empty = same model.
+  // readDepth: how much of the documents the AI reads per email (light, standard, deep). price*: dollars per million tokens, only
+  // needed for a model the app has no price for; empty = use the built-in price list.
+  ai: { engine: 'ai', model: 'anthropic/claude-sonnet-4.5', readModel: '', readDepth: 'standard', priceIn: '', priceOut: '', readPriceIn: '', readPriceOut: '' },
+  // When the documents have nothing on a question, do not pay the AI to write a reply: use handoffText (empty = built-in wording).
+  skipAIWhenNoMatch: true,
+  handoffText: '',
+  // Spending guards, in US dollars (0 = no limit). dailyUsd stops the AI for the rest of the day; importRunUsd stops one import from starting.
+  aiLimits: { dailyUsd: 0, importRunUsd: 0 },
   integrations: {
     // Zoho Desk is the ticketing system: tickets come in from it and results go back to the ticket.
     //  enabled: pull new tickets (turn off to pause everything)
