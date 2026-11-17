@@ -57,17 +57,35 @@ The destination depends on **Settings → Connections → When a person approves
 
 The current setting is **Save as a private note on the ticket**. Zoho Desk must be connected for ticket updates to work.
 
-## Administrator tasks
+## What each page does
 
-| Page | What to do there |
+The menu on the left has three groups. Some pages are available to administrators only, or to reviewers only if an administrator turns them on (see the table at the top of this guide).
+
+### Work
+
+| Page | What it does |
 | --- | --- |
-| **Import and evaluate** | Paste CSV or JSON, or upload a CSV, with up to 200 requests. Required columns are `subject` and `body`. Optional columns include `name`, `from`, and `received_at`. |
-| **Knowledge files** | Add policy text the assistant may use. Organize files into folders and control which files the AI can use. |
-| **Workflow** | Edit how requests are understood, flagged, drafted, escalated, and routed. Use the design check to identify paths that could send flagged or unchecked messages without a person. |
-| **Access** | Add people by email, assign Reviewer or Admin, and choose which optional pages reviewers can open. |
-| **Settings** | Choose the AI engine, check its connection, set reply style, and manage available Zoho Desk and Egnyte controls. |
-| **Dashboard** | View volumes, automation rate, and work needing attention. |
-| **Activity log** | Review recorded changes and actions. |
+| **Review queue** | Where reviewers spend their time. Every request waits here with the original email, the AI's draft and the policy passages behind it. Edit the draft, add internal case notes, then approve it. High-risk cases need an extra confirmation. |
+| **Import and evaluate** | Brings in requests from pasted CSV or JSON, or an uploaded CSV, up to 200 at a time (`subject` and `body` are required; `name`, `from` and `received_at` are optional). **Add to Review queue** drafts them for a person. **Check accuracy** scores the assistant against your expected answers without adding anything to the queue. |
+
+### Manage
+
+| Page | What it does |
+| --- | --- |
+| **Dashboard** | Shows request volumes, how much the AI handled, and what still needs attention. |
+| **Workflow** | The map that decides how each request is read, flagged, drafted, escalated and routed. Start from a ready-made design and adjust it. The design check finds paths that could send a flagged or unchecked message without a person. Designs and blocks are explained below. |
+| **Knowledge files** | The policy documents the AI is allowed to quote. Upload or paste text, organize files into folders, and turn **AI can use** on or off for each file. |
+| **Access** | Add people by email, give them the Reviewer or Admin role, and choose which optional pages reviewers can open. |
+| **Settings** | Choose the AI engine and check its connection, set the reply style and signature, and manage the Zoho Desk and Egnyte connections and what happens when a reply is approved. |
+| **Activity log** | A record of changes and actions, such as who approved what and which settings changed. |
+
+### Help
+
+| Page | What it does |
+| --- | --- |
+| **Getting started** | A short tour of how a message moves through the help desk. |
+| **Test emails** | Write a made-up employee message, or pick an example, and see the draft, flags and explanation. Nothing is read from or sent to real email or Zoho Desk. |
+| **Test a document** | Try a practice document and ask it a question to see how the AI would answer from it. |
 
 ### Workflow designs
 
