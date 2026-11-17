@@ -32,7 +32,6 @@ export default function Review() {
   const [filter, setFilter] = useState('open')
   const [q, setQ] = useState('')
   const [selId, setSelId] = useState(null)
-  const [navIds, setNavIds] = useState([]) // the messages shown in the list when one was opened, so the arrows follow the same order
 
   const queue = emails.filter(isOpen).sort(byQueue)
   const list = emails.filter((e) => {
@@ -46,11 +45,6 @@ export default function Review() {
   // After a case is handled, go straight to the next one that needs a person
   const next = selected ? queue.filter((e) => e.id !== selected.id)[Math.max(0, queue.findIndex((e) => e.id === selected.id))] || queue.find((e) => e.id !== selected.id) || null : null
 
-  const navList = navIds.map((id) => emails.find((e) => e.id === id)).filter(Boolean)
-  const navPos = selected ? navList.findIndex((e) => e.id === selected.id) : -1
-  const prevItem = navPos > 0 ? navList[navPos - 1] : null
-  const nextItem = navPos >= 0 && navPos < navList.length - 1 ? navList[navPos + 1] : null
-
   return (
     <>
       <PageHeader title="Review queue" subtitle="Drafts and flagged messages that need a person. Most urgent and longest-waiting first." />
@@ -61,7 +55,7 @@ export default function Review() {
         'Use Case notes to record who you spoke to and what was agreed. Notes stay internal and are kept with the case.',
         'High-risk messages show a red notice and require a confirmation before the Send button turns on. Which messages get that treatment is set in the Workflow.',
       ]} />}
-      {selected ? <Detail key={selected.id} email={selected} next={next} pos={navPos} total={navList.length} prevItem={prevItem} nextItem={nextItem} onGo={(n) => setSelId(n.id)} onBack={() => setSelId(null)} onNext={(n) => setSelId(n ? n.id : null)} /> : (
+      {selected ? <Detail key={selected.id} email={selected} next={next} onBack={() => setSelId(null)} onNext={(n) => setSelId(n ? n.id : null)} /> : (
         <Card>
           <div className="row between" style={{ marginBottom: 12 }}>
             <Segmented label="Filter" value={filter} onChange={setFilter} options={FILTERS} />
@@ -70,7 +64,7 @@ export default function Review() {
           {list.length === 0 ? <Empty title="Nothing here">{filter === 'open' ? 'No messages are waiting for review.' : 'No messages match.'}</Empty> : (
             <div className="list">
               {list.map((e) => (
-                <button key={e.id} className="item" onClick={() => { setNavIds(list.map((x) => x.id)); setSelId(e.id) }}>
+                <button key={e.id} className="item" onClick={() => setSelId(e.id)}>
                   <div className="avatar" aria-hidden>{initials(e.name)}</div>
                   <div className="body">
                     <div className="truncate cell-title">{e.subject}</div>
@@ -93,7 +87,7 @@ export default function Review() {
   )
 }
 
-function Detail({ email, next, pos, total, prevItem, nextItem, onGo, onBack, onNext }) {
+function Detail({ email, next, onBack, onNext }) {
   const { resolveEmail, regenerate, saveDraft, addNote, deleteEmail, toast, settings, serverMode } = useApp()
   const [note, setNote] = useState('')
   const [regen, setRegen] = useState(false)
@@ -114,14 +108,7 @@ function Detail({ email, next, pos, total, prevItem, nextItem, onGo, onBack, onN
 
   return (
     <>
-      <div className="row" style={{ marginBottom: 14, gap: 8, alignItems: 'center' }}>
-        <button className="btn small" onClick={onBack}>Back to queue</button>
-        {total > 1 && pos >= 0 && <>
-          <button className="btn small" onClick={() => onGo(prevItem)} disabled={!prevItem} aria-label="Previous message" title="Previous message">←</button>
-          <button className="btn small" onClick={() => onGo(nextItem)} disabled={!nextItem} aria-label="Next message" title="Next message">→</button>
-          <span className="small muted">{pos + 1} of {total}</span>
-        </>}
-      </div>
+      <button className="btn small" onClick={onBack} style={{ marginBottom: 14 }}>Back to queue</button>
       <div className="lab-grid review-grid">
         <div className="stack">
           <Card className="o1" title={email.subject} hint={`${email.name} <${email.from}> · ${fmtDate(email.receivedAt)}`}>
